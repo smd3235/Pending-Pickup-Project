@@ -1,0 +1,6 @@
+# Local test / scratch artifacts
+_run_temp.*
+_dbg*
+_compile*
+*.tmp
+~$*
