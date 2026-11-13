@@ -341,7 +341,7 @@ Public Sub CreatePendingPickupReport()
     ' Build the dashboard after manager sheets exist so manager names can link directly to their tabs.
     BuildDashboard dashboard, currentCount, priorCount, newCount, clearedCount, stillCount, _
                    age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, newKeys, keyCol, nameCol, pickupDateCol, _
-                   overallAvgAge, reportStamp, sourceName, stillByManager, clearedByManager
+                   overallAvgAge, reportStamp, sourceName, stillByManager, clearedByManager, currentRows
 
     Set rawOut = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
     rawOut.Name = "Raw Data"
@@ -402,7 +402,7 @@ End Sub
 Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long, _
     age30Count As Long, age60Count As Long, age90Count As Long, missingDateCount As Long, hasPrior As Boolean, _
     managers As Variant, managerRows As Object, managerSheetNames As Object, ByRef currentData As Variant, newKeys As Object, keyCol As Long, nameCol As Long, pickupDateCol As Long, _
-    ByVal overallAvgAge As Variant, ByVal reportStamp As String, ByVal sourceName As String, ByVal stillByManager As Object, ByVal clearedByManager As Object)
+    ByVal overallAvgAge As Variant, ByVal reportStamp As String, ByVal sourceName As String, ByVal stillByManager As Object, ByVal clearedByManager As Object, ByVal pendingRows As Collection)
 
     Dim pctChange As Variant
     Dim i As Long, rowOut As Long
@@ -416,10 +416,16 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     Dim cs As Object
     Dim chartNames() As String, chartVals() As Double
     Dim mi As Long, mj As Long, sortTmp As String, sortTmpVal As Double
+    Dim agingTitleRow As Long, eqTitleRow As Long, eqRow As Long
+    Dim bucketLabels(1 To 5) As String, bucketCounts(1 To 5) As Long
+    Dim eqCol As Long, eqAgg As Object, eqKeys As Variant, eqName As String
+    Dim agg As Variant, dt As Date, ageD As Long, srcRow As Long
+    Dim aAgg As Variant, bAgg As Variant
+    Dim k As Long, sTmp As Variant
 
     ws.Cells.Clear
     ws.Columns("A:J").ColumnWidth = 14
-    ws.Rows("1:60").RowHeight = 22
+    ws.Rows("1:90").RowHeight = 22
 
     With ws.Range("A1:H2")
         .Merge
@@ -552,7 +558,7 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         ws.Range(ws.Cells(14, 1), ws.Cells(tableLastRow, 1)).HorizontalAlignment = xlLeft
         ws.Range(ws.Cells(14, 1), ws.Cells(tableLastRow, 1)).Font.Underline = xlUnderlineStyleSingle
 
-        ' Visual cues: data bars on Current, colour scale on 90+ Days.
+        ' Visual cues: data bars on Current, colour scale on 90+ Days and % 30+.
         On Error Resume Next
         ws.Range(ws.Cells(14, 2), ws.Cells(tableLastRow, 2)).FormatConditions.AddDatabar
         Set cs = ws.Range(ws.Cells(14, 6), ws.Cells(tableLastRow, 6)).FormatConditions.AddColorScale(3)
@@ -560,6 +566,12 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
             cs.ColorScaleCriteria(1).FormatColor.Color = RGB(255, 255, 255)
             cs.ColorScaleCriteria(2).FormatColor.Color = RGB(255, 192, 0)
             cs.ColorScaleCriteria(3).FormatColor.Color = RGB(192, 0, 0)
+        End If
+        Set cs = ws.Range(ws.Cells(14, 9), ws.Cells(tableLastRow, 9)).FormatConditions.AddColorScale(3)
+        If Not cs Is Nothing Then
+            cs.ColorScaleCriteria(1).FormatColor.Color = RGB(198, 239, 206)
+            cs.ColorScaleCriteria(2).FormatColor.Color = RGB(255, 235, 156)
+            cs.ColorScaleCriteria(3).FormatColor.Color = RGB(255, 199, 206)
         End If
         On Error GoTo 0
 
@@ -585,8 +597,8 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
             .HorizontalAlignment = xlCenter
         End With
         ws.Cells(rowOut, 1).HorizontalAlignment = xlLeft
-        ws.Cells(rowOut, 10).NumberFormat = "0.0"
-        ws.Cells(rowOut, 11).NumberFormat = "0.0%"
+        ws.Cells(rowOut, 10).NumberFormat = "0"
+        ws.Cells(rowOut, 11).NumberFormat = "0"
     End If
 
     ' Keep every dashboard section on the same clean 11-column grid.
@@ -641,6 +653,113 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         End With
     End If
 
+    ' Aging breakdown: buckets derived from the aging KPIs computed earlier.
+    If chartRow = 0 Then chartRow = rowOut + 2
+    bucketLabels(1) = "0-30 Days": bucketCounts(1) = currentCount - age30Count
+    bucketLabels(2) = "31-60 Days": bucketCounts(2) = age30Count - age60Count
+    bucketLabels(3) = "61-90 Days": bucketCounts(3) = age60Count - age90Count
+    bucketLabels(4) = "90+ Days": bucketCounts(4) = age90Count
+    bucketLabels(5) = "Missing Date": bucketCounts(5) = missingDateCount
+
+    agingTitleRow = chartRow + 20
+    ws.Range(ws.Cells(agingTitleRow, 1), ws.Cells(agingTitleRow, 11)).Merge
+    ws.Cells(agingTitleRow, 1).Value = "AGING BREAKDOWN"
+    StyleSectionHeader ws.Range(ws.Cells(agingTitleRow, 1), ws.Cells(agingTitleRow, 11))
+    ws.Cells(agingTitleRow + 1, 1).Value = "Age Bucket"
+    ws.Cells(agingTitleRow + 1, 2).Value = "Records"
+    ws.Cells(agingTitleRow + 1, 3).Value = "% of Total"
+    StyleTableHeader ws.Range(ws.Cells(agingTitleRow + 1, 1), ws.Cells(agingTitleRow + 1, 3))
+    For k = 1 To 5
+        ws.Cells(agingTitleRow + 1 + k, 1).Value = bucketLabels(k)
+        ws.Cells(agingTitleRow + 1 + k, 2).Value = bucketCounts(k)
+        ws.Cells(agingTitleRow + 1 + k, 3).Value = IIf(currentCount > 0, bucketCounts(k) / currentCount, 0)
+        ws.Cells(agingTitleRow + 1 + k, 3).NumberFormat = "0.0%"
+    Next k
+    StyleDashboardTable ws.Range(ws.Cells(agingTitleRow + 1, 1), ws.Cells(agingTitleRow + 6, 3))
+    Set chartObj = ws.ChartObjects.Add(ws.Cells(agingTitleRow + 1, 5).Left, ws.Cells(agingTitleRow + 1, 1).Top, 560, 240)
+    With chartObj.Chart
+        .ChartType = xlColumnClustered
+        .SeriesCollection.NewSeries
+        .SeriesCollection(1).Values = ws.Range(ws.Cells(agingTitleRow + 2, 2), ws.Cells(agingTitleRow + 6, 2))
+        .SeriesCollection(1).XValues = ws.Range(ws.Cells(agingTitleRow + 2, 1), ws.Cells(agingTitleRow + 6, 1))
+        .SeriesCollection(1).Name = "Pending Pickups"
+        .HasTitle = True
+        .ChartTitle.Text = "Pending Pickup Age Distribution"
+        .HasLegend = False
+        .Axes(xlCategory).TickLabels.Font.Size = 9
+        .Axes(xlValue).TickLabels.Font.Size = 9
+        .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(31, 78, 121)
+    End With
+
+    ' Equipment Pareto: pending count and average age by consumable type.
+    eqCol = FindHeaderColumnFromArray(currentData, "Consumable Type")
+    eqTitleRow = agingTitleRow + 10
+    ws.Range(ws.Cells(eqTitleRow, 1), ws.Cells(eqTitleRow, 11)).Merge
+    ws.Cells(eqTitleRow, 1).Value = "PENDING BY EQUIPMENT TYPE"
+    StyleSectionHeader ws.Range(ws.Cells(eqTitleRow, 1), ws.Cells(eqTitleRow, 11))
+    ws.Cells(eqTitleRow + 1, 1).Value = "Consumable Type"
+    ws.Cells(eqTitleRow + 1, 2).Value = "Current"
+    ws.Cells(eqTitleRow + 1, 3).Value = "Avg Age"
+    StyleTableHeader ws.Range(ws.Cells(eqTitleRow + 1, 1), ws.Cells(eqTitleRow + 1, 3))
+
+    Set eqAgg = CreateObject("Scripting.Dictionary")
+    eqAgg.CompareMode = vbTextCompare
+    If eqCol > 0 Then
+        For i = 1 To pendingRows.Count
+            srcRow = CLng(pendingRows(i))
+            eqName = Trim$(CStr(currentData(srcRow, eqCol)))
+            If Len(eqName) = 0 Then eqName = "(Unknown)"
+            If Not eqAgg.Exists(eqName) Then eqAgg.Add eqName, Array(0#, 0#, 0#)
+            agg = eqAgg(eqName)
+            agg(0) = agg(0) + 1
+            If TryGetExcelDate(currentData(srcRow, pickupDateCol), dt) Then
+                ageD = DateDiff("d", DateValue(dt), Date)
+                If ageD < 0 Then ageD = 0
+                agg(1) = agg(1) + ageD
+                agg(2) = agg(2) + 1
+            End If
+            eqAgg(eqName) = agg
+        Next i
+
+        eqKeys = eqAgg.Keys
+        For i = LBound(eqKeys) To UBound(eqKeys) - 1
+            For k = i + 1 To UBound(eqKeys)
+                aAgg = eqAgg(eqKeys(i))
+                bAgg = eqAgg(eqKeys(k))
+                If bAgg(0) > aAgg(0) Then
+                    sTmp = eqKeys(i): eqKeys(i) = eqKeys(k): eqKeys(k) = sTmp
+                End If
+            Next k
+        Next i
+
+        eqRow = eqTitleRow + 2
+        For i = LBound(eqKeys) To UBound(eqKeys)
+            eqName = CStr(eqKeys(i))
+            agg = eqAgg(eqName)
+            ws.Cells(eqRow, 1).Value = eqName
+            ws.Cells(eqRow, 2).Value = agg(0)
+            ws.Cells(eqRow, 3).Value = IIf(agg(2) > 0, agg(1) / agg(2), "N/A")
+            ws.Cells(eqRow, 3).NumberFormat = "0.0"
+            eqRow = eqRow + 1
+        Next i
+        StyleDashboardTable ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 3))
+
+        Set chartObj = ws.ChartObjects.Add(ws.Cells(eqTitleRow + 1, 5).Left, ws.Cells(eqTitleRow + 1, 1).Top, 560, 260)
+        With chartObj.Chart
+            .ChartType = xlColumnClustered
+            .SeriesCollection.NewSeries
+            .SeriesCollection(1).Values = ws.Range(ws.Cells(eqTitleRow + 2, 2), ws.Cells(eqRow - 1, 2))
+            .SeriesCollection(1).XValues = ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 1))
+            .SeriesCollection(1).Name = "Pending Pickups"
+            .HasTitle = True
+            .ChartTitle.Text = "Pending Pickups by Equipment Type"
+            .HasLegend = False
+            .Axes(xlCategory).TickLabels.Font.Size = 9
+            .Axes(xlValue).TickLabels.Font.Size = 9
+            .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(31, 78, 121)
+        End With
+    End If
+
     ws.Tab.Color = RGB(31, 78, 121)
     With ws.PageSetup
         .Orientation = xlLandscape
@@ -676,27 +795,33 @@ Private Sub AddLogoFromTemplate(ws As Worksheet)
 End Sub
 
 Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As String, subText As String, valueText As Variant, fillColor As Long)
-    Dim rg As Range, valueRow As Range
+    Dim rg As Range, labelRg As Range, valueRow As Range
     Set rg = ws.Range(address)
-    rg.Merge
-    rg.Value = labelText & vbCrLf & subText
     rg.Interior.Color = fillColor
-    rg.Font.Bold = True
-    rg.Font.Size = 9
-    rg.HorizontalAlignment = xlCenter
-    rg.VerticalAlignment = xlCenter
-    rg.WrapText = True
     rg.Borders.LineStyle = xlContinuous
     rg.Borders.Weight = xlMedium
 
-    ' Large value on its own line, sized independently of the label text.
-    Set valueRow = rg.Offset(2, 0).Resize(1, 1)
-    If valueRow.MergeCells Then Set valueRow = valueRow.MergeArea
+    ' Label occupies the top rows; the value gets its own merged bottom row so
+    ' the value never overwrites the label.
+    Set labelRg = rg.Resize(rg.Rows.Count - 1, rg.Columns.Count)
+    Set valueRow = rg.Offset(rg.Rows.Count - 1, 0).Resize(1, rg.Columns.Count)
+    labelRg.Merge
+    labelRg.Value = labelText & vbCrLf & subText
+    With labelRg
+        .Font.Bold = True
+        .Font.Size = 9
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = True
+    End With
+    valueRow.Merge
     valueRow.Value = CStr(valueText)
-    valueRow.Font.Bold = True
-    valueRow.Font.Size = 20
-    valueRow.HorizontalAlignment = xlCenter
-    valueRow.VerticalAlignment = xlCenter
+    With valueRow
+        .Font.Bold = True
+        .Font.Size = 20
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+    End With
 End Sub
 
 Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCount As Long, managerLastCol As Long, managerPickupDateCol As Long, managerStartDateCol As Long, managerAgeCol As Long, managerRepCol As Long, _
@@ -1054,20 +1179,16 @@ Private Function TryGetExcelDate(ByVal v As Variant, ByRef dt As Date) As Boolea
     On Error GoTo Fail
     If IsDate(v) Then
         dt = CDate(v)
-        TryGetExcelDate = True
-        Exit Function
-    End If
-    If IsNumeric(v) Then
-        If CDbl(v) > 0 Then
-            dt = DateSerial(1899, 12, 30) + CDbl(v)
-            TryGetExcelDate = True
-            Exit Function
-        End If
-    End If
-    If Len(Trim$(CStr(v))) > 0 Then
+    ElseIf IsNumeric(v) Then
+        If CDbl(v) > 0 Then dt = DateSerial(1899, 12, 30) + CDbl(v) Else GoTo Fail
+    ElseIf Len(Trim$(CStr(v))) > 0 Then
         dt = CDate(Trim$(CStr(v)))
-        TryGetExcelDate = True
+    Else
+        GoTo Fail
     End If
+    ' Placeholder/corrupt dates (before 2000) count as missing.
+    If dt < #1/1/2000# Then GoTo Fail
+    TryGetExcelDate = True
     Exit Function
 Fail:
     TryGetExcelDate = False
@@ -1170,7 +1291,7 @@ End Function
 Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal lastCol As Long, ByVal pickupDateCol As Long) As Variant
     Dim keepCols() As Long, keepCount As Long
     Dim arr() As Variant, i As Long, c As Long, srcRow As Long
-    Dim headerText As String, dt As Date, ageDays As Long
+    Dim headerText As String, pickupOutCol As Long, ageRef As String
 
     keepCount = 0
     For c = 1 To lastCol
@@ -1187,25 +1308,38 @@ Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse 
 
     ' Add the calculated age as the final manager-tab column.
     ReDim arr(1 To rowsToUse.Count + 1, 1 To keepCount + 1)
+    pickupOutCol = 0
     For c = 1 To keepCount
         arr(1, c) = data(1, keepCols(c))
+        If StrComp(Trim$(CStr(data(1, keepCols(c)))), PICKUP_DATE_HEADER, vbTextCompare) = 0 Then pickupOutCol = c
     Next c
     arr(1, keepCount + 1) = "Pickup Age (Days)"
 
+    ' Age is a live formula so the report ages without regenerating; blank or
+    ' placeholder dates (before 2000) show as blank.
     For i = 1 To rowsToUse.Count
         srcRow = CLng(rowsToUse(i))
         For c = 1 To keepCount
             arr(i + 1, c) = data(srcRow, keepCols(c))
         Next c
-        If pickupDateCol > 0 And TryGetExcelDate(data(srcRow, pickupDateCol), dt) Then
-            ageDays = DateDiff("d", DateValue(dt), Date)
-            If ageDays < 0 Then ageDays = 0
-            arr(i + 1, keepCount + 1) = ageDays
+        If pickupOutCol > 0 Then
+            ageRef = ColumnLetter(pickupOutCol) & (MANAGER_HEADER_ROW + i)
+            arr(i + 1, keepCount + 1) = "=IF(AND(ISNUMBER(" & ageRef & "), " & ageRef & ">=DATE(2000,1,1)), TODAY() - " & ageRef & ", """")"
         Else
             arr(i + 1, keepCount + 1) = ""
         End If
     Next i
     BuildManagerOutputArray = arr
+End Function
+
+Private Function ColumnLetter(ByVal col As Long) As String
+    Dim s As String, n As Long
+    n = col
+    Do While n > 0
+        s = Chr$(65 + (n - 1) Mod 26) & s
+        n = (n - 1) \ 26
+    Loop
+    ColumnLetter = s
 End Function
 
 
