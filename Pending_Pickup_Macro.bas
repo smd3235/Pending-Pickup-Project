@@ -18,6 +18,7 @@ Private Const PICKUP_DATE_HEADER As String = "AUDIT: TP End Date"
 Private Const START_DATE_HEADER As String = "Start Date"
 Private Const PENDING_TEXT As String = "Pending Pickup"
 Private Const MACRO_VERSION As String = "1.0"
+Private Const MANAGER_HEADER_ROW As Long = 16
 
 Private Sub SetupPendingPickupButton()
     Dim ws As Worksheet, shp As Shape, btn As Shape
@@ -327,13 +328,13 @@ Public Sub CreatePendingPickupReport()
         Set sortedManagerRows = SortManagerRowsBySalesRep(currentData, managerRows(manager), repCol, nameCol)
         arrOut = BuildManagerOutputArray(currentData, sortedManagerRows, lastCol, pickupDateCol)
         managerLastCol = UBound(arrOut, 2)
-        ws.Range(ws.Cells(10, 1), ws.Cells(10 + UBound(arrOut, 1) - 1, managerLastCol)).Value = arrOut
-        managerPickupDateCol = FindHeaderColumn(ws, 10, PICKUP_DATE_HEADER)
-        managerStartDateCol = FindHeaderColumn(ws, 10, START_DATE_HEADER)
-        managerAgeCol = FindHeaderColumn(ws, 10, "Pickup Age (Days)")
-        managerRepCol = FindHeaderColumn(ws, 10, REP_HEADER)
+        ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(MANAGER_HEADER_ROW + UBound(arrOut, 1) - 1, managerLastCol)).Value = arrOut
+        managerPickupDateCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, PICKUP_DATE_HEADER)
+        managerStartDateCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, START_DATE_HEADER)
+        managerAgeCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, "Pickup Age (Days)")
+        managerRepCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, REP_HEADER)
         FormatManagerSheet ws, manager, managerRows(manager).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, currentData, sortedManagerRows, newKeys, keyCol, nameCol, hasPrior
-        ApplyDateFormatsToOutput ws, 10, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
+        ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
         MatchSourceColumnWidthsForManager raw, ws, lastCol
     Next i
 
@@ -730,7 +731,7 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
 
     ' KPI cards, fully contained inside the manager data width.
     AddDashboardCard ws, "A4:B6", "PENDING PICKUPS", "Current", pendingCount, RGB(255, 242, 204)
-    AddDashboardCard ws, "C4:D6", "SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, 11, LastUsedRow(ws), managerRepCol), RGB(221, 235, 247)
+    AddDashboardCard ws, "C4:D6", "SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerRepCol), RGB(221, 235, 247)
     AddDashboardCard ws, "E4:F6", "NEW", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
     AddDashboardCard ws, "G4:H6", "30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
     AddDashboardCard ws, "A8:B10", "60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
@@ -741,24 +742,24 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     If rowsToUse.Count > 0 Then ws.Range("A13:B14").NumberFormat = "0.0%"
 
     lastDataRow = LastUsedRow(ws)
-    If lastDataRow >= 10 Then
-        ApplyDataFormatting ws, 10, lastDataRow, managerLastCol
-        ApplyDateFormatsToOutput ws, 10, lastDataRow, managerStartDateCol, managerPickupDateCol
-        If managerAgeCol > 0 And lastDataRow >= 11 Then
-            ws.Range(ws.Cells(11, managerAgeCol), ws.Cells(lastDataRow, managerAgeCol)).NumberFormat = "0"
+    If lastDataRow >= MANAGER_HEADER_ROW Then
+        ApplyDataFormatting ws, MANAGER_HEADER_ROW, lastDataRow, managerLastCol
+        ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, lastDataRow, managerStartDateCol, managerPickupDateCol
+        If managerAgeCol > 0 And lastDataRow >= MANAGER_HEADER_ROW + 1 Then
+            ws.Range(ws.Cells(MANAGER_HEADER_ROW + 1, managerAgeCol), ws.Cells(lastDataRow, managerAgeCol)).NumberFormat = "0"
         End If
-        ApplyRepBanding ws, 11, lastDataRow, managerLastCol, managerRepCol
-        If hasPrior Then HighlightNewRecords ws, 11, lastDataRow, managerLastCol, sourceData, rowsToUse, newKeys, keyCol, nameCol
-        If managerAgeCol > 0 Then ApplyAgeWarningFont ws, 11, lastDataRow, managerAgeCol
-        HighlightMissingPickupDates ws, 11, lastDataRow, managerPickupDateCol
-        FormatYesNoColumns ws, 10, lastDataRow, managerLastCol
+        ApplyRepBanding ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerLastCol, managerRepCol
+        If hasPrior Then HighlightNewRecords ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerLastCol, sourceData, rowsToUse, newKeys, keyCol, nameCol
+        If managerAgeCol > 0 Then ApplyAgeWarningFont ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerAgeCol
+        HighlightMissingPickupDates ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerPickupDateCol
+        FormatYesNoColumns ws, MANAGER_HEADER_ROW, lastDataRow, managerLastCol
     End If
 
     ' The data table is the exact same width as the KPI/header area.
     SetManagerColumnWidths ws, managerLastCol
     ws.Rows("4:6").RowHeight = 26
     ws.Rows("8:10").RowHeight = 26
-    ws.Rows("10:10").RowHeight = 34
+    ws.Rows(CStr(MANAGER_HEADER_ROW) & ":" & CStr(MANAGER_HEADER_ROW)).RowHeight = 34
 
     ws.Tab.Color = RGB(189, 215, 238)
     With ws.PageSetup
@@ -766,13 +767,13 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
         .Zoom = False
         .FitToPagesWide = 1
         .FitToPagesTall = False
-        .PrintTitleRows = "10:10"
+        .PrintTitleRows = CStr(MANAGER_HEADER_ROW) & ":" & CStr(MANAGER_HEADER_ROW)
     End With
 
     ws.Activate
     On Error Resume Next
     ActiveWindow.FreezePanes = False
-    ActiveWindow.SplitRow = 10
+    ActiveWindow.SplitRow = MANAGER_HEADER_ROW
     ActiveWindow.FreezePanes = True
     ActiveWindow.DisplayGridlines = False
     ActiveWindow.Zoom = 85
@@ -860,9 +861,9 @@ End Sub
 Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
     Dim c As Long, headerText As String, minWidth As Double
     If lastCol <= 0 Then Exit Sub
-    ws.Range(ws.Cells(10, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
+    ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
     For c = 1 To lastCol
-        headerText = LCase$(Trim$(CStr(ws.Cells(10, c).Value)))
+        headerText = LCase$(Trim$(CStr(ws.Cells(MANAGER_HEADER_ROW, c).Value)))
         minWidth = 12
         Select Case headerText
             Case LCase$(REP_HEADER): minWidth = 24
@@ -1251,7 +1252,7 @@ End Sub
 Private Sub MatchSourceColumnWidthsForManager(src As Worksheet, dest As Worksheet, sourceLastCol As Long)
     Dim c As Long, srcCol As Long, headerText As String
     For c = 1 To LastUsedColumn(dest)
-        headerText = Trim$(CStr(dest.Cells(10, c).Value))
+        headerText = Trim$(CStr(dest.Cells(MANAGER_HEADER_ROW, c).Value))
         srcCol = FindHeaderColumn(src, FindHeaderRow(src), headerText)
         If srcCol > 0 Then dest.Columns(c).ColumnWidth = src.Columns(srcCol).ColumnWidth
     Next c
