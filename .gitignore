@@ -4,3 +4,5 @@ _dbg*
 _compile*
 *.tmp
 ~$*
+probe_ran.txt
+log/

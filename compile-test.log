@@ -1,8 +1,0 @@
-2026-11-13 16:07:52 === Compile test started (template: C:\Users\smd32\Downloads\Pending Pickup Project\Pending Pickup Template.xlsm) ===
-2026-11-13 16:07:52 Dialog watcher started (pid 28976).
-2026-11-13 16:07:58 Excel COM instance pid(s): 40252
-2026-11-13 16:07:59 Running Probe (forces full-project compile)...
-2026-11-13 16:07:59 Run call returned without COM error.
-2026-11-13 16:08:01 RESULT: COMPILE OK - probe executed, project compiled cleanly.
-2026-11-13 16:08:01 Killed lingering Excel pid 40252.
-2026-11-13 16:08:01 === Compile test finished ===

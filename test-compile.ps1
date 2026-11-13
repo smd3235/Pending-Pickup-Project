@@ -2,24 +2,32 @@
 # Compile-test harness for Pending_Pickup_Macro.bas
 # Copies the template, injects a tiny probe macro, then runs it via COM.
 # Running ANY macro forces VBA to compile the ENTIRE project, so a compile
-# error anywhere blocks the probe. A dialog watcher (watch-compile-error.ps1)
-# runs in a separate process: it logs any dialog text to compile-error.log
-# and auto-dismisses error dialogs so this script never hangs.
-# A watchdog kills the harness's own Excel instance after 120s if needed.
+# error anywhere blocks the probe.
+#
+# Safety:
+#  - watch-compile-error.ps1 runs in a separate hidden process; it logs any
+#    dialog text to log\watcher.log and auto-dismisses error dialogs.
+#  - A 10-second watchdog force-kills this script's own Excel instance.
+#    (The whole test normally finishes in a few seconds.)
+#  - Excel is always killed/closed at the end.
+#
+# All output goes to log\compile-test.log with per-line timestamps.
 
 param(
     [string]$Template = "$PSScriptRoot\Pending Pickup Template.xlsm"
 )
 
 $ErrorActionPreference = "Stop"
-$testCopy  = Join-Path $PSScriptRoot "_compile_test.xlsm"
-$marker    = Join-Path $PSScriptRoot "probe_ran.txt"
-$watcher   = Join-Path $PSScriptRoot "watch-compile-error.ps1"
-$watchLog  = Join-Path $PSScriptRoot "compile-error.log"
-$testLog   = Join-Path $PSScriptRoot "compile-test.log"
+$logDir   = Join-Path $PSScriptRoot "log"
+if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+$testCopy = Join-Path $PSScriptRoot "_compile_test.xlsm"
+$marker   = Join-Path $PSScriptRoot "probe_ran.txt"
+$watcher  = Join-Path $PSScriptRoot "watch-compile-error.ps1"
+$watchLog = Join-Path $logDir "watcher.log"
+$testLog  = Join-Path $logDir "compile-test.log"
 
 function Log($msg) {
-    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"
+    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | $msg"
     Write-Host $line
     Add-Content -LiteralPath $testLog -Value $line
 }
@@ -33,8 +41,8 @@ Log "=== Compile test started (template: $Template) ==="
 
 # 1. Snapshot EXCEL pids, start dialog watcher
 $beforePids = @(Get-Process EXCEL -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
-$watchProc = Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList @(
-    '-ExecutionPolicy','Bypass','-File', $watcher)
+$watchArgs = "-ExecutionPolicy Bypass -File `"$watcher`""
+$watchProc = Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList $watchArgs
 Log "Dialog watcher started (pid $($watchProc.Id))."
 Start-Sleep -Seconds 4
 
@@ -48,12 +56,12 @@ $newPids = @($afterPids | Where-Object { $beforePids -notcontains $_ })
 $excelPid = if ($newPids.Count -gt 0) { $newPids[0] } else { $null }
 Log "Excel COM instance pid(s): $(if ($newPids) { $newPids -join ',' } else { 'attached to existing instance' })"
 
-# 3. Watchdog: force-kill our Excel pid after 120s (guaranteed no hang)
+# 3. 10-second watchdog: force-kill our Excel pid if anything takes too long
 $watchdog = $null
 if ($excelPid) {
     $watchdog = Start-Job -ScriptBlock {
         param($tp)
-        Start-Sleep -Seconds 120
+        Start-Sleep -Seconds 10
         if (Get-Process -Id $tp -ErrorAction SilentlyContinue) {
             Stop-Process -Id $tp -Force -ErrorAction SilentlyContinue
         }
@@ -98,14 +106,14 @@ if ($compileOk) {
 } else {
     Log "RESULT: COMPILE FAILED - probe did not execute."
     if ($newLines.Count -gt 0) {
-        Log "Captured dialog text:"
+        Log "Captured dialog text (log\watcher.log):"
         foreach ($l in $newLines) { Log "  $l" }
     } else {
         Log "No dialog captured. Run error: $runError"
     }
 }
 
-# 6. Cleanup: close workbook, quit/kill our Excel, stop watcher and watchdog
+# 6. Cleanup: cancel watchdog, close workbook, quit/kill our Excel, stop watcher
 if ($watchdog) { Stop-Job $watchdog -ErrorAction SilentlyContinue; Remove-Job $watchdog -Force -ErrorAction SilentlyContinue }
 try { if ($wb) { $wb.Close($false) } } catch { Log "Close failed: $($_.Exception.Message)" }
 try {
