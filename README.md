@@ -1,12 +1,12 @@
-# Pending Pickup Report Builder (v1.0)
+﻿# Pending Pickup Report Builder (v1.0)
 
 An Excel macro-enabled workbook (`.xlsm`) that turns a raw **All Open Treatment Plans** export into a
 formatted **Pending Pickup** report: a KPI dashboard, one tab per Assigned Sales Manager, and the
 filtered raw data. It can also compare the current run against the prior month's Pending Pickup report
 to show what is new, what cleared, and what is still pending.
 
-> Scope of this document: current behavior of the code in `Create_Pending_Pickup_Report.bas` and the
-> embedded VBA project in `Create_Pending_Pickup_Template.xlsm`. Assumed, inconsistent, or not-yet-
+> Scope of this document: current behavior of the code in `Pending_Pickup_Macro.bas` and the
+> embedded VBA project in `Pending Pickup Template.xlsm`. Assumed, inconsistent, or not-yet-
 > implemented items are called out in **Decisions & remaining questions** and **Known issues**.
 
 ---
@@ -24,7 +24,7 @@ to show what is new, what cleared, and what is still pending.
 | Source columns required | `Assigned Sales Manager`, `Treatment Status`, `Sales Representative`, `Name` |
 | Config surface | Hardcoded `Const` values in the module (see Known Issues) |
 | Persistence | Remembers current/prior/output folders via Windows registry `SaveSetting` |
-| Code version | `1.0` — module `MACRO_VERSION = 1.0`, filenames, `START HERE`, and README all aligned |
+| Code version | `1.0` â€” module `MACRO_VERSION = 1.0`, filenames, `START HERE`, and README all aligned |
 
 ---
 
@@ -37,13 +37,13 @@ open treatment plan flagged for pickup; the report shows how long each has been 
   the equipment is picked up and the patient is closed out, **or** when the patient is returned to active
   and the status is no longer Pending Pickup. Both are legitimate exits, so "in prior but not current"
   means cleared.
-- **Pickup Age** = days from `AUDIT: TP End Date` to today. **Older is worse** — it means the account has
+- **Pickup Age** = days from `AUDIT: TP End Date` to today. **Older is worse** â€” it means the account has
   been waiting longer for pickup.
 - **Missing `AUDIT: TP End Date`** means whoever flagged the account for pickup forgot to enter the date,
   so the wait time is unknown; these are surfaced as `MISSING DATE`.
 - **Cadence:** run monthly. Each run compares against the **prior month's generated Pending Pickup
   report** to show progress (cleared / still pending) plus what is new.
-- **EMPI** is present in the export but is **not shown in the final report** — it is treated as noise. It
+- **EMPI** is present in the export but is **not shown in the final report** â€” it is treated as noise. It
   is still used internally as the comparison key, with `Name` as the fallback.
 - **Roles:** `Assigned Sales Manager` owns a manager tab; `Sales Representative` is the rep on the record.
   No rep works for more than one manager. `Assigned Associate WCC`, `Assigned Setup Technician`, and
@@ -55,26 +55,26 @@ open treatment plan flagged for pickup; the report shows how long each has been 
 
 | File | Role |
 | --- | --- |
-| `Create_Pending_Pickup_Template.xlsm` | Master workbook. Contains `START HERE`, empty `Raw Data`, `_Config`, and the embedded VBA project (`PendingPickupReport` module). This is what users run. |
-| `Create_Pending_Pickup_Report.bas` | Readable VBA source for the builder. Edit this, then run `sync_template.ps1` to push it into the template. |
+| `Pending Pickup Template.xlsm` | Master workbook. Contains `START HERE`, empty `Raw Data`, `_Config`, and the embedded VBA project (`PendingPickupReport` module). This is what users run. |
+| `Pending_Pickup_Macro.bas` | Readable VBA source for the builder. Edit this, then run `sync_template.ps1` to push it into the template. |
 | `sync_template.ps1` | Maintainer script: re-imports the `.bas` into the template's embedded VBA and ensures the `START HERE` button. Run after every `.bas` change. |
-| `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample — populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
+| `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample â€” populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
 | `Reports/` | Output folder for finished reports. The macro's remembered `OutputFolder` is pre-set to this path. Also holds `Pending Pickup 2026-10-13.xlsx`, a **prior-month fixture** for testing comparison (still/new/cleared). |
 | `changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
 
-> **Distribution:** end users receive only `Create_Pending_Pickup_Template.xlsm`. It is self-contained
+> **Distribution:** end users receive only `Pending Pickup Template.xlsm`. It is self-contained
 > (macro, button, and company logo embedded); the `.bas`, `sync_template.ps1`, `README.md`,
 > `changelog.md`, and fake data are maintainer-only.
 
 ### Template workbook sheets
 
-- **START HERE** — branded landing page: title + logo, a 4-step how-it-works, a styled
+- **START HERE** â€” branded landing page: title + logo, a 4-step how-it-works, a styled
   `CREATE PENDING PICKUP REPORT` button (autoshape, `OnAction` = `CreatePendingPickupReport`), and a
   good-to-know panel.
-- **Raw Data** — header-only table matching the export layout. Not used as input at runtime (the macro
+- **Raw Data** â€” header-only table matching the export layout. Not used as input at runtime (the macro
   reads the selected export file directly); it is documentation/placeholder.
-- **_Config** — a small settings table (`Pending Text`, `Key Header`, `Name Header`, `Pickup Date
-  Header`, `Start Date Header`). **Not read by the current macro** — see Known Issues.
+- **_Config** â€” a small settings table (`Pending Text`, `Key Header`, `Name Header`, `Pickup Date
+  Header`, `Start Date Header`). **Not read by the current macro** â€” see Known Issues.
 
 ---
 
@@ -90,11 +90,11 @@ open treatment plan flagged for pickup; the report shows how long each has been 
 ## 5. Setup & maintenance
 
 **End users: no setup.** The template is ready to use. Open
-`Create_Pending_Pickup_Template.xlsm`, click **CREATE PENDING PICKUP REPORT** on `START HERE`, and follow
+`Pending Pickup Template.xlsm`, click **CREATE PENDING PICKUP REPORT** on `START HERE`, and follow
 the prompts. The builder, button, and company logo are embedded in the workbook; the `.bas` is never
 imported by end users.
 
-**Maintainers: after editing `Create_Pending_Pickup_Report.bas`, re-sync the template.** The `.xlsm` does
+**Maintainers: after editing `Pending_Pickup_Macro.bas`, re-sync the template.** The `.xlsm` does
 **not** auto-update from the `.bas`; it carries its own compiled copy. Run:
 
 ```powershell
@@ -110,10 +110,10 @@ saves. It requires desktop Excel and "Trust access to the VBA project object mod
 
 ## 6. Template flow
 
-1. Open `Create_Pending_Pickup_Template.xlsm`.
+1. Open `Pending Pickup Template.xlsm`.
 2. Press the **CREATE PENDING PICKUP REPORT** macro/button on `START HERE`.
 3. A window opens to select the **raw data** (the current All Open Treatment Plans export).
-4. A second window asks whether to **import last month's report**. Select it to compare, or **Cancel** —
+4. A second window asks whether to **import last month's report**. Select it to compare, or **Cancel** â€”
    Cancel means no comparison happens.
 5. The report is generated.
 6. You are asked **where to save** it. Once a save location is chosen it is remembered, and you are not
@@ -133,14 +133,14 @@ Folder memory uses `SaveSetting "PendingPickupReport", "Settings", <CurrentFolde
 
 ## 7. Data contract (current export)
 
-The macro locates a header row (scans rows 1–25) that contains all four required headers, then reads
+The macro locates a header row (scans rows 1â€“25) that contains all four required headers, then reads
 the used range. It looks for a sheet named `Raw Data` first, otherwise any sheet with the headers.
 
 **Required headers**
 
 | Header | Used for |
 | --- | --- |
-| `Assigned Sales Manager` | Manager tab grouping (blank → `Unassigned`) |
+| `Assigned Sales Manager` | Manager tab grouping (blank â†’ `Unassigned`) |
 | `Treatment Status` | Row filter (`Pending Pickup` substring) |
 | `Sales Representative` | Sort + rep banding on manager tabs |
 | `Name` | Comparison fallback key; manager-tab display |
@@ -168,7 +168,7 @@ If a required header is missing, the macro stops with a message listing what is 
   longer Pending Pickup).
 - With no prior report selected, `NEW`, `CLEARED`, `STILL PENDING`, `PRIOR`, and `% CHANGE` show `N/A`.
 
-> Note: comparison is at the **record/key** level, not the row level — duplicate `EMPI`s collapse to the
+> Note: comparison is at the **record/key** level, not the row level â€” duplicate `EMPI`s collapse to the
 > first occurrence in each report. Because `EMPI` is treated as noise in the report, rows with a blank
 > `EMPI` fall back to `Name`; confirm names are unique enough for reliable matching (see Open Questions).
 
@@ -180,21 +180,21 @@ Output workbook = new `.xlsx` containing **Dashboard**, **manager tabs**, **Raw 
 
 ### 9.1 Dashboard
 
-- Title banner (rows 1–2), with the company logo at the top-right (`I1:J2`). The logo is embedded in the
+- Title banner (rows 1â€“2), with the company logo at the top-right (`I1:J2`). The logo is embedded in the
   template and copied into the generated report by `AddLogoFromTemplate`.
-- **KPI cards, 5 × 2 grid:**
+- **KPI cards, 5 Ã— 2 grid:**
   - Row 1: `CURRENT`, `PRIOR`, `NEW`, `CLEARED`, `STILL PENDING`.
   - Row 2: `% CHANGE`, `30+ DAYS`, `60+ DAYS`, `90+ DAYS`, `MISSING DATE`.
 - **Pending Pickups by Manager** table (header row 13, data from row 14), with columns:
   `Manager` (hyperlink to that manager's tab), `Current`, `New`, `30+ Days`, `60+ Days`, `90+ Days`,
   `Missing Date`, `Avg Age`, `% 30+`.
-- `% CHANGE` = (current − prior) / prior, shown as `0.0%`; `N/A` without a prior.
+- `% CHANGE` = (current âˆ’ prior) / prior, shown as `0.0%`; `N/A` without a prior.
 - `Avg Age` = mean pickup age over rows with a valid `AUDIT: TP End Date`; `% 30+` = share of the
   manager's rows older than 30 days.
 
 ### 9.2 Manager tab (one per `Assigned Sales Manager`)
 
-- Rows 1–2: manager name banner.
+- Rows 1â€“2: manager name banner.
 - KPI cards: `PENDING PICKUPS`, `SALES REPS` (unique rep count), `NEW`, `30+ DAYS`, `60+ DAYS`,
   `90+ DAYS`, `MISSING DATE`.
 - Row 10: table header. Data from row 11.
@@ -217,11 +217,11 @@ Manager`, `Assigned Associate WCC`.
 
 ## 10. Aging definition
 
-- **Pickup Age (Days)** = `today − date(AUDIT: TP End Date)`, floored at 0 for future dates. Confirmed:
+- **Pickup Age (Days)** = `today âˆ’ date(AUDIT: TP End Date)`, floored at 0 for future dates. Confirmed:
   **older is worse** (longer wait for pickup).
 - **30+/60+/90+** buckets count rows with age **strictly greater than** 30 / 60 / 90 days (so exactly 30
   days is *not* counted as "30+"). See Known Issues for the boundary question.
-- **Missing Date** counts pending rows with no parseable `AUDIT: TP End Date` — confirmed to mean the
+- **Missing Date** counts pending rows with no parseable `AUDIT: TP End Date` â€” confirmed to mean the
   user who flagged the account forgot to enter the pickup date, so the wait is unknown. Also counts all
   rows as missing if the column is absent.
 
@@ -262,7 +262,7 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
   is returned to active.
 - **Comparison baseline**: the **prior month's generated Pending Pickup report**, run monthly.
 - **Scale/shape for test data**: 10 managers, varied reps per manager, no rep on more than one manager,
-  ~100–200 pending samples, realistic aging mix.
+  ~100â€“200 pending samples, realistic aging mix.
 - **`EMPI` is noise** in the final report (not displayed); `MISSING DATE` = forgotten pickup date.
 
 **Still open**
@@ -277,10 +277,10 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
    the source so the filter is exercised.
 4. **Consumers/decision.** Who reads the dashboard and manager tabs, and what action does it drive
    (daily huddle, monthly review, 30/60/90+ escalation)?
-5. **Edge-case policy.** Confirm the current defaults: blank manager → `Unassigned`, missing
-   `EMPI`+`Name` → synthetic `ROW-<n>` key, future pickup date → age 0.
+5. **Edge-case policy.** Confirm the current defaults: blank manager â†’ `Unassigned`, missing
+   `EMPI`+`Name` â†’ synthetic `ROW-<n>` key, future pickup date â†’ age 0.
 6. **Aging boundary.** Keep strict `> 30 / > 60 / > 90`, or make the labels truly inclusive (`>=`)?
-7. **Future scope.** Any additions — trend charts, email/export, scheduled refresh, multi-site, or extra
+7. **Future scope.** Any additions â€” trend charts, email/export, scheduled refresh, multi-site, or extra
    KPIs?
 
 ---

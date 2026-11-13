@@ -134,7 +134,7 @@ Public Sub CreatePendingPickupReport()
         MsgBox "I could not find the required headers on Raw Data:" & vbCrLf & _
                "• " & MANAGER_HEADER & vbCrLf & "• " & STATUS_HEADER & vbCrLf & _
                "• " & REP_HEADER & vbCrLf & "• " & NAME_HEADER, vbCritical
-        Exit Sub
+        GoTo CleanExit
     End If
 
     managerCol = FindHeaderColumn(raw, headerRow, MANAGER_HEADER)
@@ -149,7 +149,7 @@ Public Sub CreatePendingPickupReport()
     lastCol = LastUsedColumn(raw)
     If lastRow <= headerRow Then
         MsgBox "There are no current data rows to process.", vbInformation
-        Exit Sub
+        GoTo CleanExit
     End If
 
     Application.ScreenUpdating = False
@@ -407,14 +407,17 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     Dim i As Long, rowOut As Long
     Dim managerName As String, safeName As String
     Dim mAge30 As Long, mAge60 As Long, mAge90 As Long, mMissing As Long
-    Dim mNew As Variant, mAvgAge As Variant, mPct30 As Variant
+    Dim mNew As Variant, mAvgAge As Variant
     Dim mStill As Variant, mCleared As Variant
+    Dim mPct30 As Variant
     Dim tableLastRow As Long, chartRow As Long
     Dim chartObj As ChartObject
     Dim cs As Object
+    Dim chartNames() As String, chartVals() As Double
+    Dim mi As Long, mj As Long, sortTmp As String, sortTmpVal As Double
 
     ws.Cells.Clear
-    ws.Columns("A:K").ColumnWidth = 14
+    ws.Columns("A:J").ColumnWidth = 14
     ws.Rows("1:60").RowHeight = 22
 
     With ws.Range("A1:H2")
@@ -430,7 +433,7 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     ws.Rows("1:2").RowHeight = 30
 
     ' Report stamp / source line.
-    With ws.Range("A3:K3")
+    With ws.Range("A3:J3")
         .Merge
         .Value = "Report generated " & reportStamp & "   |   Source: " & sourceName
         .Font.Size = 9
@@ -447,19 +450,61 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         pctChange = "N/A"
     End If
 
-    ' Uniform dashboard KPI grid: 5 cards across x 2 rows.
+    ' Manager table metrics, computed once so the chart can Pareto-sort by Current.
+    Dim mNewByMgr As Object, mAge30ByMgr As Object, mAge60ByMgr As Object, mAge90ByMgr As Object, mMissingByMgr As Object
+    Dim mAvgByMgr As Object, mPct30ByMgr As Object, mStillByMgr As Object, mClearedByMgr As Object
+    Set mNewByMgr = CreateObject("Scripting.Dictionary"): mNewByMgr.CompareMode = vbTextCompare
+    Set mAge30ByMgr = CreateObject("Scripting.Dictionary"): mAge30ByMgr.CompareMode = vbTextCompare
+    Set mAge60ByMgr = CreateObject("Scripting.Dictionary"): mAge60ByMgr.CompareMode = vbTextCompare
+    Set mAge90ByMgr = CreateObject("Scripting.Dictionary"): mAge90ByMgr.CompareMode = vbTextCompare
+    Set mMissingByMgr = CreateObject("Scripting.Dictionary"): mMissingByMgr.CompareMode = vbTextCompare
+    Set mAvgByMgr = CreateObject("Scripting.Dictionary"): mAvgByMgr.CompareMode = vbTextCompare
+    Set mPct30ByMgr = CreateObject("Scripting.Dictionary"): mPct30ByMgr.CompareMode = vbTextCompare
+    Set mStillByMgr = CreateObject("Scripting.Dictionary"): mStillByMgr.CompareMode = vbTextCompare
+    Set mClearedByMgr = CreateObject("Scripting.Dictionary"): mClearedByMgr.CompareMode = vbTextCompare
+
+    For i = LBound(managers) To UBound(managers)
+        managerName = CStr(managers(i))
+        CalculateAgingStats currentData, managerRows(managerName), pickupDateCol, mAge30, mAge60, mAge90, mMissing
+        mAvgAge = CalculateAverageAge(currentData, managerRows(managerName), pickupDateCol)
+        If managerRows(managerName).Count > 0 Then
+            mPct30 = mAge30 / CLng(managerRows(managerName).Count)
+        Else
+            mPct30 = 0
+        End If
+        mAge30ByMgr(managerName) = mAge30
+        mAge60ByMgr(managerName) = mAge60
+        mAge90ByMgr(managerName) = mAge90
+        mMissingByMgr(managerName) = mMissing
+        mAvgByMgr(managerName) = mAvgAge
+        mPct30ByMgr(managerName) = mPct30
+        If hasPrior Then
+            mNew = CountNewManagerRows(currentData, managerRows(managerName), newKeys, keyCol, nameCol)
+            If stillByManager.Exists(managerName) Then mStill = stillByManager(managerName) Else mStill = 0
+            If clearedByManager.Exists(managerName) Then mCleared = clearedByManager(managerName) Else mCleared = 0
+            mNewByMgr(managerName) = mNew
+            mStillByMgr(managerName) = mStill
+            mClearedByMgr(managerName) = mCleared
+        Else
+            mNewByMgr(managerName) = "N/A"
+            mStillByMgr(managerName) = "N/A"
+            mClearedByMgr(managerName) = "N/A"
+        End If
+    Next i
+
+    ' Uniform dashboard KPI grid: cards span the same A:K width as the manager table.
     AddDashboardCard ws, "A4:B6", "CURRENT", "Pending Pickups", currentCount, RGB(255, 242, 204)
     AddDashboardCard ws, "C4:D6", "PRIOR", "Pending Pickups", IIf(hasPrior, priorCount, "N/A"), RGB(221, 235, 247)
     AddDashboardCard ws, "E4:F6", "NEW", "Since Prior Report", IIf(hasPrior, newCount, "N/A"), RGB(226, 239, 218)
     AddDashboardCard ws, "G4:H6", "CLEARED", "Since Prior Report", IIf(hasPrior, clearedCount, "N/A"), RGB(244, 204, 204)
-    AddDashboardCard ws, "I4:J6", "STILL PENDING", "In Both Reports", IIf(hasPrior, stillCount, "N/A"), RGB(217, 234, 247)
+    AddDashboardCard ws, "I4:K6", "STILL PENDING", "In Both Reports", IIf(hasPrior, stillCount, "N/A"), RGB(217, 234, 247)
 
     AddDashboardCard ws, "A8:B10", "% CHANGE", "From Prior Report", pctChange, RGB(234, 209, 220)
     If hasPrior And priorCount > 0 Then ws.Range("A8:B10").NumberFormat = "0.0%"
     AddDashboardCard ws, "C8:D10", "30+ DAYS", "Older Pending Pickups", age30Count, RGB(244, 204, 204)
     AddDashboardCard ws, "E8:F10", "60+ DAYS", "Older Pending Pickups", age60Count, RGB(234, 153, 153)
     AddDashboardCard ws, "G8:H10", "90+ DAYS", "Older Pending Pickups", age90Count, RGB(224, 102, 102)
-    AddDashboardCard ws, "I8:J10", "MISSING DATE", "AUDIT: TP End Date", missingDateCount, RGB(255, 242, 204)
+    AddDashboardCard ws, "I8:K10", "MISSING DATE", "AUDIT: TP End Date", missingDateCount, RGB(255, 242, 204)
 
     ' Manager breakdown: clickable manager names plus useful manager-level metrics.
     ws.Range("A12:K12").Merge
@@ -481,42 +526,20 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     rowOut = 14
     For i = LBound(managers) To UBound(managers)
         managerName = CStr(managers(i))
-        CalculateAgingStats currentData, managerRows(managerName), pickupDateCol, mAge30, mAge60, mAge90, mMissing
-        mAvgAge = CalculateAverageAge(currentData, managerRows(managerName), pickupDateCol)
-        If managerRows(managerName).Count > 0 Then
-            mPct30 = mAge30 / managerRows(managerName).Count
-        Else
-            mPct30 = 0
-        End If
-        If hasPrior Then
-            mNew = CountNewManagerRows(currentData, managerRows(managerName), newKeys, keyCol, nameCol)
-            If stillByManager.Exists(managerName) Then
-                mStill = stillByManager(managerName)
-            Else
-                mStill = 0
-            End If
-            If clearedByManager.Exists(managerName) Then
-                mCleared = clearedByManager(managerName)
-            Else
-                mCleared = 0
-            End If
-        Else
-            mNew = "N/A"
-            mStill = "N/A"
-            mCleared = "N/A"
-        End If
         safeName = CStr(managerSheetNames(managerName))
         ws.Hyperlinks.Add Anchor:=ws.Cells(rowOut, 1), Address:="", SubAddress:="'" & Replace(safeName, "'", "''") & "'!A1", TextToDisplay:=managerName
         ws.Cells(rowOut, 2).Value = managerRows(managerName).Count
-        ws.Cells(rowOut, 3).Value = mNew
-        ws.Cells(rowOut, 4).Value = mAge30
-        ws.Cells(rowOut, 5).Value = mAge60
-        ws.Cells(rowOut, 6).Value = mAge90
-        ws.Cells(rowOut, 7).Value = mMissing
-        ws.Cells(rowOut, 8).Value = mAvgAge
-        ws.Cells(rowOut, 9).Value = mPct30
-        ws.Cells(rowOut, 10).Value = mCleared
-        ws.Cells(rowOut, 11).Value = mStill
+        ws.Cells(rowOut, 3).Value = mNewByMgr(managerName)
+        ws.Cells(rowOut, 4).Value = mAge30ByMgr(managerName)
+        ws.Cells(rowOut, 5).Value = mAge60ByMgr(managerName)
+        ws.Cells(rowOut, 6).Value = mAge90ByMgr(managerName)
+        ws.Cells(rowOut, 7).Value = mMissingByMgr(managerName)
+        ws.Cells(rowOut, 8).Value = mAvgByMgr(managerName)
+        ws.Cells(rowOut, 8).NumberFormat = "0.0"
+        ws.Cells(rowOut, 9).Value = mPct30ByMgr(managerName)
+        ws.Cells(rowOut, 9).NumberFormat = "0.0%"
+        ws.Cells(rowOut, 10).Value = mClearedByMgr(managerName)
+        ws.Cells(rowOut, 11).Value = mStillByMgr(managerName)
         rowOut = rowOut + 1
     Next i
 
@@ -543,14 +566,16 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         ws.Cells(rowOut, 1).Value = "TOTAL"
         ws.Cells(rowOut, 2).Value = currentCount
         ws.Cells(rowOut, 3).Value = IIf(hasPrior, newCount, "N/A")
-        ws.Cells(rowOut, 4).Value = IIf(hasPrior, clearedCount, "N/A")
-        ws.Cells(rowOut, 5).Value = IIf(hasPrior, stillCount, "N/A")
-        ws.Cells(rowOut, 6).Value = age30Count
-        ws.Cells(rowOut, 7).Value = age60Count
-        ws.Cells(rowOut, 8).Value = age90Count
-        ws.Cells(rowOut, 9).Value = missingDateCount
-        ws.Cells(rowOut, 10).Value = overallAvgAge
-        ws.Cells(rowOut, 11).Value = IIf(currentCount > 0, age30Count / currentCount, 0)
+        ws.Cells(rowOut, 4).Value = age30Count
+        ws.Cells(rowOut, 5).Value = age60Count
+        ws.Cells(rowOut, 6).Value = age90Count
+        ws.Cells(rowOut, 7).Value = missingDateCount
+        ws.Cells(rowOut, 8).Value = overallAvgAge
+        ws.Cells(rowOut, 8).NumberFormat = "0.0"
+        ws.Cells(rowOut, 9).Value = IIf(currentCount > 0, age30Count / currentCount, 0)
+        ws.Cells(rowOut, 9).NumberFormat = "0.0%"
+        ws.Cells(rowOut, 10).Value = IIf(hasPrior, clearedCount, "N/A")
+        ws.Cells(rowOut, 11).Value = IIf(hasPrior, stillCount, "N/A")
         With ws.Range(ws.Cells(rowOut, 1), ws.Cells(rowOut, 11))
             .Font.Bold = True
             .Interior.Color = RGB(217, 234, 247)
@@ -566,30 +591,51 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     ' Keep every dashboard section on the same clean 11-column grid.
     ws.Columns("A:K").VerticalAlignment = xlCenter
     ws.Columns("A:K").HorizontalAlignment = xlCenter
-    ws.Columns("A").ColumnWidth = 27
+    ws.Columns("A").ColumnWidth = 16
     ws.Columns("B:K").ColumnWidth = 13
-    ws.Rows("4:6").RowHeight = 26
-    ws.Rows("8:10").RowHeight = 26
+    ws.Rows("1:2").RowHeight = 30
+    ws.Rows("3:3").RowHeight = 18
+    ws.Rows("4:10").RowHeight = 30
     ws.Rows("12:12").RowHeight = 24
     ws.Rows("13:13").RowHeight = 30
     If rowOut > 14 Then ws.Rows("14:" & rowOut).RowHeight = 22
 
-    ' Bar chart of current pending pickups by manager, placed below the table.
+    ' Bar chart of current pending pickups by manager, Pareto-sorted (largest first), placed below the table.
     If rowOut > 14 Then
+        ReDim chartNames(1 To tableLastRow - 13)
+        ReDim chartVals(1 To tableLastRow - 13)
+        For i = 1 To tableLastRow - 13
+            chartNames(i) = CStr(ws.Cells(13 + i, 1).Value)
+            chartVals(i) = CDbl(ws.Cells(13 + i, 2).Value)
+        Next i
+        For mi = 1 To UBound(chartNames) - 1
+            For mj = mi + 1 To UBound(chartNames)
+                If chartVals(mj) > chartVals(mi) Then
+                    sortTmp = chartNames(mi): chartNames(mi) = chartNames(mj): chartNames(mj) = sortTmp
+                    sortTmpVal = chartVals(mi): chartVals(mi) = chartVals(mj): chartVals(mj) = sortTmpVal
+                End If
+            Next mj
+        Next mi
+
         chartRow = rowOut + 2
         ws.Range(ws.Cells(chartRow, 1), ws.Cells(chartRow, 11)).Merge
         ws.Cells(chartRow, 1).Value = "PENDING PICKUPS BY MANAGER (CHART)"
         StyleSectionHeader ws.Range(ws.Cells(chartRow, 1), ws.Cells(chartRow, 11))
-        Set chartObj = ws.ChartObjects.Add(ws.Cells(chartRow + 1, 1).Left, ws.Cells(chartRow + 1, 1).Top, 760, 300)
+        Set chartObj = ws.ChartObjects.Add(ws.Cells(chartRow + 1, 1).Left, ws.Cells(chartRow + 1, 1).Top, 900, 330)
         With chartObj.Chart
             .ChartType = xlColumnClustered
-            .SetSourceData Source:=ws.Range(ws.Cells(13, 2), ws.Cells(tableLastRow, 2))
-            .SeriesCollection(1).XValues = ws.Range(ws.Cells(14, 1), ws.Cells(tableLastRow, 1))
+            .SeriesCollection.NewSeries
+            .SeriesCollection(1).Values = chartVals
+            .SeriesCollection(1).XValues = chartNames
+            .SeriesCollection(1).Name = "Pending Pickups"
             .HasTitle = True
             .ChartTitle.Text = "Current Pending Pickups by Manager"
             .HasLegend = False
             .Axes(xlCategory).TickLabels.Font.Size = 9
             .Axes(xlValue).TickLabels.Font.Size = 9
+            .Axes(xlValue).HasTitle = True
+            .Axes(xlValue).AxisTitle.Text = "Pending Pickups"
+            .Axes(xlValue).AxisTitle.Font.Size = 9
             .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(31, 78, 121)
         End With
     End If
@@ -629,18 +675,27 @@ Private Sub AddLogoFromTemplate(ws As Worksheet)
 End Sub
 
 Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As String, subText As String, valueText As Variant, fillColor As Long)
-    Dim rg As Range
+    Dim rg As Range, valueRow As Range
     Set rg = ws.Range(address)
     rg.Merge
-    rg.Value = labelText & vbCrLf & subText & vbCrLf & CStr(valueText)
+    rg.Value = labelText & vbCrLf & subText
     rg.Interior.Color = fillColor
     rg.Font.Bold = True
-    rg.Font.Size = 13
+    rg.Font.Size = 9
     rg.HorizontalAlignment = xlCenter
     rg.VerticalAlignment = xlCenter
     rg.WrapText = True
     rg.Borders.LineStyle = xlContinuous
     rg.Borders.Weight = xlMedium
+
+    ' Large value on its own line, sized independently of the label text.
+    Set valueRow = rg.Offset(2, 0).Resize(1, 1)
+    If valueRow.MergeCells Then Set valueRow = valueRow.MergeArea
+    valueRow.Value = CStr(valueText)
+    valueRow.Font.Bold = True
+    valueRow.Font.Size = 20
+    valueRow.HorizontalAlignment = xlCenter
+    valueRow.VerticalAlignment = xlCenter
 End Sub
 
 Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCount As Long, managerLastCol As Long, managerPickupDateCol As Long, managerStartDateCol As Long, managerAgeCol As Long, managerRepCol As Long, _
@@ -650,6 +705,10 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     Dim lastDataRow As Long
 
     CalculateAgingStats sourceData, rowsToUse, FindHeaderColumnFromArray(sourceData, PICKUP_DATE_HEADER), age30, age60, age90, missingDate
+    Dim managerAvgAge As Variant
+    managerAvgAge = CalculateAverageAge(sourceData, rowsToUse, FindHeaderColumnFromArray(sourceData, PICKUP_DATE_HEADER))
+    Dim managerPct30 As Variant
+    If rowsToUse.Count > 0 Then managerPct30 = age30 / CLng(rowsToUse.Count) Else managerPct30 = 0
 
     If hasPrior Then
         managerNewCount = CountNewManagerRows(sourceData, rowsToUse, newKeys, keyCol, nameCol)
@@ -659,7 +718,7 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
 
     With ws.Range(ws.Cells(1, 1), ws.Cells(2, managerLastCol))
         .Merge
-        .Value = managerName
+        .Value = managerName & "   |   as of " & Format(Date, "mm/dd/yyyy")
         .Interior.Color = RGB(31, 78, 121)
         .Font.Color = RGB(255, 255, 255)
         .Font.Bold = True
@@ -669,14 +728,17 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     End With
     ws.Rows("1:2").RowHeight = 28
 
-    ' Four KPI cards per row, fully contained inside the manager data width.
-    AddDashboardCard ws, "A4:B5", "PENDING PICKUPS", "Current", pendingCount, RGB(255, 242, 204)
-    AddDashboardCard ws, "C4:D5", "SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, 11, LastUsedRow(ws), managerRepCol), RGB(221, 235, 247)
-    AddDashboardCard ws, "E4:F5", "NEW", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
-    AddDashboardCard ws, "G4:H5", "30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
-    AddDashboardCard ws, "A7:B8", "60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
-    AddDashboardCard ws, "C7:D8", "90+ DAYS", "Older Pending Pickups", age90, RGB(224, 102, 102)
-    AddDashboardCard ws, "E7:F8", "MISSING DATE", "AUDIT: TP End Date", missingDate, RGB(255, 242, 204)
+    ' KPI cards, fully contained inside the manager data width.
+    AddDashboardCard ws, "A4:B6", "PENDING PICKUPS", "Current", pendingCount, RGB(255, 242, 204)
+    AddDashboardCard ws, "C4:D6", "SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, 11, LastUsedRow(ws), managerRepCol), RGB(221, 235, 247)
+    AddDashboardCard ws, "E4:F6", "NEW", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
+    AddDashboardCard ws, "G4:H6", "30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
+    AddDashboardCard ws, "A8:B10", "60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
+    AddDashboardCard ws, "C8:D10", "90+ DAYS", "Older Pending Pickups", age90, RGB(224, 102, 102)
+    AddDashboardCard ws, "E8:F10", "MISSING DATE", "AUDIT: TP End Date", missingDate, RGB(255, 242, 204)
+    AddDashboardCard ws, "G8:H10", "AVG AGE", "Pending Pickup Age", IIf(IsNumeric(managerAvgAge), Format(managerAvgAge, "0.0"), "N/A"), RGB(209, 226, 242)
+    AddDashboardCard ws, "A13:B14", "% 30+", "Older Pending Pickups", IIf(rowsToUse.Count > 0, managerPct30, 0), RGB(234, 209, 220)
+    If rowsToUse.Count > 0 Then ws.Range("A13:B14").NumberFormat = "0.0%"
 
     lastDataRow = LastUsedRow(ws)
     If lastDataRow >= 10 Then
@@ -689,12 +751,13 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
         If hasPrior Then HighlightNewRecords ws, 11, lastDataRow, managerLastCol, sourceData, rowsToUse, newKeys, keyCol, nameCol
         If managerAgeCol > 0 Then ApplyAgeWarningFont ws, 11, lastDataRow, managerAgeCol
         HighlightMissingPickupDates ws, 11, lastDataRow, managerPickupDateCol
+        FormatYesNoColumns ws, 10, lastDataRow, managerLastCol
     End If
 
     ' The data table is the exact same width as the KPI/header area.
     SetManagerColumnWidths ws, managerLastCol
-    ws.Rows("4:5").RowHeight = 27
-    ws.Rows("7:8").RowHeight = 27
+    ws.Rows("4:6").RowHeight = 26
+    ws.Rows("8:10").RowHeight = 26
     ws.Rows("10:10").RowHeight = 34
 
     ws.Tab.Color = RGB(189, 215, 238)
@@ -764,6 +827,34 @@ Private Sub HighlightMissingPickupDates(ws As Worksheet, ByVal firstRow As Long,
             End With
         End If
     Next r
+End Sub
+
+Private Sub FormatYesNoColumns(ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal lastCol As Long)
+    Dim c As Long, r As Long, h As String, v As String
+    If lastRow <= headerRow Then Exit Sub
+    For c = 1 To lastCol
+        h = LCase$(Trim$(CStr(ws.Cells(headerRow, c).Value)))
+        If InStr(1, h, "no rental equipment provided", vbTextCompare) > 0 Then
+            For r = headerRow + 1 To lastRow
+                v = LCase$(Trim$(CStr(ws.Cells(r, c).Value)))
+                If Len(v) > 0 Then
+                    If v = "yes" Or v = "y" Or v = "true" Then
+                        ws.Cells(r, c).Value = "Yes"
+                        ws.Cells(r, c).Font.Color = RGB(0, 97, 0)
+                    ElseIf v = "no" Or v = "n" Or v = "false" Then
+                        ws.Cells(r, c).Value = "No"
+                        ws.Cells(r, c).Font.Color = RGB(156, 0, 6)
+                    Else
+                        ws.Cells(r, c).Value = "Yes"
+                        ws.Cells(r, c).Font.Color = RGB(0, 97, 0)
+                    End If
+                Else
+                    ws.Cells(r, c).Value = "No"
+                    ws.Cells(r, c).Font.Color = RGB(156, 0, 6)
+                End If
+            Next r
+        End If
+    Next c
 End Sub
 
 Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)

@@ -1,10 +1,10 @@
 # sync_template.ps1
-# Re-imports Create_Pending_Pickup_Report.bas into the template's embedded VBA project
+# Re-imports Pending_Pickup_Macro.bas into the template's embedded VBA project
 # and ensures the styled CREATE PENDING PICKUP REPORT button is installed on START HERE.
 # Run this after every change to the .bas file.
 param(
-    [string]$Template = "$PSScriptRoot\Create_Pending_Pickup_Template.xlsm",
-    [string]$Bas      = "$PSScriptRoot\Create_Pending_Pickup_Report.bas",
+    [string]$Template = "$PSScriptRoot\Pending Pickup Template.xlsm",
+    [string]$Bas      = "$PSScriptRoot\Pending_Pickup_Macro.bas",
     [string]$ModuleName = "PendingPickupReport",
     [string]$ButtonName = "btnCreatePendingPickupReport"
 )
