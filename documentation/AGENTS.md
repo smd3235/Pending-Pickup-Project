@@ -207,6 +207,7 @@ End If
 - **All test runs must verify output file creation** in `Reports/`.
 - **All test runs must clean up temp files** (`_run_temp.xlsm`, `~$_run_temp.xlsm`).
 - **All test runs must kill stray Excel processes** before exiting.
+- **Screenshots are regenerated on every test run:** before running `scripts\snapshot-report.ps1`, delete all existing PNGs in `documentation/screenshots/` so the committed screenshots always reflect the latest report output, never a stale mix of old and new sheets.
 
 ## 10. Deployment
 

@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **19:15:00** — Added AGENTS.md rule (section 9) requiring all existing PNGs in `documentation/screenshots/` to be deleted before each test run so screenshots always reflect the latest report output, never a stale mix.
+- **19:14:00** — Updated `scripts/snapshot-report.ps1` to delete every existing PNG in `documentation/screenshots/` before regenerating them from the current report run.
 - **19:03:00** — Verified compilation via Excel COM automation: `Pending_Pickup_Macro.bas` imports into a fresh `PendingPickupReport` module with no syntax or compile errors.
 - **19:02:00** — Fixed a latent subscript error in `SaveFolderSetting`: `Left$(..., InStrRev(...)-1)` errored when the path had no separator; now guards `sep > 0` (`Pending_Pickup_Macro.bas:1820-1822`).
 - **19:01:00** — Fixed the Dashboard "% CHANGE" KPI card not applying its `0.0%` number format: the value was written via `CStr` (text), so it showed a raw decimal. It now writes the numeric `pctChange` into the value cell so it renders as a true percentage (`Pending_Pickup_Macro.bas:627-631`).

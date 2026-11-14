@@ -10,6 +10,9 @@ param(
 $ErrorActionPreference = "Stop"
 if (-not (Test-Path -LiteralPath $Report)) { throw "Report not found: $Report" }
 if (-not (Test-Path -LiteralPath $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
+# Always start fresh: delete every existing PNG so committed screenshots
+# reflect only the latest report run, never a stale mix of old/new sheets.
+Get-ChildItem -LiteralPath $OutDir -Filter *.png -File | Remove-Item -Force -ErrorAction SilentlyContinue
 
 Add-Type -AssemblyName System.Windows.Forms
 $excel = New-Object -ComObject Excel.Application
