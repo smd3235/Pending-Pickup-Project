@@ -9,6 +9,26 @@ to show what is new, what cleared, and what is still pending.
 > embedded VBA project in `Pending Pickup Template.xlsm`. Assumed, inconsistent, or not-yet-
 > implemented items are called out in **Decisions & remaining questions** and **Known issues**.
 
+## Table of Contents
+
+- [1. At a glance](#1-at-a-glance)
+- [2. Business context (confirmed)](#2-business-context-confirmed)
+- [3. Project files](#3-project-files)
+- [4. Requirements](#4-requirements)
+- [5. Setup & maintenance](#5-setup-maintenance)
+- [6. Template flow](#6-template-flow)
+- [7. Data contract (current export)](#7-data-contract-current-export)
+- [8. Comparison logic](#8-comparison-logic)
+- [9. Output specification](#9-output-specification)
+  - [9.1 Dashboard](#91-dashboard)
+  - [9.2 Manager tab](#92-manager-tab-one-per-assigned-sales-manager)
+  - [9.3 Raw Data tab](#93-raw-data-tab)
+- [10. Aging definition](#10-aging-definition)
+- [11. Screenshots](#11-screenshots)
+- [12. Known issues / technical debt](#12-known-issues-technical-debt)
+- [13. Decisions & remaining questions](#13-decisions-remaining-questions)
+- [14. Changelog](#14-changelog)
+
 ---
 
 ## 1. At a glance
