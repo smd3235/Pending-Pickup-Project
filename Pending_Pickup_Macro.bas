@@ -551,9 +551,15 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         .Interior.Color = RGB(31, 78, 121)
         .Font.Color = RGB(255, 255, 255)
         .Font.Bold = True
+        .Font.Name = "Segoe UI"
         .Font.Size = 22
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
+    End With
+    With ws.Range("A1:H2").Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(246, 206, 62)
     End With
     ws.Rows("1:2").RowHeight = 30
 
@@ -561,6 +567,7 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     With ws.Range("A3:J3")
         .Merge
         .Value = "Report generated " & reportStamp & "   |   Source: " & sourceName
+        .Font.Name = "Segoe UI"
         .Font.Size = 9
         .Font.Italic = True
         .Font.Color = RGB(89, 89, 89)
@@ -931,6 +938,11 @@ Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As St
     rg.Interior.Color = fillColor
     rg.Borders.LineStyle = xlContinuous
     rg.Borders.Weight = xlMedium
+    With rg.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(246, 206, 62)
+    End With
 
     ' Label occupies the top rows; the value gets its own merged bottom row so
     ' the value never overwrites the label.
@@ -940,6 +952,7 @@ Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As St
     labelRg.Value = labelText & vbCrLf & subText
     With labelRg
         .Font.Bold = True
+        .Font.Name = "Segoe UI"
         .Font.Size = 9
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
@@ -949,6 +962,7 @@ Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As St
     valueRow.Value = CStr(valueText)
     With valueRow
         .Font.Bold = True
+        .Font.Name = "Segoe UI"
         .Font.Size = 20
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
@@ -984,9 +998,15 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
         .Interior.Color = RGB(31, 78, 121)
         .Font.Color = RGB(255, 255, 255)
         .Font.Bold = True
+        .Font.Name = "Segoe UI"
         .Font.Size = 18
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
+    End With
+    With ws.Range(ws.Cells(1, 1), ws.Cells(2, managerLastCol)).Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(246, 206, 62)
     End With
     ws.Rows("1:2").RowHeight = 28
 
@@ -1209,15 +1229,27 @@ Private Sub StyleSectionHeader(rg As Range)
     rg.Interior.Color = RGB(31, 78, 121)
     rg.Font.Color = RGB(255, 255, 255)
     rg.Font.Bold = True
+    rg.Font.Name = "Segoe UI"
     rg.HorizontalAlignment = xlCenter
     rg.VerticalAlignment = xlCenter
+    With rg.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlMedium
+        .Color = RGB(246, 206, 62)
+    End With
 End Sub
 
 Private Sub StyleTableHeader(rg As Range)
     rg.Interior.Color = RGB(217, 234, 247)
     rg.Font.Bold = True
+    rg.Font.Name = "Segoe UI"
     rg.Borders.LineStyle = xlContinuous
     rg.HorizontalAlignment = xlCenter
+    With rg.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlMedium
+        .Color = RGB(246, 206, 62)
+    End With
 End Sub
 
 Private Sub StyleDashboardTable(rg As Range)
