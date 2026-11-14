@@ -12,6 +12,7 @@ to show what is new, what cleared, and what is still pending.
 ## Table of Contents
 
 - [1. At a glance](#1-at-a-glance)
+- [App Workflow](#app-workflow)
 - [2. Business context (confirmed)](#2-business-context-confirmed)
 - [3. Project files](#3-project-files)
 - [4. Requirements](#4-requirements)
@@ -45,6 +46,20 @@ to show what is new, what cleared, and what is still pending.
 | Config surface | Hardcoded `Const` values in the module (see Known Issues) |
 | Persistence | Remembers current/prior/output folders via Windows registry `SaveSetting` |
 | Code version | `1.0` â€” module `MACRO_VERSION = 1.0`, filenames, `START HERE`, and README all aligned |
+
+---
+
+## App Workflow
+
+The report runs through these steps end-to-end:
+
+1. **Open template.** User opens `Pending Pickup Template.xlsm`.
+2. **Press button.** User clicks **CREATE PENDING PICKUP REPORT** on `START HERE` (runs `CreatePendingPickupReport`).
+3. **Select raw data.** A file picker opens; user selects the current All Open Treatment Plans export (`.xlsx`/`.xlsm`).
+4. **(Optional) Select prior report.** A second file picker asks whether to import last month's Pending Pickup report for comparison. Select it to compare; **Cancel** means no comparison happens.
+5. **(If not completed yet) Select save location.** User chooses where to save the finished report. Once chosen, the location is remembered via registry `SaveSetting` and is not asked again on subsequent runs.
+
+The report is then generated with a Dashboard, one tab per Assigned Sales Manager, and a Raw Data tab.
 
 ---
 
@@ -253,7 +268,9 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ## 11. Screenshots
 
-QA screenshots of the generated report (Dashboard KPI cards, manager tabs, Raw Data) are stored in `documentation/screenshots/`. These were captured from `Reports/Pending Pickup 2026-11-14.xlsx` after a clean end-to-end run (no errors in `macro-debug.log`, completion marker written).
+QA screenshots of the generated report (Dashboard KPI cards, manager tabs, Raw Data) are stored in `documentation/screenshots/`. These were captured from `Reports/Pending Pickup 2026-11-14.xlsx` after a clean end-to-end run using the bundled fake export (`AllOpenTreatmentPlansResults618.xlsx`). They are **QA screenshots from test data**, not live production data — they show the layout and formatting but not real patient records.
+
+> Note: screenshots are exported via an automated CopyPicture → chart → PNG method (`scripts/snapshot-report.ps1`). If they appear sparse or blank, regenerate them against a real report run with `scripts/snapshot-report.ps1 -Report <path-to-real-report.xlsx>`.
 
 ### Dashboard
 
