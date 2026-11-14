@@ -196,17 +196,8 @@ try {
     $outcome = "ERROR: $($_.Exception.Message)"
 } finally {
     $runToken.Cancel()
-    Start-Sleep -Milliseconds 500
-    # Screenshot for diagnosis if it stalled (file not produced).
-    try {
-        Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-        $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
-        $g = [System.Drawing.Graphics]::FromImage($bmp)
-        $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-        $bmp.Save("$projDir\log\screen.png")
-        $g.Dispose(); $bmp.Dispose()
-    } catch {}
+    Start-Sleep -Milliseconds 200
+    # Kill Excel FIRST so it never stays open.
     [W]::KillExcel()
     if ($excel) { try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($excel) } catch {} }
     Remove-Item -LiteralPath $TempCopy -Force -ErrorAction SilentlyContinue
