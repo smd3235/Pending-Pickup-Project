@@ -30,24 +30,14 @@ to show what is new, what cleared, and what is still pending.
 
 ## 2. Business context (confirmed)
 
-This report tracks **equipment pickups that are still pending** for DME / HME patients. Each row is an
-open treatment plan flagged for pickup; the report shows how long each has been waiting and who owns it.
+This report is run **every month**, pulling **every patient in the country** from the All Open Treatment Plans export. It references any patient who has equipment pending pickup, and the resulting report is sent to each manager covering their team/region — so each manager sees exactly the patients they need to close out and pick up equipment for.
 
-- **Pending Pickup is the only treatment status included.** A record leaves the report ("cleared") when
-  the equipment is picked up and the patient is closed out, **or** when the patient is returned to active
-  and the status is no longer Pending Pickup. Both are legitimate exits, so "in prior but not current"
-  means cleared.
-- **Pickup Age** = days from `AUDIT: TP End Date` to today. **Older is worse** â€” it means the account has
-  been waiting longer for pickup.
-- **Missing `AUDIT: TP End Date`** means whoever flagged the account for pickup forgot to enter the date,
-  so the wait time is unknown; these are surfaced as `MISSING DATE`.
-- **Cadence:** run monthly. Each run compares against the **prior month's generated Pending Pickup
-  report** to show progress (cleared / still pending) plus what is new.
-- **EMPI** is present in the export but is **not shown in the final report** â€” it is treated as noise. It
-  is still used internally as the comparison key, with `Name` as the fallback.
-- **Roles:** `Assigned Sales Manager` owns a manager tab; `Sales Representative` is the rep on the record.
-  No rep works for more than one manager. `Assigned Associate WCC`, `Assigned Setup Technician`, and
-  `Admin Representative` are supporting roles shown on manager tabs.
+- **Pending Pickup is the only treatment status included.** A record leaves the report ("cleared") when the equipment is picked up and the patient is closed out, **or** when the patient is returned to active and the status is no longer Pending Pickup. Both are legitimate exits, so "in prior but not current" means cleared.
+- **Pickup Age** = days from `AUDIT: TP End Date` to today. **Older is worse** â€” it means the account has been waiting longer for pickup.
+- **Missing `AUDIT: TP End Date`** means whoever flagged the account for pickup forgot to enter the date, so the wait time is unknown; these are surfaced as `MISSING DATE`.
+- **Cadence:** run monthly. Each run compares against the **prior month's generated Pending Pickup report** to show progress (cleared / still pending) plus what is new.
+- **EMPI** is present in the export but is **not shown in the final report** â€” it is treated as noise. It is still used internally as the comparison key, with `Name` as the fallback.
+- **Roles:** `Assigned Sales Manager` owns a manager tab; `Sales Representative` is the rep on the record. No rep works for more than one manager. `Assigned Associate WCC`, `Assigned Setup Technician`, and `Admin Representative` are supporting roles shown on manager tabs.
 
 ---
 
