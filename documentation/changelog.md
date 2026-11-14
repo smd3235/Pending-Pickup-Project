@@ -34,6 +34,15 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-13
 
+- **23:45:00** — Added a read-only cross-project audit that runs from either project:
+  `scripts/audit-peer.ps1` compares this project with the sibling `PM Project` and
+  reports files only one side has, files that differ (with the functions or Markdown
+  sections each side adds), and VBA procedure names that are shared versus peer-only.
+  `-Sections` narrows the audit, `-Report <path>` saves Markdown, `-SymbolLimit` caps
+  the listing. The peer is auto-discovered from a sibling directory holding a root
+  `*.bas` and a `scripts/` folder; `-PeerPath` overrides it. Added
+  `.kilo/command/audit.md` so `/audit` runs it and asks for a shortlist of port
+  candidates with effort and risk; the command never copies anything.
 - **15:02:38** — Dashboard upgrades: "Report generated <timestamp> | Source: <file>" line, bold TOTAL row,
   per-manager Cleared and Still Pending columns, data bars on Current, a 3-colour scale on 90+ Days, and a
   "Current Pending Pickups by Manager" bar chart. Dashboard tab colour set to dark blue.
