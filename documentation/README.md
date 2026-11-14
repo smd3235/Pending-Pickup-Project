@@ -58,13 +58,16 @@ open treatment plan flagged for pickup; the report shows how long each has been 
 | `Pending Pickup Template.xlsm` | Master workbook. Contains `START HERE`, empty `Raw Data`, `_Config`, and the embedded VBA project (`PendingPickupReport` module). This is what users run. |
 | `Pending_Pickup_Macro.bas` | Readable VBA source for the builder. Edit this, then run `scripts\sync_template.ps1` to push it into the template. |
 | `scripts\sync_template.ps1` | Maintainer script: re-imports the `.bas` into the template's embedded VBA and ensures the `START HERE` button. Run after every `.bas` change. |
+| `scripts\snapshot-report.ps1` | QA script: opens a generated report `.xlsx` and exports every sheet (Dashboard, manager tabs, Raw Data) as a PNG into `documentation/screenshots/`. Run after a successful `run-report.ps1` run to refresh screenshots. |
+| `documentation/screenshots/` | Committed QA PNGs captured from `Reports/Pending Pickup 2026-11-14.xlsx`: Dashboard, all manager tabs, Raw Data. |
 | `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample â€” populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
 | `Reports/` | Output folder for finished reports. The macro's remembered `OutputFolder` is pre-set to this path. Also holds `Pending Pickup 2026-10-13.xlsx`, a **prior-month fixture** for testing comparison (still/new/cleared). |
 | `documentation/changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
 
 > **Distribution:** end users receive only `Pending Pickup Template.xlsm`. It is self-contained
 > (macro, button, and company logo embedded); the `.bas`, `scripts\sync_template.ps1`,
-> `documentation/README.md`, `documentation/changelog.md`, and fake data are maintainer-only.
+> `scripts\snapshot-report.ps1`, `documentation/README.md`, `documentation/changelog.md`,
+> `documentation/screenshots/`, and fake data are maintainer-only.
 
 ### Template workbook sheets
 
@@ -105,6 +108,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\sync_template.ps1
 the current `.bas`, ensures the `START HERE` button exists and points at `CreatePendingPickupReport`, and
 saves. It requires desktop Excel and "Trust access to the VBA project object model" enabled
 (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`).
+
+**QA:** after a successful `scripts\run-report.ps1` run, refresh the committed screenshots with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\snapshot-report.ps1
+```
+
+This exports every sheet of `Reports/Pending Pickup yyyy-mm-dd.xlsx` as a PNG into
+`documentation/screenshots/` for the README.
 
 ---
 
@@ -188,7 +200,7 @@ Output workbook = new `.xlsx` containing **Dashboard**, **manager tabs**, **Raw 
 - **Pending Pickups by Manager** table (header row 13, data from row 14), with columns:
   `Manager` (hyperlink to that manager's tab), `Current`, `New`, `30+ Days`, `60+ Days`, `90+ Days`,
   `Missing Date`, `Avg Age`, `% 30+`.
-- `% CHANGE` = (current âˆ’ prior) / prior, shown as `0.0%`; `N/A` without a prior.
+- `% CHANGE` = (current âˆ’ prior) / prior, shown as `0.0%`; `N/A` without a prior. (Fixed: previously written as text so the number format never applied; now written as a numeric value so it renders as a true percentage.)
 - `Avg Age` = mean pickup age over rows with a valid `AUDIT: TP End Date`; `% 30+` = share of the
   manager's rows older than 30 days.
 
