@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **16:25:00** — Aligned dashboard KPI cards on equal column widths (A:J) so cards line up vertically with each other and with the manager table; removed the "PENDING BY EQUIPMENT TYPE" chart section since the report tracks pickup status, not inventory (`Pending_Pickup_Macro.bas:627-642,826-900`).
+- **16:24:00** — Cleaned up unused variable declarations (`eqTitleRow`, `eqRow`, `eqCol`, `eqAgg`, `eqKeys`, `eqName`, `aAgg`, `bAgg`, `sTmp`) left after removing the equipment Pareto section (`Pending_Pickup_Macro.bas:537-542`).
 - **19:15:00** — Added AGENTS.md rule (section 9) requiring all existing PNGs in `documentation/screenshots/` to be deleted before each test run so screenshots always reflect the latest report output, never a stale mix.
 - **19:14:00** — Updated `scripts/snapshot-report.ps1` to delete every existing PNG in `documentation/screenshots/` before regenerating them from the current report run.
 - **19:03:00** — Verified compilation via Excel COM automation: `Pending_Pickup_Macro.bas` imports into a fresh `PendingPickupReport` module with no syntax or compile errors.

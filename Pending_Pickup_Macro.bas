@@ -534,12 +534,10 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     Dim cs As Object
     Dim chartNames() As String, chartVals() As Double
     Dim mi As Long, mj As Long, sortTmp As String, sortTmpVal As Double
-    Dim agingTitleRow As Long, eqTitleRow As Long, eqRow As Long
+    Dim agingTitleRow As Long
     Dim bucketLabels(1 To 5) As String, bucketCounts(1 To 5) As Long
-    Dim eqCol As Long, eqAgg As Object, eqKeys As Variant, eqName As String
     Dim agg As Variant, dt As Date, ageD As Long, srcRow As Long
-    Dim aAgg As Variant, bAgg As Variant
-    Dim k As Long, sTmp As Variant
+    Dim k As Long
 
     ws.Cells.Clear
     ws.Columns("A:J").ColumnWidth = 14
@@ -624,12 +622,13 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         End If
     Next i
 
-    ' Uniform dashboard KPI grid: cards span the same A:K width as the manager table.
+    ' Uniform dashboard KPI grid: all cards span equal 2-column widths (A:J)
+    ' so cards align vertically with each other and with the manager table below.
     AddDashboardCard ws, "A4:B6", "CURRENT", "Pending Pickups", currentCount, RGB(255, 242, 204)
     AddDashboardCard ws, "C4:D6", "PRIOR", "Pending Pickups", IIf(hasPrior, priorCount, "N/A"), RGB(221, 235, 247)
     AddDashboardCard ws, "E4:F6", "NEW", "Since Prior Report", IIf(hasPrior, newCount, "N/A"), RGB(226, 239, 218)
     AddDashboardCard ws, "G4:H6", "CLEARED", "Since Prior Report", IIf(hasPrior, clearedCount, "N/A"), RGB(244, 204, 204)
-    AddDashboardCard ws, "I4:K6", "STILL PENDING", "In Both Reports", IIf(hasPrior, stillCount, "N/A"), RGB(217, 234, 247)
+    AddDashboardCard ws, "I4:J6", "STILL PENDING", "In Both Reports", IIf(hasPrior, stillCount, "N/A"), RGB(217, 234, 247)
 
     AddDashboardCard ws, "A8:B10", "% CHANGE", "From Prior Report", pctChange, RGB(234, 209, 220)
     If hasPrior And priorCount > 0 Then
@@ -639,7 +638,7 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     AddDashboardCard ws, "C8:D10", "30+ DAYS", "Older Pending Pickups", age30Count, RGB(244, 204, 204)
     AddDashboardCard ws, "E8:F10", "60+ DAYS", "Older Pending Pickups", age60Count, RGB(234, 153, 153)
     AddDashboardCard ws, "G8:H10", "90+ DAYS", "Older Pending Pickups", age90Count, RGB(224, 102, 102)
-    AddDashboardCard ws, "I8:K10", "MISSING DATE", "AUDIT: TP End Date", missingDateCount, RGB(255, 242, 204)
+    AddDashboardCard ws, "I8:J10", "MISSING DATE", "AUDIT: TP End Date", missingDateCount, RGB(255, 242, 204)
 
     ' Manager breakdown: clickable manager names plus useful manager-level metrics.
     ws.Range("A12:K12").Merge
@@ -823,80 +822,6 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(31, 78, 121)
     End With
 
-    ' Equipment Pareto: pending count and average age by consumable type.
-    eqCol = FindHeaderColumnFromArray(currentData, "Consumable Type")
-    eqTitleRow = agingTitleRow + 10
-    ws.Range(ws.Cells(eqTitleRow, 1), ws.Cells(eqTitleRow, 11)).Merge
-    ws.Cells(eqTitleRow, 1).Value = "PENDING BY EQUIPMENT TYPE"
-    StyleSectionHeader ws.Range(ws.Cells(eqTitleRow, 1), ws.Cells(eqTitleRow, 11))
-    ws.Cells(eqTitleRow + 1, 1).Value = "Consumable Type"
-    ws.Cells(eqTitleRow + 1, 2).Value = "Current"
-    ws.Cells(eqTitleRow + 1, 3).Value = "Avg Age"
-    StyleTableHeader ws.Range(ws.Cells(eqTitleRow + 1, 1), ws.Cells(eqTitleRow + 1, 3))
-
-    Set eqAgg = CreateObject("Scripting.Dictionary")
-    eqAgg.CompareMode = vbTextCompare
-    If eqCol > 0 Then
-        For i = 1 To pendingRows.Count
-            srcRow = CLng(pendingRows(i))
-            eqName = Trim$(CStr(currentData(srcRow, eqCol)))
-            If Len(eqName) = 0 Then eqName = "(Unknown)"
-            If Not eqAgg.Exists(eqName) Then eqAgg.Add eqName, Array(0#, 0#, 0#)
-            agg = eqAgg(eqName)
-            agg(0) = agg(0) + 1
-            If TryGetExcelDate(currentData(srcRow, pickupDateCol), dt) Then
-                ageD = DateDiff("d", DateValue(dt), Date)
-                If ageD < 0 Then ageD = 0
-                agg(1) = agg(1) + ageD
-                agg(2) = agg(2) + 1
-            End If
-            eqAgg(eqName) = agg
-        Next i
-
-        If eqAgg.Count > 0 Then
-            eqKeys = eqAgg.Keys
-            For i = LBound(eqKeys) To UBound(eqKeys) - 1
-                For k = i + 1 To UBound(eqKeys)
-                    aAgg = eqAgg(eqKeys(i))
-                    bAgg = eqAgg(eqKeys(k))
-                    If bAgg(0) > aAgg(0) Then
-                        sTmp = eqKeys(i): eqKeys(i) = eqKeys(k): eqKeys(k) = sTmp
-                    End If
-                Next k
-            Next i
-
-            eqRow = eqTitleRow + 2
-            For i = LBound(eqKeys) To UBound(eqKeys)
-                eqName = CStr(eqKeys(i))
-                agg = eqAgg(eqName)
-                ws.Cells(eqRow, 1).Value = eqName
-                ws.Cells(eqRow, 2).Value = agg(0)
-                If agg(2) > 0 Then
-                    ws.Cells(eqRow, 3).Value = agg(1) / agg(2)
-                Else
-                    ws.Cells(eqRow, 3).Value = "N/A"
-                End If
-                ws.Cells(eqRow, 3).NumberFormat = "0.0"
-                eqRow = eqRow + 1
-            Next i
-            StyleDashboardTable ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 3))
-
-            Set chartObj = ws.ChartObjects.Add(ws.Cells(eqTitleRow + 1, 5).Left, ws.Cells(eqTitleRow + 1, 1).Top, 560, 260)
-            With chartObj.Chart
-                .ChartType = xlColumnClustered
-                .SeriesCollection.NewSeries
-                .SeriesCollection(1).Values = ws.Range(ws.Cells(eqTitleRow + 2, 2), ws.Cells(eqRow - 1, 2))
-                .SeriesCollection(1).XValues = ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 1))
-                .SeriesCollection(1).Name = "Pending Pickups"
-                .HasTitle = True
-                .ChartTitle.Text = "Pending Pickups by Equipment Type"
-                .HasLegend = False
-                .Axes(xlCategory).TickLabels.Font.Size = 9
-                .Axes(xlValue).TickLabels.Font.Size = 9
-                .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(31, 78, 121)
-            End With
-        End If
-    End If
 
     ws.Tab.Color = RGB(31, 78, 121)
     With ws.PageSetup
