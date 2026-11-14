@@ -5,6 +5,10 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **16:50:00** — Fixed screenshot capture: rewrote `scripts/snapshot-report.ps1` using the working PM Project technique (standalone Chart sheet, `xlBitmap` CopyPicture format 2, sleep after paste) so screenshots capture real data instead of blank/garbled output. All 12 sheets (Dashboard, 10 manager tabs, Raw Data) now export as valid PNGs (458KB-2MB each).
+- **16:49:00** — Removed broken VBA screenshot export code (`ExportSheetAsPng`, `ExportAllSheetsPng`) from `Pending_Pickup_Macro.bas`; screenshots now handled purely from PowerShell via `snapshot-report.ps1`.
+- **16:48:00** — Major root README.md overhaul: detailed GitHub landing page with app workflow (5 steps), repository layout, output specification, KPI definitions (dashboard + manager tabs), comparison logic, aging definition, requirements, distribution notes, and embedded screenshots for Dashboard, all 10 manager tabs, and Raw Data.
+- **16:47:00** — Replaced 13 old broken PNGs (0-byte / garbled) in `documentation/screenshots/` with 12 new screenshots captured from a live report run using real test data, named `report-*.png`.
 - **16:35:00** — Overhauled dashboard and manager tab KPI cards with descriptive labels (e.g. "CURRENT" → "CURRENT PERIOD", "30+ DAYS" → "AGING 30+ DAYS", "AVG AGE" → "AVERAGE PICKUP AGE", "% 30+" → "% OVER 30 DAYS") and a cohesive color palette (blue for counts, red gradient for aging, amber for missing dates, green for new, purple for %) (`Pending_Pickup_Macro.bas:627-641,939-948`).
 - **16:34:00** — Improved spacing on manager tabs: KPI card row heights increased from 26 to 34, data row heights from 22 to 24, min column width from 12 to 14, KPI card font sizes increased (label 9→10, value 20→22) (`Pending_Pickup_Macro.bas:881-891,973-975,1091,1150`).
 - **16:33:00** — Improved dashboard spacing: KPI card row heights from 30 to 34, data row heights from 22 to 24 (`Pending_Pickup_Macro.bas:738,741`).

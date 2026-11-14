@@ -1,76 +1,111 @@
 # snapshot-report.ps1
 # Exports every sheet (Dashboard, manager tabs, Raw Data) of a generated
 # Pending Pickup report as a PNG into documentation\scripts\screenshots\.
-# Uses CopyPicture -> temp ChartObject -> Chart.Export so whole sheets are
-# captured as images for the README.
+# Uses CopyPicture -> standalone Chart sheet -> Chart.Export so whole sheets are
+# captured as images for the README. Defaults to the newest workbook in Reports\.
 param(
-    [string]$Report = (Join-Path (Split-Path -Parent $PSScriptRoot) "Reports\Pending Pickup 2026-11-14.xlsx"),
-    [string]$OutDir = (Join-Path (Split-Path -Parent $PSScriptRoot) "documentation\screenshots")
+    [string]   $Path,
+    [string[]] $Sheets,
+    [string]   $OutFolder,
+    [string]   $Prefix = "report",
+    [switch]   $List
 )
 $ErrorActionPreference = "Stop"
-if (-not (Test-Path -LiteralPath $Report)) { throw "Report not found: $Report" }
-if (-not (Test-Path -LiteralPath $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
+
+if (-not $Path) {
+    $candidates = @(Get-ChildItem -LiteralPath (Join-Path $ProjectRoot "Reports") -Filter "*.xlsx" -File -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime -Descending)
+    if ($candidates.Count -eq 0) {
+        Write-Host "No workbook given and Reports\ holds no .xlsx. Pass -Path." -ForegroundColor Red
+        exit 2
+    }
+    $Path = $candidates[0].FullName
+    Write-Host "Using newest report: $Path" -ForegroundColor DarkGray
+}
+
+if (-not (Test-Path -LiteralPath $Path)) {
+    Write-Host "Workbook not found: $Path" -ForegroundColor Red
+    exit 2
+}
+$Path = (Resolve-Path -LiteralPath $Path).Path
+
+if (-not $OutFolder) { $OutFolder = Join-Path $ProjectRoot "documentation\screenshots" }
+if (-not (Test-Path -LiteralPath $OutFolder)) { New-Item -ItemType Directory -Path $OutFolder | Out-Null }
+
 # Always start fresh: delete every existing PNG so committed screenshots
 # reflect only the latest report run, never a stale mix of old/new sheets.
-Get-ChildItem -LiteralPath $OutDir -Filter *.png -File | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem -LiteralPath $OutFolder -Filter *.png -File | Remove-Item -Force -ErrorAction SilentlyContinue
 
-Add-Type -AssemblyName System.Windows.Forms
-$excel = New-Object -ComObject Excel.Application
-$excel.Visible = $false
-$excel.DisplayAlerts = $false
-$excel.AutomationSecurity = 3
+function Save-SheetImage {
+    param($Workbook, $Worksheet, [string]$PngPath)
+
+    $used = $Worksheet.UsedRange
+    $range = $Worksheet.Range($Worksheet.Cells(1, 1), $Worksheet.Cells($used.Row + $used.Rows.Count - 1, $used.Column + $used.Columns.Count - 1))
+    $range.CopyPicture(1, 2) | Out-Null   # xlScreen=1, xlBitmap=2
+
+    $chart = $Workbook.Charts.Add()
+    try {
+        $chart.Paste() | Out-Null
+        Start-Sleep -Milliseconds 250
+        if (Test-Path -LiteralPath $PngPath) { Remove-Item -LiteralPath $PngPath -Force }
+        $chart.Export($PngPath)
+    }
+    finally {
+        $chart.Delete()
+    }
+}
+
+Get-Process EXCEL -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+$xl = New-Object -ComObject Excel.Application
+$xl.Visible = $false
+$xl.DisplayAlerts = $false
+$xl.AutomationSecurity = 3
+$wb = $null
+$exported = 0
 try {
-    $wb = $excel.Workbooks.Open($Report)
-    $outFiles = @()
-    foreach ($ws in $wb.Worksheets) {
-        $name = $ws.Name
-        $safe = $name -replace '[\\/:*?"<>|]', '_'
-        $png = Join-Path $OutDir "$safe.png"
-        try {
-            $ws.Activate() | Out-Null
-            $used = $ws.UsedRange
-            if ($used.Cells.Count -eq 1 -and [string]::IsNullOrWhiteSpace($used.Value2)) {
-                Write-Host "SKIP empty sheet: $name"
-                continue
-            }
-            $copied = $false
-            for ($attempt = 1; $attempt -le 3 -and -not $copied; $attempt++) {
-                try {
-                    $null = $used.CopyPicture(1, 1)
-                    $copied = $true
-                }
-                catch {
-                    Start-Sleep -Milliseconds 200
-                }
-            }
-            if (-not $copied) { throw "CopyPicture failed after 3 attempts" }
-            $rows = [int]$used.Rows.Count
-            $cols = [int]$used.Columns.Count
-            $w = [Math]::Max(800, $cols * 70)
-            $h = [Math]::Max(600, $rows * 22)
-            # xlColumnClustered = -4109
-            $shp = $ws.Shapes.AddChart(-4109, 0, 0, $w, $h)
-            $cht = $shp.Chart
-            try {
-                $cht.Paste()
-                $cht.Export($png)
-                $outFiles += $png
-                Write-Host "EXPORTED $name -> $png"
-            }
-            finally {
-                $shp.Delete()
-            }
-        }
-        catch {
-            Write-Host "SKIP (failed) $name : $($_.Exception.Message)"
+    $wb = $xl.Workbooks.Open($Path, $false, $true)
+
+    if ($List -or -not $Sheets) {
+        Write-Host "Sheets in $(Split-Path -Leaf $Path):"
+        foreach ($s in $wb.Worksheets) {
+            $u = $s.UsedRange
+            Write-Host ("  {0,-28} used {1}" -f $s.Name, $u.Address(0, 0))
         }
     }
-    $wb.Close($false)
-    Write-Host "=== Exported $($outFiles.Count) sheet PNGs to $OutDir ==="
+
+    $targets = @()
+    if ($Sheets) {
+        foreach ($name in $Sheets) {
+            $found = $null
+            foreach ($s in $wb.Worksheets) { if ($s.Name -eq $name) { $found = $s; break } }
+            if ($found) { $targets += $found }
+            else { Write-Host "Sheet not found, skipped: $name" -ForegroundColor Yellow }
+        }
+    }
+    else {
+        $targets = @($wb.Worksheets)
+    }
+
+    foreach ($ws in $targets) {
+        $safe = ($ws.Name -replace "[^\w\-]+", "-").Trim("-").ToLower()
+        $png = Join-Path $OutFolder ("{0}-{1}.png" -f $Prefix, $safe)
+        Save-SheetImage -Workbook $wb -Worksheet $ws -PngPath $png
+        $kb = [math]::Round((Get-Item -LiteralPath $png).Length / 1KB, 1)
+        Write-Host ("  exported {0}  ({1} KB)" -f $png, $kb) -ForegroundColor Green
+        $exported++
+    }
 }
 finally {
-    $excel.Quit()
-    [void][System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel)
+    if ($wb) { $wb.Close($false) }
+    $xl.Quit()
+    [System.Runtime.InteropServices.Marshal]::ReleaseComObject($xl) | Out-Null
+    Get-Process EXCEL -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 }
-[System.GC]::Collect()
-[System.GC]::WaitForPendingFinalizers()
+
+if ($exported -eq 0 -and -not $List -and $Sheets) {
+    Write-Host "Nothing exported." -ForegroundColor Red
+    exit 3
+}
+exit 0
