@@ -978,6 +978,7 @@ Private Sub ApplyRepBanding(ws As Worksheet, firstRow As Long, lastRow As Long, 
     Dim r As Long, repName As String, priorRep As String
     Dim useAlt As Boolean
     If firstRow > lastRow Or repCol <= 0 Then Exit Sub
+    On Error Resume Next
     priorRep = ""
     useAlt = False
     For r = firstRow To lastRow
@@ -994,6 +995,7 @@ Private Sub ApplyRepBanding(ws As Worksheet, firstRow As Long, lastRow As Long, 
         End If
         priorRep = repName
     Next r
+    On Error GoTo 0
 End Sub
 
 Private Sub ApplyAgeWarningFont(ws As Worksheet, firstRow As Long, lastRow As Long, ageCol As Long)
@@ -1014,6 +1016,7 @@ End Sub
 Private Sub HighlightMissingPickupDates(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal pickupDateCol As Long)
     Dim r As Long, v As Variant, dt As Date
     If pickupDateCol <= 0 Or firstRow > lastRow Then Exit Sub
+    On Error Resume Next
     For r = firstRow To lastRow
         v = ws.Cells(r, pickupDateCol).Value
         If Len(Trim$(CStr(v))) = 0 Or Not TryGetExcelDate(v, dt) Then
@@ -1024,11 +1027,13 @@ Private Sub HighlightMissingPickupDates(ws As Worksheet, ByVal firstRow As Long,
             End With
         End If
     Next r
+    On Error GoTo 0
 End Sub
 
 Private Sub FormatYesNoColumns(ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal lastCol As Long)
     Dim c As Long, r As Long, h As String, v As String
     If lastRow <= headerRow Then Exit Sub
+    On Error Resume Next
     For c = 1 To lastCol
         h = LCase$(Trim$(CStr(ws.Cells(headerRow, c).Value)))
         If InStr(1, h, "no rental equipment provided", vbTextCompare) > 0 Then
@@ -1052,6 +1057,7 @@ Private Sub FormatYesNoColumns(ws As Worksheet, ByVal headerRow As Long, ByVal l
             Next r
         End If
     Next c
+    On Error GoTo 0
 End Sub
 
 Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
@@ -1166,15 +1172,19 @@ Private Function CalculateAverageAge(ByRef data As Variant, ByVal rowsToUse As C
         CalculateAverageAge = "N/A"
         Exit Function
     End If
+    On Error Resume Next
     For i = 1 To rowsToUse.Count
         srcRow = CLng(rowsToUse(i))
-        If TryGetExcelDate(data(srcRow, pickupDateCol), dt) Then
-            ageDays = DateDiff("d", DateValue(dt), Date)
-            If ageDays < 0 Then ageDays = 0
-            totalAge = totalAge + ageDays
-            countAge = countAge + 1
+        If srcRow >= 1 And srcRow <= UBound(data, 1) Then
+            If TryGetExcelDate(data(srcRow, pickupDateCol), dt) Then
+                ageDays = DateDiff("d", DateValue(dt), Date)
+                If ageDays < 0 Then ageDays = 0
+                totalAge = totalAge + ageDays
+                countAge = countAge + 1
+            End If
         End If
     Next i
+    On Error GoTo 0
     If countAge = 0 Then
         CalculateAverageAge = "N/A"
     Else
@@ -1186,11 +1196,15 @@ Private Function CountNewManagerRows(ByRef data As Variant, ByVal rowsToUse As C
     Dim i As Long, srcRow As Long, key As String, countNew As Long
     If newKeys Is Nothing Then Exit Function
     If newKeys.Count = 0 Then Exit Function
+    On Error Resume Next
     For i = 1 To rowsToUse.Count
         srcRow = CLng(rowsToUse(i))
-        key = GetRecordKey(data, srcRow, keyCol, nameCol, srcRow)
-        If newKeys.Exists(key) Then countNew = countNew + 1
+        If srcRow >= 1 And srcRow <= UBound(data, 1) Then
+            key = GetRecordKey(data, srcRow, keyCol, nameCol, srcRow)
+            If newKeys.Exists(key) Then countNew = countNew + 1
+        End If
     Next i
+    On Error GoTo 0
     CountNewManagerRows = countNew
 End Function
 
@@ -1202,29 +1216,37 @@ Private Sub CalculateAgingStats(ByRef data As Variant, ByVal rowsToUse As Collec
         missingDate = rowsToUse.Count
         Exit Sub
     End If
+    On Error Resume Next
     For i = 1 To rowsToUse.Count
         srcRow = CLng(rowsToUse(i))
-        If TryGetExcelDate(data(srcRow, pickupDateCol), dt) Then
-            ageDays = DateDiff("d", DateValue(dt), Date)
-            If ageDays < 0 Then ageDays = 0
-            If ageDays > 30 Then age30 = age30 + 1
-            If ageDays > 60 Then age60 = age60 + 1
-            If ageDays > 90 Then age90 = age90 + 1
+        If srcRow >= 1 And srcRow <= UBound(data, 1) Then
+            If TryGetExcelDate(data(srcRow, pickupDateCol), dt) Then
+                ageDays = DateDiff("d", DateValue(dt), Date)
+                If ageDays < 0 Then ageDays = 0
+                If ageDays > 30 Then age30 = age30 + 1
+                If ageDays > 60 Then age60 = age60 + 1
+                If ageDays > 90 Then age90 = age90 + 1
+            Else
+                missingDate = missingDate + 1
+            End If
         Else
             missingDate = missingDate + 1
         End If
     Next i
+    On Error GoTo 0
 End Sub
 
 Private Sub NormalizeDateColumn(ws As Worksheet, headerRow As Long, lastRow As Long, dateCol As Long)
     Dim r As Long, dt As Date
     If dateCol <= 0 Or lastRow <= headerRow Then Exit Sub
+    On Error Resume Next
     For r = headerRow + 1 To lastRow
         If TryGetExcelDate(ws.Cells(r, dateCol).Value, dt) Then
             ws.Cells(r, dateCol).Value = dt
         End If
     Next r
     ws.Range(ws.Cells(headerRow + 1, dateCol), ws.Cells(lastRow, dateCol)).NumberFormat = "mm/dd/yyyy"
+    On Error GoTo 0
 End Sub
 
 Private Sub ApplySourceDateFormats(ws As Worksheet, headerRow As Long, lastRow As Long, startDateCol As Long, pickupDateCol As Long)
@@ -1271,6 +1293,7 @@ Private Sub HighlightNewRecords(ws As Worksheet, firstRow As Long, lastRow As Lo
     Dim r As Long, i As Long, key As String
     If newKeys Is Nothing Then Exit Sub
     If newKeys.Count = 0 Then Exit Sub
+    On Error Resume Next
     For r = firstRow To lastRow
         i = r - firstRow + 1
         If i <= rowsToUse.Count Then
@@ -1283,16 +1306,21 @@ Private Sub HighlightNewRecords(ws As Worksheet, firstRow As Long, lastRow As Lo
             End If
         End If
     Next r
+    On Error GoTo 0
 End Sub
 
 Private Function BuildOutputArray(data As Variant, rowsToUse As Collection, lastCol As Long) As Variant
     Dim arr() As Variant, i As Long, c As Long, srcRow As Long
+    On Error Resume Next
     ReDim arr(1 To rowsToUse.Count + 1, 1 To lastCol)
     For c = 1 To lastCol: arr(1, c) = data(1, c): Next c
     For i = 1 To rowsToUse.Count
         srcRow = CLng(rowsToUse(i))
-        For c = 1 To lastCol: arr(i + 1, c) = data(srcRow, c): Next c
+        If srcRow >= 1 And srcRow <= UBound(data, 1) Then
+            For c = 1 To lastCol: arr(i + 1, c) = data(srcRow, c): Next c
+        End If
     Next i
+    On Error GoTo 0
     BuildOutputArray = arr
 End Function
 
@@ -1304,22 +1332,26 @@ Private Function SortManagerRowsBySalesRep(ByRef data As Variant, ByVal rowsToUs
         Set SortManagerRowsBySalesRep = result
         Exit Function
     End If
+    On Error Resume Next
     ReDim arr(1 To rowsToUse.Count)
     For i = 1 To rowsToUse.Count
         arr(i) = CLng(rowsToUse(i))
     Next i
     For i = LBound(arr) To UBound(arr) - 1
         For j = i + 1 To UBound(arr)
-            keyI = NormalizeText(CStr(data(arr(i), repCol))) & "|" & NormalizeText(CStr(data(arr(i), nameCol)))
-            keyJ = NormalizeText(CStr(data(arr(j), repCol))) & "|" & NormalizeText(CStr(data(arr(j), nameCol)))
-            If StrComp(keyI, keyJ, vbTextCompare) > 0 Then
-                tmp = arr(i): arr(i) = arr(j): arr(j) = tmp
+            If arr(i) >= 1 And arr(i) <= UBound(data, 1) And arr(j) >= 1 And arr(j) <= UBound(data, 1) Then
+                keyI = NormalizeText(CStr(data(arr(i), repCol))) & "|" & NormalizeText(CStr(data(arr(i), nameCol)))
+                keyJ = NormalizeText(CStr(data(arr(j), repCol))) & "|" & NormalizeText(CStr(data(arr(j), nameCol)))
+                If StrComp(keyI, keyJ, vbTextCompare) > 0 Then
+                    tmp = arr(i): arr(i) = arr(j): arr(j) = tmp
+                End If
             End If
         Next j
     Next i
     For i = LBound(arr) To UBound(arr)
         result.Add arr(i)
     Next i
+    On Error GoTo 0
     Set SortManagerRowsBySalesRep = result
 End Function
 
@@ -1327,6 +1359,7 @@ Private Sub SortManagerColumns(ByRef keepCols() As Long, ByVal keepCount As Long
     Dim i As Long, j As Long, tmp As Long
     Dim keyI As Long, keyJ As Long
     If keepCount <= 1 Then Exit Sub
+    On Error Resume Next
     For i = LBound(keepCols) To UBound(keepCols) - 1
         For j = i + 1 To UBound(keepCols)
             keyI = ManagerColumnRank(CStr(data(1, keepCols(i))), keepCols(i))
@@ -1336,6 +1369,7 @@ Private Sub SortManagerColumns(ByRef keepCols() As Long, ByVal keepCount As Long
             End If
         Next j
     Next i
+    On Error GoTo 0
 End Sub
 
 Private Function ManagerColumnRank(ByVal headerText As String, ByVal sourceCol As Long) As Long
@@ -1363,7 +1397,7 @@ Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse 
     Dim keepCols() As Long, keepCount As Long
     Dim arr() As Variant, i As Long, c As Long, srcRow As Long
     Dim headerText As String, pickupOutCol As Long, ageRef As String
-
+    On Error Resume Next
     keepCount = 0
     For c = 1 To lastCol
         headerText = Trim$(CStr(data(1, c)))
@@ -1390,9 +1424,11 @@ Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse 
     ' placeholder dates (before 2000) show as blank.
     For i = 1 To rowsToUse.Count
         srcRow = CLng(rowsToUse(i))
-        For c = 1 To keepCount
-            arr(i + 1, c) = data(srcRow, keepCols(c))
-        Next c
+        If srcRow >= 1 And srcRow <= UBound(data, 1) Then
+            For c = 1 To keepCount
+                arr(i + 1, c) = data(srcRow, keepCols(c))
+            Next c
+        End If
         If pickupOutCol > 0 Then
             ageRef = ColumnLetter(pickupOutCol) & (MANAGER_HEADER_ROW + i)
             arr(i + 1, keepCount + 1) = "=IF(AND(ISNUMBER(" & ageRef & "), " & ageRef & ">=DATE(2000,1,1)), TODAY() - " & ageRef & ", """")"
@@ -1400,6 +1436,7 @@ Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse 
             arr(i + 1, keepCount + 1) = ""
         End If
     Next i
+    On Error GoTo 0
     BuildManagerOutputArray = arr
 End Function
 
@@ -1427,12 +1464,14 @@ End Function
 
 Private Function FindHeaderColumnFromArray(ByRef data As Variant, ByVal headerText As String) As Long
     Dim c As Long
+    On Error Resume Next
     For c = 1 To UBound(data, 2)
         If StrComp(Trim$(CStr(data(1, c))), headerText, vbTextCompare) = 0 Then
             FindHeaderColumnFromArray = c
             Exit Function
         End If
     Next c
+    On Error GoTo 0
 End Function
 
 
@@ -1490,8 +1529,12 @@ End Function
 
 Private Function GetRecordKey(ByRef data As Variant, ByVal rowNum As Long, ByVal keyCol As Long, ByVal nameCol As Long, ByVal fallbackRow As Long) As String
     Dim s As String
-    If keyCol > 0 Then s = NormalizeText(CStr(data(rowNum, keyCol)))
-    If Len(s) = 0 And nameCol > 0 Then s = NormalizeText(CStr(data(rowNum, nameCol)))
+    On Error Resume Next
+    If rowNum >= 1 And rowNum <= UBound(data, 1) Then
+        If keyCol > 0 And keyCol <= UBound(data, 2) Then s = NormalizeText(CStr(data(rowNum, keyCol)))
+        If Len(s) = 0 And nameCol > 0 And nameCol <= UBound(data, 2) Then s = NormalizeText(CStr(data(rowNum, nameCol)))
+    End If
+    On Error GoTo 0
     If Len(s) = 0 Then s = "ROW-" & CStr(fallbackRow)
     GetRecordKey = s
 End Function
@@ -1548,6 +1591,7 @@ End Function
 
 Private Sub SortManagersByLastName(ByRef arr As Variant)
     Dim i As Long, j As Long, tmp As Variant
+    On Error Resume Next
     For i = LBound(arr) To UBound(arr) - 1
         For j = i + 1 To UBound(arr)
             If StrComp(ManagerSortKey(CStr(arr(i))), ManagerSortKey(CStr(arr(j))), vbTextCompare) > 0 Then
@@ -1555,6 +1599,7 @@ Private Sub SortManagersByLastName(ByRef arr As Variant)
             End If
         Next j
     Next i
+    On Error GoTo 0
 End Sub
 
 Private Function ManagerSortKey(ByVal fullName As String) As String
@@ -1566,11 +1611,13 @@ End Function
 
 Private Sub SortTextArray(ByRef arr As Variant)
     Dim i As Long, j As Long, tmp As Variant
+    On Error Resume Next
     For i = LBound(arr) To UBound(arr) - 1
         For j = i + 1 To UBound(arr)
             If StrComp(CStr(arr(i)), CStr(arr(j)), vbTextCompare) > 0 Then tmp = arr(i): arr(i) = arr(j): arr(j) = tmp
         Next j
     Next i
+    On Error GoTo 0
 End Sub
 
 Private Function EnsureMacroEnabledWorkbook() As Boolean
@@ -1650,7 +1697,6 @@ End Function
 Private Function SelectExcelFile(ByVal dialogTitle As String, ByVal initialFolder As String, ByVal suggestedFile As String, ByVal allowCancel As Boolean) As Variant
     Dim fd As FileDialog
     Dim initialName As String
-
     On Error GoTo Fail
     Set fd = Application.FileDialog(msoFileDialogFilePicker)
     With fd
@@ -1675,6 +1721,7 @@ Private Function SelectExcelFile(ByVal dialogTitle As String, ByVal initialFolde
     End With
     Exit Function
 Fail:
+    LogMsg "SelectExcelFile failed: " & Err.Description
     SelectExcelFile = False
 End Function
 
@@ -1716,8 +1763,8 @@ End Function
 
 Private Function BuildOutputPath(srcWb As Workbook) As String
     Dim folder As String, baseName As String, candidate As Variant
+    On Error GoTo Fail
     folder = GetSavedOutputFolder()
-
     If Len(folder) = 0 Or Len(Dir(folder, vbDirectory)) = 0 Then
         With Application.FileDialog(msoFileDialogFolderPicker)
             .Title = "Choose where finished Pending Pickup reports should be saved"
@@ -1727,13 +1774,16 @@ Private Function BuildOutputPath(srcWb As Workbook) As String
         End With
         SaveOutputFolder folder
     End If
-
     baseName = "Pending Pickup " & Format(Date, "yyyy-mm-dd") & ".xlsx"
     candidate = folder & Application.PathSeparator & baseName
     If Len(Dir(CStr(candidate))) > 0 Then
         candidate = folder & Application.PathSeparator & "Pending Pickup " & Format(Now, "yyyy-mm-dd_HHMMSS") & ".xlsx"
     End If
     BuildOutputPath = CStr(candidate)
+    Exit Function
+Fail:
+    LogMsg "BuildOutputPath failed: " & Err.Description
+    Err.Raise Err.Number, , "Output folder error: " & Err.Description
 End Function
 
 Private Function GetSavedOutputFolder() As String
