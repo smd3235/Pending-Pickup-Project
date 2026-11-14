@@ -4,8 +4,12 @@ probe_ran.txt
 _run_temp.xlsm
 
 # Generated reports are build artifacts; keep the Reports directory itself.
-Reports/*.xlsx
-Reports/~$*
+Reports/*
+!Reports/.gitkeep
+
+# Runtime diagnostics; keep the log directory itself.
+log/*
+!log/.gitkeep
 
 # Local test / scratch artifacts
 _dbg*

@@ -5,6 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **17:41:00** — Restored `Reports/` and `log/` as tracked project directories using `.gitkeep`. Generated reports and prior diagnostic log contents remain excluded as runtime artifacts; new logs and reports will be written into these folders when the harness or macro runs.
 - **17:39:00** — Removed generated `Reports/` workbooks, runtime `log/` files, `screen.png`, `_run_temp.xlsm`, and `probe_ran.txt` from the project directory. Updated `.gitignore` to keep generated report artifacts and runtime diagnostics out of version control.
 - **05:25:00** — Fixed "Type mismatch" runtime error in `ApplyAgeWarningFont` caused by `CDbl(v)` on formula
   strings (`=IF(...)`) in the Pickup Age column. Wrapped with `On Error Resume Next`.
