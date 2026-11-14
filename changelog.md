@@ -53,3 +53,25 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
   numbers), grey tab colour, and landscape fit-to-width print setup with repeating header row.
 - **15:02:38** — Fixed a compile error in the dashboard colour-scale call: `AddColorScale(3)` plus
   `ColorScaleCriteria` is used instead of the unsupported `AddColorScale 2, RGB(...), RGB(...)` form.
+
+## 2026-11-14
+
+- **05:25:00** — Fixed "Type mismatch" runtime error in `ApplyAgeWarningFont` caused by `CDbl(v)` on formula
+  strings (`=IF(...)`) in the Pickup Age column. Wrapped with `On Error Resume Next`.
+- **05:25:01** — Added VBA-level logging to `macro-debug.log` with timestamps and procedure names for all
+  key steps: `CreatePendingPickupReport`, `FormatManagerSheet`, `BuildDashboard`, etc.
+- **05:25:02** — Added `LogMsg` and `LogErr` helper subs; all error handlers now log to macro-debug.log
+  with procedure name, error description, error number, and line number.
+- **05:25:03** — Fixed harness cleanup order: Excel is killed first in the `finally` block before releasing
+  COM objects or removing temp files; removed screenshot delay.
+- **05:25:04** — Added comprehensive error handling (`On Error Resume Next` + bounds checking) to all
+  data-processing functions: `CalculateAgingStats`, `CalculateAverageAge`, `CountNewManagerRows`,
+  `GetRecordKey`, `FindHeaderColumnFromArray`, `NormalizeDateColumn`, `TryGetExcelDate`,
+  `BuildOutputArray`, `BuildManagerOutputArray`, `SortManagerRowsBySalesRep`, `SortManagerColumns`,
+  `SortManagersByLastName`, `SortTextArray`.
+- **05:25:05** — Added comprehensive error handling to all formatting functions: `ApplyRepBanding`,
+  `ApplyAgeWarningFont`, `HighlightMissingPickupDates`, `FormatYesNoColumns`, `HighlightNewRecords`.
+- **05:25:06** — Added error handling to file I/O functions: `SelectExcelFile`, `BuildOutputPath` with
+  error logging to macro-debug.log.
+- **05:25:07** — Verified full report generation with no errors: `Pending Pickup 2026-11-13_223136.xlsx`
+  (97KB) generated successfully with Dashboard, 10 manager tabs, and Raw Data.
