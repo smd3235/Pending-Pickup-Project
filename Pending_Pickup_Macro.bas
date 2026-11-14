@@ -1,5 +1,6 @@
 Attribute VB_Name = "PendingPickupReport"
 Option Explicit
+Const ENABLE_ERL As Boolean = True
 
 ' ============================================================
 ' PENDING PICKUP REPORT BUILDER - v1.0
@@ -19,6 +20,20 @@ Private Const START_DATE_HEADER As String = "Start Date"
 Private Const PENDING_TEXT As String = "Pending Pickup"
 Private Const MACRO_VERSION As String = "1.0"
 Private Const MANAGER_HEADER_ROW As Long = 16
+Private Const LOG_PATH As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\macro-debug.log"
+
+Private Sub LogMsg(ByVal msg As String)
+    Dim f As Integer
+    On Error Resume Next
+    f = FreeFile
+    Open LOG_PATH For Append As #f
+    Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & msg
+    Close #f
+End Sub
+
+Private Sub LogErr(ByVal procName As String)
+    LogMsg "ERROR in " & procName & ": " & Err.Description & " (Err=" & Err.Number & ", Line=" & Erl & ")"
+End Sub
 
 Private Sub SetupPendingPickupButton()
     Dim ws As Worksheet, shp As Shape, btn As Shape
@@ -59,6 +74,9 @@ ButtonFail:
 End Sub
 
 Public Sub CreatePendingPickupReport()
+    #If ENABLE_ERL Then
+    On Error GoTo CleanFail
+    #End If
     Dim srcWb As Workbook, sourceWb As Workbook, raw As Worksheet, prior As Worksheet, priorWb As Workbook, outWb As Workbook
     Dim currentData As Variant, priorData As Variant
     Dim currentRows As Collection, priorRows As Collection
@@ -88,7 +106,10 @@ Public Sub CreatePendingPickupReport()
     Dim reportStamp As String, sourceName As String
     Dim stillByManager As Object, clearedByManager As Object
 
+    #If Not ENABLE_ERL Then
     On Error GoTo CleanFail
+    #End If
+    LogMsg "=== CreatePendingPickupReport started ==="
     oldCalc = Application.Calculation
     oldScreen = Application.ScreenUpdating
     oldEvents = Application.EnableEvents
@@ -100,6 +121,7 @@ Public Sub CreatePendingPickupReport()
     ' The master must be .xlsm so the imported VBA module is retained.
     If Not EnsureMacroEnabledWorkbook() Then Exit Sub
     Set srcWb = ThisWorkbook
+    LogMsg "EnsureMacroEnabledWorkbook OK"
 
     ' Select the CURRENT source report. Nothing needs to be pasted into the master.
     Application.StatusBar = "Select the current All Open Treatment Plans report..."
@@ -110,6 +132,7 @@ Public Sub CreatePendingPickupReport()
         "", _
         False)
     If currentPath = False Then
+        LogMsg "No current file selected"
         MsgBox "No current source file was selected. The report was not run.", vbExclamation
         GoTo CleanExit
     End If
@@ -118,6 +141,7 @@ Public Sub CreatePendingPickupReport()
         GoTo CleanExit
     End If
     SaveFolderSetting "CurrentFolder", CStr(currentPath)
+    LogMsg "CURRENT selected: " & currentPath
 
     Application.StatusBar = "Opening current source report..."
     Set sourceWb = Workbooks.Open(Filename:=CStr(currentPath), ReadOnly:=True, UpdateLinks:=False)
@@ -125,18 +149,22 @@ Public Sub CreatePendingPickupReport()
     sourceName = sourceWb.Name
     Set raw = FindPriorSourceSheet(sourceWb)
     If raw Is Nothing Then
+        LogMsg "FindPriorSourceSheet returned Nothing"
         MsgBox "I could not find the required headers in the selected current source file." & vbCrLf & vbCrLf & _
                "Required: " & MANAGER_HEADER & ", " & STATUS_HEADER & ", " & REP_HEADER & ", " & NAME_HEADER, vbCritical
         GoTo CleanExit
     End If
+    LogMsg "Source sheet: " & raw.Name
 
     headerRow = FindHeaderRow(raw)
     If headerRow = 0 Then
+        LogMsg "FindHeaderRow returned 0"
         MsgBox "I could not find the required headers on Raw Data:" & vbCrLf & _
                "• " & MANAGER_HEADER & vbCrLf & "• " & STATUS_HEADER & vbCrLf & _
                "• " & REP_HEADER & vbCrLf & "• " & NAME_HEADER, vbCritical
         GoTo CleanExit
     End If
+    LogMsg "Header row: " & headerRow
 
     managerCol = FindHeaderColumn(raw, headerRow, MANAGER_HEADER)
     statusCol = FindHeaderColumn(raw, headerRow, STATUS_HEADER)
@@ -148,6 +176,7 @@ Public Sub CreatePendingPickupReport()
 
     lastRow = LastUsedRow(raw)
     lastCol = LastUsedColumn(raw)
+    LogMsg "lastRow=" & lastRow & " lastCol=" & lastCol
     If lastRow <= headerRow Then
         MsgBox "There are no current data rows to process.", vbInformation
         GoTo CleanExit
@@ -160,10 +189,14 @@ Public Sub CreatePendingPickupReport()
     Application.StatusBar = "Preparing current Pending Pickup data..."
 
     ' Convert recognizable text dates to real Excel dates and apply date formats.
+    LogMsg "NormalizeDateColumn start"
     NormalizeDateColumn raw, headerRow, lastRow, startDateCol
     NormalizeDateColumn raw, headerRow, lastRow, pickupDateCol
+    LogMsg "NormalizeDateColumn done"
 
+    LogMsg "Value2 start"
     currentData = raw.Range(raw.Cells(headerRow, 1), raw.Cells(lastRow, lastCol)).Value2
+    LogMsg "Value2 done rows=" & UBound(currentData, 1)
     Set currentRows = New Collection
     Set currentByKey = CreateObject("Scripting.Dictionary")
     currentByKey.CompareMode = vbTextCompare
@@ -198,6 +231,7 @@ Public Sub CreatePendingPickupReport()
     Next r
 
     currentCount = currentRows.Count
+    LogMsg "currentCount=" & currentCount & " managers=" & managerNames.Count
     If currentCount = 0 Then
         MsgBox "No rows were found where Treatment Status contains '" & PENDING_TEXT & "'.", vbInformation
         GoTo CleanExit
@@ -211,6 +245,7 @@ Public Sub CreatePendingPickupReport()
     Application.StatusBar = "Select the prior Pending Pickup report..."
     Dim priorSuggested As String
     priorSuggested = FindMostRecentPendingPickupReport(GetSavedFolder("PriorFolder"), srcWb.FullName)
+    LogMsg "PRIOR picker (suggested: " & priorSuggested & ")"
     priorPath = SelectExcelFile( _
         "Select the PRIOR Pending Pickup report (Cancel for no comparison)", _
         GetSavedFolder("PriorFolder"), _
@@ -218,7 +253,9 @@ Public Sub CreatePendingPickupReport()
         True)
 
     hasPrior = False
+    LogMsg "priorPath=False? " & (priorPath = False)
     If priorPath <> False Then
+        LogMsg "priorPath selected: " & priorPath
         SaveFolderSetting "PriorFolder", CStr(priorPath)
         If StrComp(CStr(priorPath), srcWb.FullName, vbTextCompare) = 0 Then
             MsgBox "The selected prior report is the current master workbook. Please select the older report file instead.", vbExclamation
@@ -259,6 +296,7 @@ Public Sub CreatePendingPickupReport()
     stillCount = 0
     newCount = 0
     clearedCount = 0
+    LogMsg "priorCount=" & priorCount & " hasPrior=" & hasPrior
 
     If hasPrior Then
         For Each key In currentByKey.Keys
@@ -308,6 +346,7 @@ Public Sub CreatePendingPickupReport()
     End If
 
     CalculateAgingStats currentData, currentRows, pickupDateCol, age30Count, age60Count, age90Count, missingDateCount
+    LogMsg "Aging: 30=" & age30Count & " 60=" & age60Count & " 90=" & age90Count & " missing=" & missingDateCount
 
     raw.Range(raw.Cells(headerRow, 1), raw.Cells(lastRow, lastCol)).Columns.AutoFit
     ApplySourceDateFormats raw, headerRow, lastRow, startDateCol, pickupDateCol
@@ -315,12 +354,14 @@ Public Sub CreatePendingPickupReport()
     Set outWb = Workbooks.Add(xlWBATWorksheet)
     Set dashboard = outWb.Worksheets(1)
     dashboard.Name = "Dashboard"
+    LogMsg "Output workbook created"
 
     managers = managerNames.Keys
     If managerNames.Count > 1 Then SortManagersByLastName managers
 
     For i = LBound(managers) To UBound(managers)
         manager = CStr(managers(i))
+        LogMsg "Creating manager tab: " & manager
         Application.StatusBar = "Creating manager tab: " & manager
         Set ws = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
         ws.Name = SafeSheetName(manager, outWb)
@@ -334,17 +375,24 @@ Public Sub CreatePendingPickupReport()
         managerAgeCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, "Pickup Age (Days)")
         managerRepCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, REP_HEADER)
         FormatManagerSheet ws, manager, managerRows(manager).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, currentData, sortedManagerRows, newKeys, keyCol, nameCol, hasPrior
+        LogMsg "  ApplyDateFormatsToOutput: " & manager
         ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
+        LogMsg "  MatchSourceColumnWidthsForManager: " & manager
         MatchSourceColumnWidthsForManager raw, ws, lastCol
+        LogMsg "  manager tab done: " & manager
     Next i
+    LogMsg "All manager tabs done"
 
     ' Build the dashboard after manager sheets exist so manager names can link directly to their tabs.
+    LogMsg "BuildDashboard start"
     BuildDashboard dashboard, currentCount, priorCount, newCount, clearedCount, stillCount, _
                    age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, newKeys, keyCol, nameCol, pickupDateCol, _
                    overallAvgAge, reportStamp, sourceName, stillByManager, clearedByManager, currentRows
+    LogMsg "BuildDashboard done"
 
     Set rawOut = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
     rawOut.Name = "Raw Data"
+    LogMsg "Raw Data sheet created"
     arrRaw = BuildOutputArray(currentData, currentRows, lastCol)
     rawOut.Range(rawOut.Cells(1, 1), rawOut.Cells(UBound(arrRaw, 1), lastCol)).Value = arrRaw
     FormatRawData rawOut, lastCol, UBound(arrRaw, 1)
@@ -356,7 +404,9 @@ Public Sub CreatePendingPickupReport()
 
     Application.StatusBar = "Saving finished Pending Pickup report..."
     savePath = BuildOutputPath(srcWb)
+    LogMsg "Saving to: " & savePath
     outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbook
+    LogMsg "Save done"
 
     Application.StatusBar = False
     Dim openResult As VbMsgBoxResult
@@ -384,7 +434,8 @@ CleanExit:
     Exit Sub
 
 CleanFail:
-    errText = Err.Description
+    errText = Err.Description & " (at line " & Erl & ")"
+    LogMsg "FAILED: " & errText & " | Err=" & Err.Number
     On Error Resume Next
     Application.StatusBar = False
     Application.ScreenUpdating = oldScreen
@@ -395,6 +446,7 @@ CleanFail:
     If Not priorWb Is Nothing Then priorWb.Close SaveChanges:=False
     If Not sourceWb Is Nothing Then sourceWb.Close SaveChanges:=False
     On Error GoTo 0
+    LogMsg "=== CleanFail exit ==="
     MsgBox "The Pending Pickup report could not be created." & vbCrLf & errText, vbCritical
 End Sub
 
@@ -619,7 +671,11 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         ReDim chartVals(1 To tableLastRow - 13)
         For i = 1 To tableLastRow - 13
             chartNames(i) = CStr(ws.Cells(13 + i, 1).Value)
-            chartVals(i) = CDbl(ws.Cells(13 + i, 2).Value)
+            If IsNumeric(ws.Cells(13 + i, 2).Value) Then
+                chartVals(i) = CDbl(ws.Cells(13 + i, 2).Value)
+            Else
+                chartVals(i) = 0
+            End If
         Next i
         For mi = 1 To UBound(chartNames) - 1
             For mj = mi + 1 To UBound(chartNames)
@@ -721,43 +777,45 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
             eqAgg(eqName) = agg
         Next i
 
-        eqKeys = eqAgg.Keys
-        For i = LBound(eqKeys) To UBound(eqKeys) - 1
-            For k = i + 1 To UBound(eqKeys)
-                aAgg = eqAgg(eqKeys(i))
-                bAgg = eqAgg(eqKeys(k))
-                If bAgg(0) > aAgg(0) Then
-                    sTmp = eqKeys(i): eqKeys(i) = eqKeys(k): eqKeys(k) = sTmp
-                End If
-            Next k
-        Next i
+        If eqAgg.Count > 0 Then
+            eqKeys = eqAgg.Keys
+            For i = LBound(eqKeys) To UBound(eqKeys) - 1
+                For k = i + 1 To UBound(eqKeys)
+                    aAgg = eqAgg(eqKeys(i))
+                    bAgg = eqAgg(eqKeys(k))
+                    If bAgg(0) > aAgg(0) Then
+                        sTmp = eqKeys(i): eqKeys(i) = eqKeys(k): eqKeys(k) = sTmp
+                    End If
+                Next k
+            Next i
 
-        eqRow = eqTitleRow + 2
-        For i = LBound(eqKeys) To UBound(eqKeys)
-            eqName = CStr(eqKeys(i))
-            agg = eqAgg(eqName)
-            ws.Cells(eqRow, 1).Value = eqName
-            ws.Cells(eqRow, 2).Value = agg(0)
-            ws.Cells(eqRow, 3).Value = IIf(agg(2) > 0, agg(1) / agg(2), "N/A")
-            ws.Cells(eqRow, 3).NumberFormat = "0.0"
-            eqRow = eqRow + 1
-        Next i
-        StyleDashboardTable ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 3))
+            eqRow = eqTitleRow + 2
+            For i = LBound(eqKeys) To UBound(eqKeys)
+                eqName = CStr(eqKeys(i))
+                agg = eqAgg(eqName)
+                ws.Cells(eqRow, 1).Value = eqName
+                ws.Cells(eqRow, 2).Value = agg(0)
+                ws.Cells(eqRow, 3).Value = IIf(agg(2) > 0, agg(1) / agg(2), "N/A")
+                ws.Cells(eqRow, 3).NumberFormat = "0.0"
+                eqRow = eqRow + 1
+            Next i
+            StyleDashboardTable ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 3))
 
-        Set chartObj = ws.ChartObjects.Add(ws.Cells(eqTitleRow + 1, 5).Left, ws.Cells(eqTitleRow + 1, 1).Top, 560, 260)
-        With chartObj.Chart
-            .ChartType = xlColumnClustered
-            .SeriesCollection.NewSeries
-            .SeriesCollection(1).Values = ws.Range(ws.Cells(eqTitleRow + 2, 2), ws.Cells(eqRow - 1, 2))
-            .SeriesCollection(1).XValues = ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 1))
-            .SeriesCollection(1).Name = "Pending Pickups"
-            .HasTitle = True
-            .ChartTitle.Text = "Pending Pickups by Equipment Type"
-            .HasLegend = False
-            .Axes(xlCategory).TickLabels.Font.Size = 9
-            .Axes(xlValue).TickLabels.Font.Size = 9
-            .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(31, 78, 121)
-        End With
+            Set chartObj = ws.ChartObjects.Add(ws.Cells(eqTitleRow + 1, 5).Left, ws.Cells(eqTitleRow + 1, 1).Top, 560, 260)
+            With chartObj.Chart
+                .ChartType = xlColumnClustered
+                .SeriesCollection.NewSeries
+                .SeriesCollection(1).Values = ws.Range(ws.Cells(eqTitleRow + 2, 2), ws.Cells(eqRow - 1, 2))
+                .SeriesCollection(1).XValues = ws.Range(ws.Cells(eqTitleRow + 2, 1), ws.Cells(eqRow - 1, 1))
+                .SeriesCollection(1).Name = "Pending Pickups"
+                .HasTitle = True
+                .ChartTitle.Text = "Pending Pickups by Equipment Type"
+                .HasLegend = False
+                .Axes(xlCategory).TickLabels.Font.Size = 9
+                .Axes(xlValue).TickLabels.Font.Size = 9
+                .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(31, 78, 121)
+            End With
+        End If
     End If
 
     ws.Tab.Color = RGB(31, 78, 121)
@@ -829,10 +887,12 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     Dim age30 As Long, age60 As Long, age90 As Long, missingDate As Long
     Dim managerNewCount As Variant
     Dim lastDataRow As Long
-
-    CalculateAgingStats sourceData, rowsToUse, FindHeaderColumnFromArray(sourceData, PICKUP_DATE_HEADER), age30, age60, age90, missingDate
+    Dim pickupCol As Long
+    pickupCol = FindHeaderColumnFromArray(sourceData, PICKUP_DATE_HEADER)
+    LogMsg "FormatManagerSheet start: " & managerName & " pickupCol=" & pickupCol
+    CalculateAgingStats sourceData, rowsToUse, pickupCol, age30, age60, age90, missingDate
     Dim managerAvgAge As Variant
-    managerAvgAge = CalculateAverageAge(sourceData, rowsToUse, FindHeaderColumnFromArray(sourceData, PICKUP_DATE_HEADER))
+    managerAvgAge = CalculateAverageAge(sourceData, rowsToUse, pickupCol)
     Dim managerPct30 As Variant
     If rowsToUse.Count > 0 Then managerPct30 = age30 / CLng(rowsToUse.Count) Else managerPct30 = 0
 
@@ -841,6 +901,7 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     Else
         managerNewCount = "N/A"
     End If
+    LogMsg "FormatManagerSheet: " & managerName & " done stats"
 
     With ws.Range(ws.Cells(1, 1), ws.Cells(2, managerLastCol))
         .Merge
@@ -867,17 +928,25 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     If rowsToUse.Count > 0 Then ws.Range("A13:B14").NumberFormat = "0.0%"
 
     lastDataRow = LastUsedRow(ws)
+    LogMsg "  lastDataRow=" & lastDataRow
     If lastDataRow >= MANAGER_HEADER_ROW Then
+        LogMsg "  ApplyDataFormatting"
         ApplyDataFormatting ws, MANAGER_HEADER_ROW, lastDataRow, managerLastCol
+        LogMsg "  ApplyDateFormatsToOutput"
         ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, lastDataRow, managerStartDateCol, managerPickupDateCol
+        LogMsg "  ApplyAgeWarningFont"
         If managerAgeCol > 0 And lastDataRow >= MANAGER_HEADER_ROW + 1 Then
             ws.Range(ws.Cells(MANAGER_HEADER_ROW + 1, managerAgeCol), ws.Cells(lastDataRow, managerAgeCol)).NumberFormat = "0"
         End If
+        LogMsg "  ApplyRepBanding"
         ApplyRepBanding ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerLastCol, managerRepCol
         If hasPrior Then HighlightNewRecords ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerLastCol, sourceData, rowsToUse, newKeys, keyCol, nameCol
         If managerAgeCol > 0 Then ApplyAgeWarningFont ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerAgeCol
+        LogMsg "  HighlightMissingPickupDates"
         HighlightMissingPickupDates ws, MANAGER_HEADER_ROW + 1, lastDataRow, managerPickupDateCol
+        LogMsg "  FormatYesNoColumns"
         FormatYesNoColumns ws, MANAGER_HEADER_ROW, lastDataRow, managerLastCol
+        LogMsg "  formatting done"
     End If
 
     ' The data table is the exact same width as the KPI/header area.
@@ -932,11 +1001,13 @@ Private Sub ApplyAgeWarningFont(ws As Worksheet, firstRow As Long, lastRow As Lo
     If ageCol <= 0 Or firstRow > lastRow Then Exit Sub
     For r = firstRow To lastRow
         v = ws.Cells(r, ageCol).Value
-        If IsNumeric(v) And Len(Trim$(CStr(v))) > 0 And CDbl(v) > 30 Then
-            ws.Cells(r, ageCol).Font.Color = RGB(192, 0, 0)
+        On Error Resume Next
+        If IsNumeric(v) And Len(Trim$(CStr(v))) > 0 Then
+            If CDbl(v) > 30 Then ws.Cells(r, ageCol).Font.Color = RGB(192, 0, 0) Else ws.Cells(r, ageCol).Font.Color = RGB(0, 0, 0)
         Else
             ws.Cells(r, ageCol).Font.Color = RGB(0, 0, 0)
         End If
+        On Error GoTo 0
     Next r
 End Sub
 
