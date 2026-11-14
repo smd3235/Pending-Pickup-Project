@@ -33,7 +33,7 @@ $SectionSpecs = @{
     "documentation" = @{ Dir = "documentation";    Include = @("*.md", "*.ps1", "*.py");               Recursive = $false }
     "commands"      = @{ Dir = ".kilo\command";    Include = @("*.md");                                Recursive = $false }
     "vba"           = @{ Dir = ".";                Include = @("*.bas");                               Recursive = $false }
-    "rules"         = @{ Dir = ".";                Include = @("AGENTS.md");                           Recursive = $false }
+    "rules"         = @{ Dir = "documentation";    Include = @("AGENTS.md");                          Recursive = $false }
 }
 
 function Resolve-PeerRoot {

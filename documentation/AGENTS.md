@@ -79,7 +79,16 @@ Each entry must follow this format:
 6. Kill stray Excel processes.
 7. Commit and push.
 
-## 5. File Organization
+## 5. Cross-Project Audit (`audit-peer`)
+
+- **Run `scripts/audit-peer.ps1` to compare this project with the sibling PM Project.** Use `-Sections scripts,documentation,commands,vba,rules` to narrow the audit, `-PeerPath <path>` when the peer is not discovered automatically, and `-Report documentation/cross-audit.md` to save a dated Markdown report.
+- **The audit is strictly read-only on both projects.** It must not copy, modify, format, or synchronize files. Porting is a separate, explicitly approved task.
+- **Review both directions:** identify useful peer-only files and procedures, plus project-only material the peer may want. Do not recommend copying code that duplicates existing functionality or depends on the other project's data model without adaptation.
+- **Agent-rule changes must be reviewed separately.** Compare `documentation/AGENTS.md`, changelog conventions, testing rules, and deployment constraints; update this file only when a rule is actually adopted by this project.
+- **Any approved port must be adapted to this project's paths and data sources, then pass the full validation loop:** compile check, template synchronization, end-to-end report run, log review, changelog update, commit, and push.
+- **Never copy secrets, generated reports, runtime logs, or machine-specific temp paths during an audit.**
+
+## 6. File Organization
 
 - `Pending_Pickup_Macro.bas` — Main VBA module (source of truth).
 - `Pending Pickup Template.xlsm` — Template with embedded module and START HERE button.
@@ -95,9 +104,10 @@ Each entry must follow this format:
 - `scripts\test-compile.ps1` — Compile check.
 - `scripts\run-report.ps1` — Full report run harness.
 - `scripts\answer-dialogs.ps1` — Dialog auto-answerer.
+- `scripts\audit-peer.ps1` — Read-only cross-project audit of portable files, VBA procedures, commands, and agent rules.
 - `documentation/view-logs.ps1` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
 
-## 6. Version Control
+## 7. Version Control
 
 - **Never commit without explicit user request** unless following the mandatory commit rule above.
 - **Always stage only intended files** — never `git add -A` unless explicitly asked.
