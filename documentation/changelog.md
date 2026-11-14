@@ -5,8 +5,13 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **19:03:00** — Verified compilation via Excel COM automation: `Pending_Pickup_Macro.bas` imports into a fresh `PendingPickupReport` module with no syntax or compile errors.
+- **19:02:00** — Fixed a latent subscript error in `SaveFolderSetting`: `Left$(..., InStrRev(...)-1)` errored when the path had no separator; now guards `sep > 0` (`Pending_Pickup_Macro.bas:1820-1822`).
+- **19:01:00** — Fixed the Dashboard "% CHANGE" KPI card not applying its `0.0%` number format: the value was written via `CStr` (text), so it showed a raw decimal. It now writes the numeric `pctChange` into the value cell so it renders as a true percentage (`Pending_Pickup_Macro.bas:627-631`).
+- **19:00:00** — Fixed state leak in `CreatePendingPickupReport`: early exit when `EnsureMacroEnabledWorkbook()` fails now `GoTo CleanExit` instead of `Exit Function`, so `mInReportRun`, `mRunLogPath`, and Excel app state (ScreenUpdating, Calculation, Alerts, Events) are properly reset (`Pending_Pickup_Macro.bas:185`).
 - **18:49:00** — Documented the `audit-peer` workflow in `documentation/AGENTS.md`: require read-only cross-project audits, explicit approval before porting, separate agent-rule review, full validation after any port, and Markdown reports under `documentation/`; corrected the audit's rules section to read `documentation/AGENTS.md`.
 - **18:12:00** — Moved `AGENTS.md` into `documentation/` and updated the repository rule so all Markdown files, including agent instructions, are stored there rather than the project root.
+
 - **18:08:01** — Standardized every runtime log entry on full `yyyy-MM-dd HH:mm:ss` timestamps and added `documentation/view-logs.ps1` to reorder every runtime `.log` and `.txt` file newest first with dated headers.
 - **18:08:00** — Moved `README.md`, `changelog.md`, and both `aoti-logo-2023` source images into `documentation/`; updated documentation references and added the documentation-location rule for Markdown files.
 - **17:44:00** — Moved operational PowerShell harnesses into `scripts/` and changed their default paths to derive the project root from `$PSScriptRoot`; updated README and agent commands to use the new locations.

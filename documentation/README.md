@@ -229,7 +229,19 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ---
 
-## 11. Known issues / technical debt
+## 11. Screenshots
+
+QA screenshots of the generated report (Dashboard KPI cards, manager tabs, Raw Data) are stored in `documentation/`. Capture them after a successful `scripts\run-report.ps1` run by opening `Reports/Pending Pickup yyyy-mm-dd.xlsx` and screenshotting:
+
+- **Dashboard** — KPI cards, % CHANGE, manager table, aging breakdown, equipment Pareto.
+- **Manager tab** — KPI cards, rep-banded data table, freeze panes at the header row.
+- **Raw Data** — filtered pending rows with frozen header and date formats.
+
+No screenshots are committed yet; add them here as QA runs land.
+
+---
+
+## 12. Known issues / technical debt
 
 1. **Embedded VBA vs `.bas` source.** The `.xlsm` embeds its own compiled copy; editing the `.bas` does
    **not** update the template. After every `.bas` change, run `sync_template.ps1` (Excel + `AccessVBOM=1`)
@@ -252,7 +264,7 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ---
 
-## 12. Decisions & remaining questions
+## 13. Decisions & remaining questions
 
 **Confirmed with the business owner**
 
@@ -285,7 +297,7 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ---
 
-## 13. Changelog
+## 14. Changelog
 
 See [`documentation/changelog.md`](changelog.md) for the dated (`YYYY-MM-DD HH:MM:SS`) change log. Version `1.0` is the
 current baseline; the older per-version history that used to live in the module header has been retired

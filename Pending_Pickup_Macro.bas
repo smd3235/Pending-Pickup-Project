@@ -6,8 +6,29 @@ Const ENABLE_ERL As Boolean = True
 ' PENDING PICKUP REPORT BUILDER - v1.0
 ' Builds the Pending Pickup report from a current All Open Treatment Plans
 ' export and compares it against the prior month's Pending Pickup report.
+' ============================================================
 
 ' ============================================================
+' MAP OF THIS MODULE - snapshot of section starts and procedures.
+'
+'   #  SECTION                                      procedures
+'
+'   [  1] DECLARATIONS                              ENABLE_ERL, constants, mRunLogPath, mInReportRun
+'   [  2] LOGGING                                   LogMsg, LogErr, BuildRunLogPath, WriteCompletionMarker
+'   [  3] INTERACTIVE ENTRY                         SetupPendingPickupButton
+'   [  4] CORE / MAIN BUILDER                       CreatePendingPickupReport
+'   [  5] DASHBOARD                                 BuildDashboard, AddLogoFromTemplate, AddDashboardCard
+'   [  6] MANAGER SHEET FORMATTING                  FormatManagerSheet
+'   [  7] TABLE / ROW FORMATTING                    ApplyRepBanding, ApplyAgeWarningFont, HighlightMissingPickupDates, FormatYesNoColumns, SetManagerColumnWidths, FormatRawData, ApplyDataFormatting, StyleSectionHeader, StyleTableHeader, StyleDashboardTable
+'   [  8] METRICS / AGING HELPERS                   CountUniqueManagerRepsOnSheet, CalculateAverageAge, CountNewManagerRows, CalculateAgingStats
+'   [  9] DATE / TIME HELPERS                       NormalizeDateColumn, ApplySourceDateFormats, ApplyDateFormatsToOutput, ApplyDateFormatByHeader, TryGetExcelDate
+'   [ 10] OUTPUT ARRAY / SORTING                    HighlightNewRecords, BuildOutputArray, SortManagerRowsBySalesRep, SortManagerColumns, ManagerColumnRank, BuildManagerOutputArray, ColumnLetter
+'   [ 11] COLUMN / HEADER UTILITIES                 IsExcludedManagerHeader, FindHeaderColumnFromArray, CopyColumnFormats, MatchSourceColumnWidths, MatchSourceColumnWidthsForManager
+'   [ 12] SHEET / WORKBOOK UTILITIES                FindHeaderRow, FindHeaderColumn, GetRecordKey, SafeValue, NormalizeText, LastUsedRow, LastUsedColumn, SheetExists, SafeSheetName, SortManagersByLastName, ManagerSortKey, SortTextArray
+'   [ 13] WORKBOOK STATE                            EnsureMacroEnabledWorkbook, FindPriorSourceSheet
+'   [ 14] DIALOG / FILE / FOLDER                    SelectExcelFile, SaveFolderSetting, GetSavedFolder, FindMostRecentPendingPickupReport, BuildOutputPath, GetSavedOutputFolder, SaveOutputFolder
+' ============================================================
+
 
 Private Const RAW_SHEET As String = "Raw Data"
 Private Const MANAGER_HEADER As String = "Assigned Sales Manager"
@@ -25,6 +46,9 @@ Private Const COMPLETION_MARKER_PATH As String = "C:\Users\smd32\Downloads\Pendi
 Private mRunLogPath As String
 Private mInReportRun As Boolean
 
+' ====================== LOGGING ======================
+' Centralised debug / audit logging. Every run writes to LOG_PATH and, during a
+' report run, also to the per-run log in mRunLogPath.
 Private Sub LogMsg(ByVal msg As String)
     Dim f As Integer
     On Error Resume Next
@@ -63,6 +87,8 @@ Private Sub WriteCompletionMarker(ByVal savePath As String)
     Close #f
 End Sub
 
+' ====================== INTERACTIVE ENTRY ======================
+' Owns the START HERE canvas button and its wiring.
 Private Sub SetupPendingPickupButton()
     Dim ws As Worksheet, shp As Shape, btn As Shape
     On Error GoTo ButtonFail
@@ -101,6 +127,9 @@ ButtonFail:
     MsgBox "I could not install the button." & vbCrLf & Err.Description, vbCritical
 End Sub
 
+' ====================== CORE / MAIN BUILDER ======================
+' Owns the full report build: source selection, prior comparison, manager tabs,
+' dashboard, Raw Data copy, and save. Public entry point wired to the button.
 Public Function CreatePendingPickupReport() As Boolean
     CreatePendingPickupReport = False
     #If ENABLE_ERL Then
@@ -153,7 +182,7 @@ Public Function CreatePendingPickupReport() As Boolean
 
     ' Always perform the format check before doing any report work.
     ' The master must be .xlsm so the imported VBA module is retained.
-    If Not EnsureMacroEnabledWorkbook() Then Exit Sub
+    If Not EnsureMacroEnabledWorkbook() Then GoTo CleanExit
     Set srcWb = ThisWorkbook
     LogMsg "EnsureMacroEnabledWorkbook OK"
 
@@ -448,6 +477,7 @@ Public Function CreatePendingPickupReport() As Boolean
     CreatePendingPickupReport = True
 
     Application.StatusBar = False
+    Exit Function
 
 CleanExit:
     On Error Resume Next
@@ -485,6 +515,8 @@ CleanFail:
 End Function
 
 
+' ====================== DASHBOARD ======================
+' Builds the Dashboard tab: KPI cards, manager table, charts, and logo.
 Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long, _
     age30Count As Long, age60Count As Long, age90Count As Long, missingDateCount As Long, hasPrior As Boolean, _
     managers As Variant, managerRows As Object, managerSheetNames As Object, ByRef currentData As Variant, newKeys As Object, keyCol As Long, nameCol As Long, pickupDateCol As Long, _
@@ -593,7 +625,10 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     AddDashboardCard ws, "I4:K6", "STILL PENDING", "In Both Reports", IIf(hasPrior, stillCount, "N/A"), RGB(217, 234, 247)
 
     AddDashboardCard ws, "A8:B10", "% CHANGE", "From Prior Report", pctChange, RGB(234, 209, 220)
-    If hasPrior And priorCount > 0 Then ws.Range("A8:B10").NumberFormat = "0.0%"
+    If hasPrior And priorCount > 0 Then
+        ws.Range("A8:B10").NumberFormat = "0.0%"
+        ws.Cells(10, 1).Value = pctChange
+    End If
     AddDashboardCard ws, "C8:D10", "30+ DAYS", "Older Pending Pickups", age30Count, RGB(244, 204, 204)
     AddDashboardCard ws, "E8:F10", "60+ DAYS", "Older Pending Pickups", age60Count, RGB(234, 153, 153)
     AddDashboardCard ws, "G8:H10", "90+ DAYS", "Older Pending Pickups", age90Count, RGB(224, 102, 102)
@@ -829,7 +864,11 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
                 agg = eqAgg(eqName)
                 ws.Cells(eqRow, 1).Value = eqName
                 ws.Cells(eqRow, 2).Value = agg(0)
-                ws.Cells(eqRow, 3).Value = IIf(agg(2) > 0, agg(1) / agg(2), "N/A")
+                If agg(2) > 0 Then
+                    ws.Cells(eqRow, 3).Value = agg(1) / agg(2)
+                Else
+                    ws.Cells(eqRow, 3).Value = "N/A"
+                End If
                 ws.Cells(eqRow, 3).NumberFormat = "0.0"
                 eqRow = eqRow + 1
             Next i
@@ -916,6 +955,8 @@ Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As St
     End With
 End Sub
 
+' ====================== MANAGER SHEET FORMATTING ======================
+' Formats one manager tab: KPI cards, data table, banding, highlighting, age warnings.
 Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCount As Long, managerLastCol As Long, managerPickupDateCol As Long, managerStartDateCol As Long, managerAgeCol As Long, managerRepCol As Long, _
     ByRef sourceData As Variant, rowsToUse As Collection, newKeys As Object, keyCol As Long, nameCol As Long, hasPrior As Boolean)
     Dim age30 As Long, age60 As Long, age90 As Long, missingDate As Long
@@ -1008,6 +1049,8 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     On Error GoTo 0
 End Sub
 
+' ====================== TABLE / ROW FORMATTING ======================
+' Cosmetic helpers: rep banding, age warning font, missing-date highlight, Yes/No formatting, column widths, raw-data formatting, style primitives.
 Private Sub ApplyRepBanding(ws As Worksheet, firstRow As Long, lastRow As Long, lastDataCol As Long, repCol As Long)
     Dim r As Long, repName As String, priorRep As String
     Dim useAlt As Boolean
@@ -1186,6 +1229,8 @@ Private Sub StyleDashboardTable(rg As Range)
     Next r
 End Sub
 
+' ====================== METRICS / AGING HELPERS ======================
+' Manager stats: unique rep count, average age, new-row count, aging bucket stats.
 Private Function CountUniqueManagerRepsOnSheet(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Long
     Dim d As Object, r As Long, repName As String
     Set d = CreateObject("Scripting.Dictionary")
@@ -1270,6 +1315,8 @@ Private Sub CalculateAgingStats(ByRef data As Variant, ByVal rowsToUse As Collec
     On Error GoTo 0
 End Sub
 
+' ====================== DATE / TIME HELPERS ======================
+' Date normalisation and formatting across source, output, and per-sheet ranges.
 Private Sub NormalizeDateColumn(ws As Worksheet, headerRow As Long, lastRow As Long, dateCol As Long)
     Dim r As Long, dt As Date
     If dateCol <= 0 Or lastRow <= headerRow Then Exit Sub
@@ -1322,6 +1369,8 @@ Fail:
 End Function
 
 
+' ====================== OUTPUT ARRAY / SORTING ======================
+' Builds output arrays, sorts manager rows by sales rep, ranks columns, and highlights new records.
 Private Sub HighlightNewRecords(ws As Worksheet, firstRow As Long, lastRow As Long, lastDataCol As Long, _
     ByRef sourceData As Variant, rowsToUse As Collection, newKeys As Object, keyCol As Long, nameCol As Long)
     Dim r As Long, i As Long, key As String
@@ -1485,6 +1534,8 @@ Private Function ColumnLetter(ByVal col As Long) As String
 End Function
 
 
+' ====================== COLUMN / HEADER UTILITIES ======================
+' Header exclusion rules, header lookup from arrays, and column width matching between source and output sheets.
 Private Function IsExcludedManagerHeader(ByVal headerText As String) As Boolean
     Select Case LCase$(Trim$(headerText))
         Case LCase$("EMPI"), LCase$("Customer"), LCase$("Treatment Status"), LCase$("Consumable Type"), _
@@ -1536,6 +1587,8 @@ Private Sub MatchSourceColumnWidthsForManager(src As Worksheet, dest As Workshee
     Next c
 End Sub
 
+' ====================== SHEET / WORKBOOK UTILITIES ======================
+' Sheet bounds, header detection, record keys, text normalisation, and sheet-name sanitation.
 Private Function FindHeaderRow(ws As Worksheet) As Long
     Dim r As Long, maxRow As Long
     maxRow = WorksheetFunction.Min(25, LastUsedRow(ws))
@@ -1654,6 +1707,8 @@ Private Sub SortTextArray(ByRef arr As Variant)
     On Error GoTo 0
 End Sub
 
+' ====================== WORKBOOK STATE ======================
+' Ensures the master is saved as .xlsm so the VBA module is retained; finds the prior report's source sheet.
 Private Function EnsureMacroEnabledWorkbook() As Boolean
     Dim savePath As Variant, baseName As String
     Dim isMacroEnabled As Boolean
@@ -1728,6 +1783,8 @@ Private Function FindPriorSourceSheet(ByVal wb As Workbook) As Worksheet
     Next ws
 End Function
 
+' ====================== DIALOG / FILE / FOLDER ======================
+' File/folder pickers, remembered-folder persistence, prior-report discovery, and output path building.
 Private Function SelectExcelFile(ByVal dialogTitle As String, ByVal initialFolder As String, ByVal suggestedFile As String, ByVal allowCancel As Boolean) As Variant
     Dim fd As FileDialog
     Dim initialName As String
@@ -1760,8 +1817,9 @@ Fail:
 End Function
 
 Private Sub SaveFolderSetting(ByVal settingName As String, ByVal filePath As String)
-    Dim folder As String
-    folder = Left$(filePath, InStrRev(filePath, Application.PathSeparator) - 1)
+    Dim folder As String, sep As Long
+    sep = InStrRev(filePath, Application.PathSeparator)
+    If sep > 0 Then folder = Left$(filePath, sep - 1) Else folder = filePath
     On Error Resume Next
     SaveSetting "PendingPickupReport", "Settings", settingName, folder
     On Error GoTo 0
