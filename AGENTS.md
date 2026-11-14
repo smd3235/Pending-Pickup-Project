@@ -61,18 +61,18 @@ Each entry must follow this format:
 
 ## 4. Testing and Debugging
 
-- **Run `test-compile.ps1` after every VBA code change to verify compilation.**
-- **Run `sync_template.ps1` after compilation succeeds to update the template.**
-- **Run `run-report.ps1` to test full report generation.**
+- **Run `scripts\test-compile.ps1` after every VBA code change to verify compilation.**
+- **Run `scripts\sync_template.ps1` after compilation succeeds to update the template.**
+- **Run `scripts\run-report.ps1` to test full report generation.**
 - **Check `macro-debug.log` for any errors after a run.**
 - **Check `log/answer-dialogs.log` for dialog handling issues.**
 - **Kill any stray Excel processes after testing.**
 
 ### Debugging checklist
 
-1. Compile check (`test-compile.ps1`).
-2. Sync to template (`sync_template.ps1`).
-3. Run report (`run-report.ps1`).
+1. Compile check (`scripts\test-compile.ps1`).
+2. Sync to template (`scripts\sync_template.ps1`).
+3. Run report (`scripts\run-report.ps1`).
 4. Check `macro-debug.log` for errors.
 5. Check `Reports/` for output file.
 6. Kill stray Excel processes.
@@ -87,10 +87,10 @@ Each entry must follow this format:
 - `AGENTS.md` — This file (agent rules).
 - `changelog.md` — Change history (newest to oldest).
 - `README.md` — User documentation.
-- `sync_template.ps1` — Re-imports .bas into template.
-- `test-compile.ps1` — Compile check.
-- `run-report.ps1` — Full report run harness.
-- `answer-dialogs.ps1` — Dialog auto-answerer.
+- `scripts\sync_template.ps1` — Re-imports .bas into template.
+- `scripts\test-compile.ps1` — Compile check.
+- `scripts\run-report.ps1` — Full report run harness.
+- `scripts\answer-dialogs.ps1` — Dialog auto-answerer.
 
 ## 6. Version Control
 

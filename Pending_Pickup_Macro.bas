@@ -409,17 +409,6 @@ Public Sub CreatePendingPickupReport()
     LogMsg "Save done"
 
     Application.StatusBar = False
-    Dim openResult As VbMsgBoxResult
-    openResult = MsgBox("Report complete!" & vbCrLf & vbCrLf & _
-           CStr(currentCount) & " current Pending Pickup records across " & CStr(managerNames.Count) & " manager tabs." & vbCrLf & _
-           IIf(hasPrior, CStr(newCount) & " new / " & CStr(clearedCount) & " cleared compared with prior report.", _
-                         "No prior report was selected; comparison KPIs are N/A.") & vbCrLf & vbCrLf & _
-           "Saved to:" & vbCrLf & savePath & vbCrLf & vbCrLf & _
-           "Open the finished report now?", vbInformation + vbYesNo, "Pending Pickup - Complete")
-    If openResult = vbYes Then
-        outWb.Activate
-        dashboard.Activate
-    End If
 
 CleanExit:
     On Error Resume Next

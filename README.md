@@ -56,8 +56,8 @@ open treatment plan flagged for pickup; the report shows how long each has been 
 | File | Role |
 | --- | --- |
 | `Pending Pickup Template.xlsm` | Master workbook. Contains `START HERE`, empty `Raw Data`, `_Config`, and the embedded VBA project (`PendingPickupReport` module). This is what users run. |
-| `Pending_Pickup_Macro.bas` | Readable VBA source for the builder. Edit this, then run `sync_template.ps1` to push it into the template. |
-| `sync_template.ps1` | Maintainer script: re-imports the `.bas` into the template's embedded VBA and ensures the `START HERE` button. Run after every `.bas` change. |
+| `Pending_Pickup_Macro.bas` | Readable VBA source for the builder. Edit this, then run `scripts\sync_template.ps1` to push it into the template. |
+| `scripts\sync_template.ps1` | Maintainer script: re-imports the `.bas` into the template's embedded VBA and ensures the `START HERE` button. Run after every `.bas` change. |
 | `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample â€” populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
 | `Reports/` | Output folder for finished reports. The macro's remembered `OutputFolder` is pre-set to this path. Also holds `Pending Pickup 2026-10-13.xlsx`, a **prior-month fixture** for testing comparison (still/new/cleared). |
 | `changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
@@ -98,7 +98,7 @@ imported by end users.
 **not** auto-update from the `.bas`; it carries its own compiled copy. Run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\sync_template.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\sync_template.ps1
 ```
 
 `sync_template.ps1` opens the template in Excel, replaces the embedded `PendingPickupReport` module with

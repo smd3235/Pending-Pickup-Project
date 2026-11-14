@@ -5,9 +5,9 @@
 #  - #32770 dialogs: CURRENT/PRIOR pickers by title, other dialogs -> Enter (logged by watcher)
 # Log: log\answer-dialogs.log (per-line timestamps).
 param(
-    [string]$SourcePath = "$PSScriptRoot\AllOpenTreatmentPlansResults618.xlsx",
+    [string]$SourcePath = (Join-Path (Split-Path -Parent $PSScriptRoot) "AllOpenTreatmentPlansResults618.xlsx"),
     [string]$PriorPath = "",
-    [string]$LogPath = "$PSScriptRoot\log\answer-dialogs.log"
+    [string]$LogPath = (Join-Path (Split-Path -Parent $PSScriptRoot) "log\answer-dialogs.log")
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms

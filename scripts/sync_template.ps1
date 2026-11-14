@@ -3,8 +3,8 @@
 # and ensures the styled CREATE PENDING PICKUP REPORT button is installed on START HERE.
 # Run this after every change to the .bas file.
 param(
-    [string]$Template = "$PSScriptRoot\Pending Pickup Template.xlsm",
-    [string]$Bas      = "$PSScriptRoot\Pending_Pickup_Macro.bas",
+    [string]$Template = (Join-Path (Split-Path -Parent $PSScriptRoot) "Pending Pickup Template.xlsm"),
+    [string]$Bas      = (Join-Path (Split-Path -Parent $PSScriptRoot) "Pending_Pickup_Macro.bas"),
     [string]$ModuleName = "PendingPickupReport",
     [string]$ButtonName = "btnCreatePendingPickupReport"
 )

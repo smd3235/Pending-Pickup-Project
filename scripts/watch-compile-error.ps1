@@ -11,7 +11,8 @@
 #   3. Stop with Ctrl+C (auto-stops after 2h).
 
 $ErrorActionPreference = "Stop"
-$logDir = Join-Path $PSScriptRoot "log"
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$logDir = Join-Path $projectRoot "log"
 if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 $logPath = Join-Path $logDir "watcher.log"
 

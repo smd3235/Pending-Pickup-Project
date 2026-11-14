@@ -14,14 +14,16 @@
 # All output goes to log\compile-test.log with per-line timestamps.
 
 param(
-    [string]$Template = "$PSScriptRoot\Pending Pickup Template.xlsm"
+    [string]$Template = (Join-Path (Split-Path -Parent $PSScriptRoot) "Pending Pickup Template.xlsm")
 )
 
+$projectRoot = Split-Path -Parent $PSScriptRoot
+
 $ErrorActionPreference = "Stop"
-$logDir   = Join-Path $PSScriptRoot "log"
+$logDir   = Join-Path $projectRoot "log"
 if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
-$testCopy = Join-Path $PSScriptRoot "_compile_test.xlsm"
-$marker   = Join-Path $PSScriptRoot "probe_ran.txt"
+$testCopy = Join-Path $projectRoot "_compile_test.xlsm"
+$marker   = Join-Path $projectRoot "probe_ran.txt"
 $watcher  = Join-Path $PSScriptRoot "watch-compile-error.ps1"
 $watchLog = Join-Path $logDir "watcher.log"
 $testLog  = Join-Path $logDir "compile-test.log"

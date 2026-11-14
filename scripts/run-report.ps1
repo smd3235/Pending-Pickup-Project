@@ -6,8 +6,8 @@
 # even while the main thread is blocked inside the synchronous Excel.Run call.
 # Logs: log\run-report.log, log\answer-dialogs.log
 param(
-    [string]$Template = "C:\Users\smd32\Downloads\Pending Pickup Project\Pending Pickup Template.xlsm",
-    [string]$SourcePath = "C:\Users\smd32\Downloads\Pending Pickup Project\AllOpenTreatmentPlansResults618.xlsx",
+    [string]$Template = (Join-Path (Split-Path -Parent $PSScriptRoot) "Pending Pickup Template.xlsm"),
+    [string]$SourcePath = (Join-Path (Split-Path -Parent $PSScriptRoot) "AllOpenTreatmentPlansResults618.xlsx"),
     [string]$TempCopy = "C:\Users\smd32\AppData\Local\Temp\kilo\_run_temp.xlsm",
     [int]$MaxRunSeconds = 30,
     [int]$StallSeconds = 10
@@ -75,7 +75,7 @@ public static class W {
     }
 }
 "@
-$projDir = "C:\Users\smd32\Downloads\Pending Pickup Project"
+$projDir = Split-Path -Parent $PSScriptRoot
 $reportsDir = Join-Path $projDir "Reports"
 if (-not (Test-Path -LiteralPath $reportsDir)) { New-Item -ItemType Directory -Path $reportsDir | Out-Null }
 $before = @(Get-ChildItem -LiteralPath $reportsDir -Filter *.xlsx | Select-Object -ExpandProperty Name)
