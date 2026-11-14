@@ -971,10 +971,10 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
 
     ' The data table is the exact same width as the KPI/header area.
     SetManagerColumnWidths ws, managerLastCol
-    ws.Rows("4:6").RowHeight = 34
-    ws.Rows("8:10").RowHeight = 34
-    ws.Rows("13:14").RowHeight = 34
-    ws.Rows(CStr(MANAGER_HEADER_ROW) & ":" & CStr(MANAGER_HEADER_ROW)).RowHeight = 34
+    ws.Rows("4:6").RowHeight = 38
+    ws.Rows("8:10").RowHeight = 38
+    ws.Rows("13:14").RowHeight = 38
+    ws.Rows(CStr(MANAGER_HEADER_ROW) & ":" & CStr(MANAGER_HEADER_ROW)).RowHeight = 36
 
     ws.Tab.Color = RGB(189, 215, 238)
     With ws.PageSetup
@@ -1089,7 +1089,7 @@ Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
     ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
     For c = 1 To lastCol
         headerText = LCase$(Trim$(CStr(ws.Cells(MANAGER_HEADER_ROW, c).Value)))
-        minWidth = 14
+        minWidth = 16
         Select Case headerText
             Case LCase$(REP_HEADER): minWidth = 24
             Case LCase$(START_DATE_HEADER): minWidth = 14
@@ -1147,7 +1147,7 @@ Private Sub ApplyDataFormatting(ws As Worksheet, headerRow As Long, lastRow As L
         Else
             ws.Range(ws.Cells(r, 1), ws.Cells(r, lastCol)).Interior.Color = RGB(255, 255, 255)
         End If
-        ws.Rows(r).RowHeight = 24
+        ws.Rows(r).RowHeight = 28
     Next r
 End Sub
 
