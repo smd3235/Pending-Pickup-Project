@@ -60,11 +60,11 @@ open treatment plan flagged for pickup; the report shows how long each has been 
 | `scripts\sync_template.ps1` | Maintainer script: re-imports the `.bas` into the template's embedded VBA and ensures the `START HERE` button. Run after every `.bas` change. |
 | `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample â€” populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
 | `Reports/` | Output folder for finished reports. The macro's remembered `OutputFolder` is pre-set to this path. Also holds `Pending Pickup 2026-10-13.xlsx`, a **prior-month fixture** for testing comparison (still/new/cleared). |
-| `changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
+| `documentation/changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
 
 > **Distribution:** end users receive only `Pending Pickup Template.xlsm`. It is self-contained
-> (macro, button, and company logo embedded); the `.bas`, `sync_template.ps1`, `README.md`,
-> `changelog.md`, and fake data are maintainer-only.
+> (macro, button, and company logo embedded); the `.bas`, `scripts\sync_template.ps1`,
+> `documentation/README.md`, `documentation/changelog.md`, and fake data are maintainer-only.
 
 ### Template workbook sheets
 
@@ -287,6 +287,6 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ## 13. Changelog
 
-See [`changelog.md`](changelog.md) for the dated (`YYYY-MM-DD HH:MM:SS`) change log. Version `1.0` is the
+See [`documentation/changelog.md`](changelog.md) for the dated (`YYYY-MM-DD HH:MM:SS`) change log. Version `1.0` is the
 current baseline; the older per-version history that used to live in the module header has been retired
 in favor of the changelog file.

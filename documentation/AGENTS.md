@@ -5,13 +5,14 @@ These rules must be followed for every code change, no exceptions.
 ## 1. Git Workflow
 
 - **Always commit and push to git after making changes.**
-- **Always update `changelog.md` with new entries.**
+- **Always update `documentation/changelog.md` with new entries.**
 - **Changelog entries must be newest to oldest.**
+- **All Markdown files, including agent instructions, must be stored in `documentation/`.** Do not create Markdown files in the project root.
 
 ### Commit message format
 
 - Use clear, descriptive commit messages that explain *what* changed and *why*.
-- Reference the affected files or modules (e.g., `Pending_Pickup_Macro.bas`, `run-report.ps1`, `AGENTS.md`).
+- Reference the affected files or modules (e.g., `Pending_Pickup_Macro.bas`, `scripts/run-report.ps1`, `documentation/AGENTS.md`).
 - Do not commit generated report files (`Reports/*.xlsx`) unless explicitly asked — they are build artifacts.
 
 ### Changelog format
@@ -84,13 +85,17 @@ Each entry must follow this format:
 - `Pending Pickup Template.xlsm` — Template with embedded module and START HERE button.
 - `Reports/` — Generated report output (build artifacts, not committed).
 - `log/` — Runtime logs (macro-debug.log, answer-dialogs.log, etc.).
-- `AGENTS.md` — This file (agent rules).
-- `changelog.md` — Change history (newest to oldest).
-- `README.md` — User documentation.
+- `documentation/` — Markdown documentation and image assets, including `README.md`, `changelog.md`, and logo source files.
+- `documentation/AGENTS.md` — Agent rules.
+- `documentation/changelog.md` — Change history (newest to oldest).
+- `documentation/README.md` — User documentation.
+- `documentation/aoti-logo-2023.svg` — Vector logo source.
+- `documentation/aoti-logo-2023.png` — Raster logo source.
 - `scripts\sync_template.ps1` — Re-imports .bas into template.
 - `scripts\test-compile.ps1` — Compile check.
 - `scripts\run-report.ps1` — Full report run harness.
 - `scripts\answer-dialogs.ps1` — Dialog auto-answerer.
+- `documentation/view-logs.ps1` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
 
 ## 6. Version Control
 
@@ -143,6 +148,8 @@ End If
 
 ## 8. Logging Standards
 
+- All log entries must use full local date and time in `yyyy-MM-dd HH:mm:ss` format.
+- All runtime log review output must be newest to oldest; run `documentation/view-logs.ps1` after log-producing work to reorder every runtime `.log` and `.txt` file in place.
 - All errors must be logged to `macro-debug.log` with:
   - Timestamp (`Format(Now, "yyyy-mm-dd hh:n:ss")`)
   - Procedure name
@@ -194,6 +201,6 @@ End If
 ## 10. Deployment
 
 - **Single-file distribution** — end users receive only the `.xlsm` template.
-- **Never expose `.bas`, `sync_template.ps1`, `README.md`, `changelog.md`, or fake data to end users.**
+- **Never expose `.bas`, `scripts\sync_template.ps1`, `documentation/README.md`, `documentation/changelog.md`, or fake data to end users.**
 - **Template must be self-contained** — logo embedded, module imported, button installed.
 - **Registry settings must be pre-configured** — `CurrentFolder`, `PriorFolder`, `OutputFolder`.

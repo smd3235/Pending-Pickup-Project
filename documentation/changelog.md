@@ -5,6 +5,9 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **18:12:00** — Moved `AGENTS.md` into `documentation/` and updated the repository rule so all Markdown files, including agent instructions, are stored there rather than the project root.
+- **18:08:01** — Standardized every runtime log entry on full `yyyy-MM-dd HH:mm:ss` timestamps and added `documentation/view-logs.ps1` to reorder every runtime `.log` and `.txt` file newest first with dated headers.
+- **18:08:00** — Moved `README.md`, `changelog.md`, and both `aoti-logo-2023` source images into `documentation/`; updated documentation references and added the documentation-location rule for Markdown files.
 - **17:44:00** — Moved operational PowerShell harnesses into `scripts/` and changed their default paths to derive the project root from `$PSScriptRoot`; updated README and agent commands to use the new locations.
 - **17:48:00** — Removed the final report-completion `vbYesNo` prompt so unattended report runs exit after saving instead of hanging at “Report complete! Open the finished report now?”.
 - **17:41:00** — Restored `Reports/` and `log/` as tracked project directories using `.gitkeep`. Generated reports and prior diagnostic log contents remain excluded as runtime artifacts; new logs and reports will be written into these folders when the harness or macro runs.

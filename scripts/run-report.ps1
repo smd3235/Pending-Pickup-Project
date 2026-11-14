@@ -4,7 +4,7 @@
 # $MaxRunSeconds, default 25s) or if a modal dialog stays unanswered too long.
 # The watchdog + dialog answerer run on separate runspace threads so they work
 # even while the main thread is blocked inside the synchronous Excel.Run call.
-# Logs: log\run-report.log, log\answer-dialogs.log
+# Logs: log\pending-pickup_<timestamp>.log and log\answer-dialogs.log
 param(
     [string]$Template = (Join-Path (Split-Path -Parent $PSScriptRoot) "Pending Pickup Template.xlsm"),
     [string]$SourcePath = (Join-Path (Split-Path -Parent $PSScriptRoot) "AllOpenTreatmentPlansResults618.xlsx"),
@@ -81,10 +81,21 @@ if (-not (Test-Path -LiteralPath $reportsDir)) { New-Item -ItemType Directory -P
 $before = @(Get-ChildItem -LiteralPath $reportsDir -Filter *.xlsx | Select-Object -ExpandProperty Name)
 $ansLog = "$projDir\log\answer-dialogs.log"
 $runLog = "$projDir\log\run-report.log"
-function Write-Log { param($p, $m) "$(Get-Date -Format 'HH:mm:ss') | $m" | Add-Content -LiteralPath $p }
+$runStamp = Get-Date -Format "yyyy-MM-dd_HHMMSS"
+$runLog = "$projDir\log\pending-pickup_$runStamp.log"
+$completionMarker = "$projDir\log\pending-pickup-complete.txt"
+function Write-Log { param($p, $m) "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | $m" | Add-Content -LiteralPath $p }
+function Append-RunLog { param($m) Write-Log $runLog $m }
+if (Test-Path -LiteralPath $completionMarker) { Remove-Item -LiteralPath $completionMarker -Force -ErrorAction SilentlyContinue }
+Write-Log $runLog "=== Pending Pickup report run started ==="
+Write-Log $runLog "Template: $Template"
+Write-Log $runLog "Source: $SourcePath"
+Write-Log $runLog "Completion marker: $completionMarker"
+Write-Log $runLog "PowerShell PID: $PID"
 
 Copy-Item -LiteralPath $Template -Destination $TempCopy -Force
 $outcome = "UNKNOWN"
+$runCompleted = $false
 $excelPid = $null
 $runToken = [System.Threading.CancellationTokenSource]::new()
 
@@ -96,7 +107,7 @@ $psThreads = @()
 $psA = [powershell]::Create()
 $psA.RunspacePool = $mainPool
 $psA.AddScript({
-    param($reportsDir, $before, $runLog, $ansLog, $maxSec, $stallSec, $token)
+    param($reportsDir, $before, $runLog, $ansLog, $completionMarker, $maxSec, $stallSec, $token)
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $lastProgress = 0
     $lastDialogs = 0
@@ -105,9 +116,13 @@ $psA.AddScript({
         Start-Sleep -Milliseconds 300
         # New report file = success.
         $newFiles = @(Get-ChildItem -LiteralPath $reportsDir -Filter *.xlsx -ErrorAction SilentlyContinue | Where-Object { $before -notcontains $_.Name })
-        if ($newFiles.Count -gt 0) { "$(Get-Date -Format 'HH:mm:ss') | REPORT OK: $($newFiles.Name -join ', ')" | Add-Content -LiteralPath $runLog; return "OK" }
-        # Answerable dialog visible? (Only real dialogs reset the stall timer;
-        # the Excel main window itself does not.)
+        if ($newFiles.Count -gt 0) { "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | REPORT OK: $($newFiles.Name -join ', ')" | Add-Content -LiteralPath $runLog }
+        if (Test-Path -LiteralPath $completionMarker) {
+            "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | MACRO COMPLETE: marker found; forcing Excel shutdown if COM remains blocked" | Add-Content -LiteralPath $runLog
+            [W]::KillExcel()
+            return "OK"
+        }
+        # Only answerable dialogs reset the stall timer; Excel main windows are ignored.
         $dialogOpen = $false
         foreach ($h in [W]::ExcelWindows()) {
             $cls = [W]::Class($h)
@@ -119,17 +134,17 @@ $psA.AddScript({
         $excelBusy = $false
         try { $excelBusy = (Get-Process EXCEL -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0 } catch {}
         if ($excelBusy -and ($sw.Elapsed.TotalSeconds - $lastDialogs) -gt $stallSec) {
-            "$(Get-Date -Format 'HH:mm:ss') | KILLED: Excel busy > $stallSec s with no answerable dialog (elapsed=$([int]$sw.Elapsed.TotalSeconds)s)" | Add-Content -LiteralPath $runLog
+            "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | KILLED: Excel busy > $stallSec s with no answerable dialog (elapsed=$([int]$sw.Elapsed.TotalSeconds)s)" | Add-Content -LiteralPath $runLog
             # Capture what windows exist at kill time.
             foreach ($h in [W]::ExcelWindows()) { "  window: class=$([W]::Class($h)) title=$([W]::Text($h))" | Add-Content -LiteralPath $runLog }
             [W]::KillExcel()
             return "KILLED"
         }
     }
-    "$(Get-Date -Format 'HH:mm:ss') | KILLED: run exceeded $maxSec s without a new report file" | Add-Content -LiteralPath $runLog
+    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | KILLED: run exceeded $maxSec s without a new report file" | Add-Content -LiteralPath $runLog
     [W]::KillExcel()
     return "TIMEOUT"
-}).AddArgument($reportsDir).AddArgument($before).AddArgument($runLog).AddArgument($ansLog).AddArgument($MaxRunSeconds).AddArgument($StallSeconds).AddArgument($runToken.Token) | Out-Null
+}).AddArgument($reportsDir).AddArgument($before).AddArgument($runLog).AddArgument($ansLog).AddArgument($completionMarker).AddArgument($MaxRunSeconds).AddArgument($StallSeconds).AddArgument($runToken.Token) | Out-Null
 $psA.BeginInvoke() | Out-Null
 
 # Thread B: dialog answerer.
@@ -149,11 +164,13 @@ $psB.AddScript({
             $h = $live[$k]
             $cls = [W]::Class($h)
             $title = [W]::Text($h)
-            "$(Get-Date -Format 'HH:mm:ss') | dialog seen: class=$cls title=$title" | Add-Content -LiteralPath $ansLog
+            if ($cls -eq "bosa_sdm_MsoFiles" -or $cls -eq "#32770" -or $title -match "Select the CURRENT|Select the PRIOR|Choose where") {
+                "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | dialog opened: class=$cls title=$title" | Add-Content -LiteralPath $ansLog
+            }
             if ($cls -eq "#32770" -and $title -eq "Microsoft Excel") {
-                # Log all child windows to find the error message text. Do NOT dismiss — leave it open for inspection.
+                # Log all child windows to find the error message text. Do not dismiss it.
                 $children = [W]::ChildTexts($h)
-                "$(Get-Date -Format 'HH:mm:ss') | ERROR DIALOG children: $($children -join ' | ')" | Add-Content -LiteralPath $ansLog
+                "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | ERROR DIALOG children: $($children -join ' | ')" | Add-Content -LiteralPath $ansLog
                 $answered[$k] = 1
                 continue
             }
@@ -162,7 +179,7 @@ $psB.AddScript({
                 Start-Sleep -Milliseconds 300
                 if ($title -match 'PRIOR') {
                     [W]::Esc($h) | Out-Null
-                    "$(Get-Date -Format 'HH:mm:ss') | cancelled PRIOR picker" | Add-Content -LiteralPath $ansLog
+                    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | cancelled PRIOR picker" | Add-Content -LiteralPath $ansLog
                 } elseif ($title -match 'CURRENT') {
                     $edit = [W]::FindEdit($h)
                     if ($edit -ne [IntPtr]::Zero) {
@@ -174,10 +191,10 @@ $psB.AddScript({
                         [System.Windows.Forms.SendKeys]::SendWait($sourcePath)
                         [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
                     }
-                    "$(Get-Date -Format 'HH:mm:ss') | answered CURRENT picker -> $sourcePath" | Add-Content -LiteralPath $ansLog
+                    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | answered CURRENT picker -> $sourcePath" | Add-Content -LiteralPath $ansLog
                 } else {
                     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-                    "$(Get-Date -Format 'HH:mm:ss') | dismissed dialog: $title" | Add-Content -LiteralPath $ansLog
+                    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | dismissed dialog: $title" | Add-Content -LiteralPath $ansLog
                 }
                 $answered[$k] = 1
             }
@@ -188,26 +205,39 @@ $psB.BeginInvoke() | Out-Null
 
 try {
     $excel = New-Object -ComObject Excel.Application
+    Append-RunLog "Starting Excel: PID unknown until COM creates process"
     $excel.Visible = $true
     $excel.DisplayAlerts = $false
     $wb = $excel.Workbooks.Open($TempCopy)
-    $excel.Run("CreatePendingPickupReport")
+    Append-RunLog "Template copy opened: $TempCopy"
+    $macroResult = $excel.Run("CreatePendingPickupReport")
+    Append-RunLog "Excel.Run returned; macro result=$macroResult"
+    if ($macroResult -eq $true) { $runCompleted = $true }
 } catch {
     $outcome = "ERROR: $($_.Exception.Message)"
+    Append-RunLog "Excel.Run raised: $($_.Exception.Message)"
 } finally {
     $runToken.Cancel()
+    Append-RunLog "Run token cancelled; forcing Excel shutdown and collecting diagnostics."
     Start-Sleep -Milliseconds 200
     # Kill Excel FIRST so it never stays open.
     [W]::KillExcel()
     if ($excel) { try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($excel) } catch {} }
     Remove-Item -LiteralPath $TempCopy -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath "$projDir\~`$_run_temp.xlsm" -Force -ErrorAction SilentlyContinue
+    if ($runCompleted) { $outcome = "OK" }
     Write-Log $runLog "run finished (outcome=$outcome)"
-    # Print the macro debug log for diagnosis.
+    if (Test-Path -LiteralPath $completionMarker) {
+        Append-RunLog "Completion marker contents:"
+        Get-Content -LiteralPath $completionMarker | ForEach-Object { Append-RunLog "  $_" }
+    } else {
+        Append-RunLog "Completion marker was not written by VBA."
+    }
+    # Append only this run's VBA log tail, avoiding duplicate macro-debug history.
     $dbgLog = "$projDir\log\macro-debug.log"
     if (Test-Path $dbgLog) {
-        Write-Log $runLog "--- macro-debug.log ---"
-        Get-Content $dbgLog | ForEach-Object { Write-Log $runLog $_ }
+        Append-RunLog "--- macro-debug.log (last 120 lines) ---"
+        Get-Content -LiteralPath $dbgLog -Tail 120 | ForEach-Object { Append-RunLog $_ }
     }
 }
 $mainPool.Close()

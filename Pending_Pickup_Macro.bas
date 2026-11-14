@@ -21,6 +21,9 @@ Private Const PENDING_TEXT As String = "Pending Pickup"
 Private Const MACRO_VERSION As String = "1.0"
 Private Const MANAGER_HEADER_ROW As Long = 16
 Private Const LOG_PATH As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\macro-debug.log"
+Private Const COMPLETION_MARKER_PATH As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\pending-pickup-complete.txt"
+Private mRunLogPath As String
+Private mInReportRun As Boolean
 
 Private Sub LogMsg(ByVal msg As String)
     Dim f As Integer
@@ -29,10 +32,35 @@ Private Sub LogMsg(ByVal msg As String)
     Open LOG_PATH For Append As #f
     Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & msg
     Close #f
+
+    If mInReportRun And Len(mRunLogPath) > 0 Then
+        f = FreeFile
+        Open mRunLogPath For Append As #f
+        Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & msg
+        Close #f
+    End If
 End Sub
 
 Private Sub LogErr(ByVal procName As String)
     LogMsg "ERROR in " & procName & ": " & Err.Description & " (Err=" & Err.Number & ", Line=" & Erl & ")"
+End Sub
+
+Private Function BuildRunLogPath() As String
+    Dim logDir As String
+    On Error Resume Next
+    logDir = Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
+    BuildRunLogPath = logDir & "pending-pickup_" & Format(Now, "yyyy-mm-dd_HHMMSS") & ".log"
+End Function
+
+Private Sub WriteCompletionMarker(ByVal savePath As String)
+    Dim f As Integer
+    On Error Resume Next
+    If Len(Dir$(Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\"))
+    f = FreeFile
+    Open COMPLETION_MARKER_PATH For Output As #f
+    Print #f, "completed=" & Format(Now, "yyyy-mm-dd hh:n:ss")
+    Print #f, "saved=" & savePath
+    Close #f
 End Sub
 
 Private Sub SetupPendingPickupButton()
@@ -73,7 +101,8 @@ ButtonFail:
     MsgBox "I could not install the button." & vbCrLf & Err.Description, vbCritical
 End Sub
 
-Public Sub CreatePendingPickupReport()
+Public Function CreatePendingPickupReport() As Boolean
+    CreatePendingPickupReport = False
     #If ENABLE_ERL Then
     On Error GoTo CleanFail
     #End If
@@ -109,7 +138,12 @@ Public Sub CreatePendingPickupReport()
     #If Not ENABLE_ERL Then
     On Error GoTo CleanFail
     #End If
+    mInReportRun = True
+    mRunLogPath = BuildRunLogPath()
     LogMsg "=== CreatePendingPickupReport started ==="
+    LogMsg "Run log: " & mRunLogPath
+    LogMsg "Completion marker: " & COMPLETION_MARKER_PATH
+    LogMsg "Excel version: " & Application.Version
     oldCalc = Application.Calculation
     oldScreen = Application.ScreenUpdating
     oldEvents = Application.EnableEvents
@@ -197,6 +231,7 @@ Public Sub CreatePendingPickupReport()
     LogMsg "Value2 start"
     currentData = raw.Range(raw.Cells(headerRow, 1), raw.Cells(lastRow, lastCol)).Value2
     LogMsg "Value2 done rows=" & UBound(currentData, 1)
+    LogMsg "Source dimensions: rows=" & lastRow & " cols=" & lastCol & " statusCol=" & statusCol & " managerCol=" & managerCol & " keyCol=" & keyCol & " pickupDateCol=" & pickupDateCol
     Set currentRows = New Collection
     Set currentByKey = CreateObject("Scripting.Dictionary")
     currentByKey.CompareMode = vbTextCompare
@@ -407,11 +442,17 @@ Public Sub CreatePendingPickupReport()
     LogMsg "Saving to: " & savePath
     outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbook
     LogMsg "Save done"
+    WriteCompletionMarker savePath
+    LogMsg "Completion marker written: " & COMPLETION_MARKER_PATH
+    LogMsg "=== CreatePendingPickupReport completed ==="
+    CreatePendingPickupReport = True
 
     Application.StatusBar = False
 
 CleanExit:
     On Error Resume Next
+    mInReportRun = False
+    mRunLogPath = ""
     If Not priorWb Is Nothing Then priorWb.Close SaveChanges:=False
     If Not sourceWb Is Nothing Then sourceWb.Close SaveChanges:=False
     On Error GoTo 0
@@ -420,7 +461,8 @@ CleanExit:
     Application.EnableEvents = oldEvents
     Application.DisplayAlerts = oldAlerts
     Application.Calculation = oldCalc
-    Exit Sub
+    CreatePendingPickupReport = False
+    Exit Function
 
 CleanFail:
     errText = Err.Description & " (at line " & Erl & ")"
@@ -431,13 +473,16 @@ CleanFail:
     Application.EnableEvents = oldEvents
     Application.DisplayAlerts = oldAlerts
     Application.Calculation = oldCalc
+    mInReportRun = False
+    mRunLogPath = ""
     If Not outWb Is Nothing Then outWb.Close SaveChanges:=False
     If Not priorWb Is Nothing Then priorWb.Close SaveChanges:=False
     If Not sourceWb Is Nothing Then sourceWb.Close SaveChanges:=False
     On Error GoTo 0
     LogMsg "=== CleanFail exit ==="
+    CreatePendingPickupReport = False
     MsgBox "The Pending Pickup report could not be created." & vbCrLf & errText, vbCritical
-End Sub
+End Function
 
 
 Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long, _

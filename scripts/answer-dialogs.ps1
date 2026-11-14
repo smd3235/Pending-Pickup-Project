@@ -58,7 +58,7 @@ public static class Dlg {
     }
 }
 "@
-function Log { param($m) $line = "$(Get-Date -Format 'HH:mm:ss') | $m"; Write-Output $line; Add-Content -LiteralPath $LogPath -Value $line }
+function Log { param($m) $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | $m"; Write-Output $line; Add-Content -LiteralPath $LogPath -Value $line }
 
 Log "answerer started (pid $PID)"
 $answered = @{}
