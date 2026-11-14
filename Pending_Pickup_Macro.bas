@@ -624,21 +624,21 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
 
     ' Uniform dashboard KPI grid: all cards span equal 2-column widths (A:J)
     ' so cards align vertically with each other and with the manager table below.
-    AddDashboardCard ws, "A4:B6", "CURRENT", "Pending Pickups", currentCount, RGB(255, 242, 204)
-    AddDashboardCard ws, "C4:D6", "PRIOR", "Pending Pickups", IIf(hasPrior, priorCount, "N/A"), RGB(221, 235, 247)
-    AddDashboardCard ws, "E4:F6", "NEW", "Since Prior Report", IIf(hasPrior, newCount, "N/A"), RGB(226, 239, 218)
-    AddDashboardCard ws, "G4:H6", "CLEARED", "Since Prior Report", IIf(hasPrior, clearedCount, "N/A"), RGB(244, 204, 204)
-    AddDashboardCard ws, "I4:J6", "STILL PENDING", "In Both Reports", IIf(hasPrior, stillCount, "N/A"), RGB(217, 234, 247)
+    AddDashboardCard ws, "A4:B6", "CURRENT PERIOD", "Pending Pickups", currentCount, RGB(221, 235, 247)
+    AddDashboardCard ws, "C4:D6", "PRIOR PERIOD", "Pending Pickups", IIf(hasPrior, priorCount, "N/A"), RGB(209, 226, 242)
+    AddDashboardCard ws, "E4:F6", "NEW SINCE PRIOR", "Since Prior Report", IIf(hasPrior, newCount, "N/A"), RGB(226, 239, 218)
+    AddDashboardCard ws, "G4:H6", "CLEARED SINCE PRIOR", "Since Prior Report", IIf(hasPrior, clearedCount, "N/A"), RGB(209, 233, 217)
+    AddDashboardCard ws, "I4:J6", "STILL PENDING", "In Both Reports", IIf(hasPrior, stillCount, "N/A"), RGB(221, 235, 247)
 
-    AddDashboardCard ws, "A8:B10", "% CHANGE", "From Prior Report", pctChange, RGB(234, 209, 220)
+    AddDashboardCard ws, "A8:B10", "% CHANGE VS PRIOR", "From Prior Report", pctChange, RGB(234, 209, 220)
     If hasPrior And priorCount > 0 Then
         ws.Range("A8:B10").NumberFormat = "0.0%"
         ws.Cells(10, 1).Value = pctChange
     End If
-    AddDashboardCard ws, "C8:D10", "30+ DAYS", "Older Pending Pickups", age30Count, RGB(244, 204, 204)
-    AddDashboardCard ws, "E8:F10", "60+ DAYS", "Older Pending Pickups", age60Count, RGB(234, 153, 153)
-    AddDashboardCard ws, "G8:H10", "90+ DAYS", "Older Pending Pickups", age90Count, RGB(224, 102, 102)
-    AddDashboardCard ws, "I8:J10", "MISSING DATE", "AUDIT: TP End Date", missingDateCount, RGB(255, 242, 204)
+    AddDashboardCard ws, "C8:D10", "AGING 30+ DAYS", "Older Pending Pickups", age30Count, RGB(244, 204, 204)
+    AddDashboardCard ws, "E8:F10", "AGING 60+ DAYS", "Older Pending Pickups", age60Count, RGB(234, 153, 153)
+    AddDashboardCard ws, "G8:H10", "AGING 90+ DAYS", "Older Pending Pickups", age90Count, RGB(224, 102, 102)
+    AddDashboardCard ws, "I8:J10", "MISSING PICKUP DATE", "AUDIT: TP End Date", missingDateCount, RGB(255, 242, 204)
 
     ' Manager breakdown: clickable manager names plus useful manager-level metrics.
     ws.Range("A12:K12").Merge
@@ -735,10 +735,10 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     ws.Columns("B:K").ColumnWidth = 13
     ws.Rows("1:2").RowHeight = 30
     ws.Rows("3:3").RowHeight = 18
-    ws.Rows("4:10").RowHeight = 30
+    ws.Rows("4:10").RowHeight = 34
     ws.Rows("12:12").RowHeight = 24
     ws.Rows("13:13").RowHeight = 30
-    If rowOut > 14 Then ws.Rows("14:" & rowOut).RowHeight = 22
+    If rowOut > 14 Then ws.Rows("14:" & rowOut).RowHeight = 24
 
     ' Bar chart of current pending pickups by manager, Pareto-sorted (largest first), placed below the table.
     If rowOut > 14 Then
@@ -878,7 +878,7 @@ Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As St
     With labelRg
         .Font.Bold = True
         .Font.Name = "Segoe UI"
-        .Font.Size = 9
+        .Font.Size = 10
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
         .WrapText = True
@@ -888,7 +888,7 @@ Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As St
     With valueRow
         .Font.Bold = True
         .Font.Name = "Segoe UI"
-        .Font.Size = 20
+        .Font.Size = 22
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
     End With
@@ -936,15 +936,15 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     ws.Rows("1:2").RowHeight = 28
 
     ' KPI cards, fully contained inside the manager data width.
-    AddDashboardCard ws, "A4:B6", "PENDING PICKUPS", "Current", pendingCount, RGB(255, 242, 204)
-    AddDashboardCard ws, "C4:D6", "SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerRepCol), RGB(221, 235, 247)
-    AddDashboardCard ws, "E4:F6", "NEW", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
-    AddDashboardCard ws, "G4:H6", "30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
-    AddDashboardCard ws, "A8:B10", "60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
-    AddDashboardCard ws, "C8:D10", "90+ DAYS", "Older Pending Pickups", age90, RGB(224, 102, 102)
-    AddDashboardCard ws, "E8:F10", "MISSING DATE", "AUDIT: TP End Date", missingDate, RGB(255, 242, 204)
-    AddDashboardCard ws, "G8:H10", "AVG AGE", "Pending Pickup Age", IIf(IsNumeric(managerAvgAge), Format(managerAvgAge, "0.0"), "N/A"), RGB(209, 226, 242)
-    AddDashboardCard ws, "A13:B14", "% 30+", "Older Pending Pickups", IIf(rowsToUse.Count > 0, managerPct30, 0), RGB(234, 209, 220)
+    AddDashboardCard ws, "A4:B6", "TOTAL PENDING PICKUPS", "Current", pendingCount, RGB(221, 235, 247)
+    AddDashboardCard ws, "C4:D6", "ACTIVE SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerRepCol), RGB(209, 226, 242)
+    AddDashboardCard ws, "E4:F6", "NEW SINCE PRIOR", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
+    AddDashboardCard ws, "G4:H6", "AGING 30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
+    AddDashboardCard ws, "A8:B10", "AGING 60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
+    AddDashboardCard ws, "C8:D10", "AGING 90+ DAYS", "Older Pending Pickups", age90, RGB(224, 102, 102)
+    AddDashboardCard ws, "E8:F10", "MISSING PICKUP DATE", "AUDIT: TP End Date", missingDate, RGB(255, 242, 204)
+    AddDashboardCard ws, "G8:H10", "AVERAGE PICKUP AGE", "Pending Pickup Age", IIf(IsNumeric(managerAvgAge), Format(managerAvgAge, "0.0"), "N/A"), RGB(209, 226, 242)
+    AddDashboardCard ws, "A13:B14", "% OVER 30 DAYS", "Of Pending Pickups", IIf(rowsToUse.Count > 0, managerPct30, 0), RGB(234, 209, 220)
     If rowsToUse.Count > 0 Then ws.Range("A13:B14").NumberFormat = "0.0%"
 
     lastDataRow = LastUsedRow(ws)
@@ -971,8 +971,9 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
 
     ' The data table is the exact same width as the KPI/header area.
     SetManagerColumnWidths ws, managerLastCol
-    ws.Rows("4:6").RowHeight = 26
-    ws.Rows("8:10").RowHeight = 26
+    ws.Rows("4:6").RowHeight = 34
+    ws.Rows("8:10").RowHeight = 34
+    ws.Rows("13:14").RowHeight = 34
     ws.Rows(CStr(MANAGER_HEADER_ROW) & ":" & CStr(MANAGER_HEADER_ROW)).RowHeight = 34
 
     ws.Tab.Color = RGB(189, 215, 238)
@@ -1088,7 +1089,7 @@ Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
     ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
     For c = 1 To lastCol
         headerText = LCase$(Trim$(CStr(ws.Cells(MANAGER_HEADER_ROW, c).Value)))
-        minWidth = 12
+        minWidth = 14
         Select Case headerText
             Case LCase$(REP_HEADER): minWidth = 24
             Case LCase$(START_DATE_HEADER): minWidth = 14
@@ -1146,7 +1147,7 @@ Private Sub ApplyDataFormatting(ws As Worksheet, headerRow As Long, lastRow As L
         Else
             ws.Range(ws.Cells(r, 1), ws.Cells(r, lastCol)).Interior.Color = RGB(255, 255, 255)
         End If
-        ws.Rows(r).RowHeight = 22
+        ws.Rows(r).RowHeight = 24
     Next r
 End Sub
 
