@@ -231,13 +231,32 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ## 11. Screenshots
 
-QA screenshots of the generated report (Dashboard KPI cards, manager tabs, Raw Data) are stored in `documentation/`. Capture them after a successful `scripts\run-report.ps1` run by opening `Reports/Pending Pickup yyyy-mm-dd.xlsx` and screenshotting:
+QA screenshots of the generated report (Dashboard KPI cards, manager tabs, Raw Data) are stored in `documentation/screenshots/`. These were captured from `Reports/Pending Pickup 2026-11-14.xlsx` after a clean end-to-end run (no errors in `macro-debug.log`, completion marker written).
 
-- **Dashboard** — KPI cards, % CHANGE, manager table, aging breakdown, equipment Pareto.
-- **Manager tab** — KPI cards, rep-banded data table, freeze panes at the header row.
-- **Raw Data** — filtered pending rows with frozen header and date formats.
+### Dashboard
 
-No screenshots are committed yet; add them here as QA runs land.
+![Dashboard KPI cards](screenshots/Dashboard.png)
+
+### Manager tabs
+
+Each `Assigned Sales Manager` gets its own tab with KPI cards, a rep-banded data table, freeze panes at the header row, and calculated Pickup Age.
+
+![Victor Alvarez](screenshots/Victor Alvarez.png)
+![Terrence Boyd](screenshots/Terrence Boyd.png)
+![Darnell Brooks](screenshots/Darnell Brooks.png)
+![Gregory Hall](screenshots/Gregory Hall.png)
+![Hannah Kim](screenshots/Hannah Kim.png)
+![Sofia Marchetti](screenshots/Sofia Marchetti.png)
+![Rachel Nguyen](screenshots/Rachel Nguyen.png)
+![Priya Raman](screenshots/Priya Raman.png)
+![Michael Torres](screenshots/Michael Torres.png)
+![Dana Whitfield](screenshots/Dana Whitfield.png)
+
+### Raw Data
+
+Filtered pending rows with frozen header and date formats.
+
+![Raw Data](screenshots/Raw Data.png)
 
 ---
 
