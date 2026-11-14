@@ -5,6 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **17:39:00** — Removed generated `Reports/` workbooks, runtime `log/` files, `screen.png`, `_run_temp.xlsm`, and `probe_ran.txt` from the project directory. Updated `.gitignore` to keep generated report artifacts and runtime diagnostics out of version control.
 - **05:25:00** — Fixed "Type mismatch" runtime error in `ApplyAgeWarningFont` caused by `CDbl(v)` on formula
   strings (`=IF(...)`) in the Pickup Age column. Wrapped with `On Error Resume Next`.
 - **05:25:01** — Added VBA-level logging to `macro-debug.log` with timestamps and procedure names for all

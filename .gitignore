@@ -1,8 +1,13 @@
+# Runtime diagnostics and temporary workbooks
+log/
+probe_ran.txt
+_run_temp.xlsm
+
+# Generated reports are build artifacts; keep the Reports directory itself.
+Reports/*.xlsx
+Reports/~$*
+
 # Local test / scratch artifacts
-_run_temp.*
 _dbg*
 _compile*
 *.tmp
-~$*
-probe_ran.txt
-log/
