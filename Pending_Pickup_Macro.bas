@@ -57,10 +57,15 @@ Private mAuditStillRecords As Long
 Private mAuditMissingDates As Long
 Private mAuditDuplicateKeys As Long
 Private mAuditMissingManagers As Long
+Private mAuditMissingStatus As Long
+Private mAuditFutureDates As Long
+Private mAuditVeryOldDates As Long
+Private mAuditDuplicateNames As Long
 Private mAuditErrorCount As Long
 Private mAuditIssues As Collection
 Private mRunLogPath As String
 Private mInReportRun As Boolean
+Private mRepSeenDict As Object
 
 ' ====================== LOGGING ======================
 ' Centralised debug / audit logging. Every run writes to LOG_PATH and, during a
@@ -118,6 +123,10 @@ Private Sub AuditInit(ByVal srcPath As String)
     mAuditMissingDates = 0
     mAuditDuplicateKeys = 0
     mAuditMissingManagers = 0
+    mAuditMissingStatus = 0
+    mAuditFutureDates = 0
+    mAuditVeryOldDates = 0
+    mAuditDuplicateNames = 0
     mAuditErrorCount = 0
     Set mAuditIssues = New Collection
 End Sub
@@ -221,6 +230,14 @@ Private Sub AuditWriteSheet(ByVal wb As Workbook)
     ws.Cells(18, 2).Value = mAuditMissingManagers
     ws.Cells(19, 1).Value = "Errors Encountered:"
     ws.Cells(19, 2).Value = mAuditErrorCount
+    ws.Cells(20, 1).Value = "Missing Status Values:"
+    ws.Cells(20, 2).Value = mAuditMissingStatus
+    ws.Cells(21, 1).Value = "Future Pickup Dates:"
+    ws.Cells(21, 2).Value = mAuditFutureDates
+    ws.Cells(22, 1).Value = "Very Old Dates (>5 years):"
+    ws.Cells(22, 2).Value = mAuditVeryOldDates
+    ws.Cells(23, 1).Value = "Duplicate Rep Names:"
+    ws.Cells(23, 2).Value = mAuditDuplicateNames
 
     ' Audit details section
     r = 21
@@ -343,6 +360,9 @@ Public Function CreatePendingPickupReport() As Boolean
     AuditInit ThisWorkbook.FullName
     AuditLogEvent "START", "Report run started"
 
+    Set mRepSeenDict = CreateObject("Scripting.Dictionary")
+    mRepSeenDict.CompareMode = vbTextCompare
+
     Set srcWb = ThisWorkbook
 
     ' Always perform the format check before doing any report work.
@@ -455,9 +475,32 @@ Public Function CreatePendingPickupReport() As Boolean
                 managerNames.Add manager, manager
             End If
             managerRows(manager).Add r
-        Else
-            ' Audit: flag unexpected status values
-            AuditLogEvent "UNEXPECTED_STATUS", "Row " & r & ": Unexpected status '" & status & "'"
+
+            ' Audit: check for future dates
+            If Not IsEmpty(currentData(r, pickupDateCol)) Then
+                Dim dtCheck As Date
+                If TryGetExcelDate(currentData(r, pickupDateCol), dtCheck) Then
+                    If dtCheck > Date Then
+                        mAuditFutureDates = mAuditFutureDates + 1
+                        AuditLogEvent "FUTURE_DATE", "Row " & r & ": Future pickup date " & Format(dtCheck, "yyyy-mm-dd")
+                    ElseIf DateDiff("yyyy", dtCheck, Date) > 5 Then
+                        mAuditVeryOldDates = mAuditVeryOldDates + 1
+                        AuditLogEvent "VERY_OLD_DATE", "Row " & r & ": Very old pickup date " & Format(dtCheck, "yyyy-mm-dd") & " (" & DateDiff("yyyy", dtCheck, Date) & " years ago)"
+                    End If
+                End If
+            End If
+
+            ' Audit: check for duplicate names across managers
+            Dim repName As String
+            repName = Trim$(CStr(currentData(r, repCol)))
+            If Len(repName) > 0 Then
+                If repSeenDict.Exists(repName) Then
+                    mAuditDuplicateNames = mAuditDuplicateNames + 1
+                    AuditLogEvent "DUPLICATE_NAME", "Row " & r & ": Duplicate rep name '" & repName & "' (first seen at row " & repSeenDict(repName) & ")"
+                Else
+                    repSeenDict.Add repName, r
+                End If
+            End If
         End If
     Next r
     On Error GoTo CleanFail
@@ -1726,7 +1769,7 @@ Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse 
             ageRef = ColumnLetter(pickupOutCol) & (MANAGER_HEADER_ROW + i)
             arr(i + 1, keepCount + 1) = "=IF(AND(ISNUMBER(" & ageRef & "), " & ageRef & ">=DATE(2000,1,1)), TODAY() - " & ageRef & ", """")"
         Else
-            arr(i + 1, keepCount + 1) = ""
+            arr(i + 1, keepCount + 1) = "N/A"
         End If
     Next i
     On Error GoTo 0
