@@ -1767,7 +1767,7 @@ Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse 
         End If
         If pickupOutCol > 0 Then
             ageRef = ColumnLetter(pickupOutCol) & (MANAGER_HEADER_ROW + i)
-            arr(i + 1, keepCount + 1) = "=IF(AND(ISNUMBER(" & ageRef & "), " & ageRef & ">=DATE(2000,1,1)), TODAY() - " & ageRef & ", """")"
+            arr(i + 1, keepCount + 1) = "=IF(AND(ISNUMBER(" & ageRef & "), " & ageRef & ">=DATE(2000,1,1)), TODAY() - " & ageRef & ", ""N/A"")"
         Else
             arr(i + 1, keepCount + 1) = "N/A"
         End If
