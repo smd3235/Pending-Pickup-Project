@@ -448,21 +448,48 @@ Public Function CreatePendingPickupReport() As Boolean
     clearedByManager.CompareMode = vbTextCompare
 
     For r = 2 To UBound(currentData, 1)
+        On Error Resume Next
         status = Trim$(CStr(currentData(r, statusCol)))
-        If InStr(1, status, PENDING_TEXT, vbTextCompare) > 0 Then
-            currentRows.Add r
-            key = GetRecordKey(currentData, r, keyCol, nameCol, r)
-            If Not currentByKey.Exists(key) Then currentByKey.Add key, r
-
-            manager = Trim$(CStr(currentData(r, managerCol)))
-            If Len(manager) = 0 Then manager = "Unassigned"
-            If Not managerRows.Exists(manager) Then
-                Set managerRows(manager) = New Collection
-                managerNames.Add manager, manager
+        If Err.Number <> 0 Then
+            AuditLogEvent "ERROR", "Row " & r & ": Cannot read status cell - " & Err.Number & " " & Err.Description
+            Err.Clear
+        ElseIf Len(Trim$(status)) = 0 Then
+            mAuditMissingManagers = mAuditMissingManagers + 1
+            AuditLogEvent "MISSING_STATUS", "Row " & r & ": Missing status value"
+        Else
+            If InStr(1, status, PENDING_TEXT, vbTextCompare) > 0 Then
+                currentRows.Add r
+                key = GetRecordKey(currentData, r, keyCol, nameCol, r)
+                
+                ' Audit: check for missing key (EMPI)
+                If Len(Trim$(CStr(currentData(r, keyCol).Value))) = 0 Then
+                    mAuditMissingManagers = mAuditMissingManagers + 1
+                    AuditLogEvent "MISSING_KEY", "Row " & r & ": Missing EMPI key"
+                End If
+                
+                ' Audit: check for duplicate keys
+                If currentByKey.Exists(key) Then
+                    mAuditDuplicateKeys = mAuditDuplicateKeys + 1
+                    AuditLogEvent "DUPLICATE_KEY", "Row " & r & ": Duplicate EMPI key '" & key & "' (first seen at row " & currentByKey(key) & ")"
+                Else
+                    currentByKey.Add key, r
+                End If
+                
+                manager = Trim$(CStr(currentData(r, managerCol)))
+                If Len(manager) = 0 Then
+                    manager = "Unassigned"
+                    mAuditMissingManagers = mAuditMissingManagers + 1
+                    AuditLogEvent "MISSING_MANAGER", "Row " & r & ": Missing manager name"
+                End If
+                If Not managerRows.Exists(manager) Then
+                    Set managerRows(manager) = New Collection
+                    managerNames.Add manager, manager
+                End If
+                managerRows(manager).Add r
             End If
-            managerRows(manager).Add r
         End If
     Next r
+    On Error GoTo CleanFail
 
     currentCount = currentRows.Count
     LogMsg "currentCount=" & currentCount & " managers=" & managerNames.Count
@@ -1499,6 +1526,10 @@ Private Sub CalculateAgingStats(ByRef data As Variant, ByVal rowsToUse As Collec
     age30 = 0: age60 = 0: age90 = 0: missingDate = 0
     If pickupDateCol <= 0 Then
         missingDate = rowsToUse.Count
+        For i = 1 To rowsToUse.Count
+            srcRow = CLng(rowsToUse(i))
+            AuditLogEvent "MISSING_DATE", "Row " & srcRow & ": Missing pickup date (no pickup date column in source)"
+        Next i
         Exit Sub
     End If
     On Error Resume Next
@@ -1513,9 +1544,11 @@ Private Sub CalculateAgingStats(ByRef data As Variant, ByVal rowsToUse As Collec
                 If ageDays > 90 Then age90 = age90 + 1
             Else
                 missingDate = missingDate + 1
+                AuditLogEvent "MISSING_DATE", "Row " & srcRow & ": Invalid or missing pickup date"
             End If
         Else
             missingDate = missingDate + 1
+            AuditLogEvent "MISSING_DATE", "Row " & srcRow & ": Row outside data range"
         End If
     Next i
     On Error GoTo 0
