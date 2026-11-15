@@ -308,10 +308,10 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim managerRows As Object, managerNames As Object
     Dim headerRow As Long, priorHeaderRow As Long
     Dim lastRow As Long, lastCol As Long, priorLastRow As Long, priorLastCol As Long
-    Dim managerCol As Long, statusCol As Long, repCol As Long, nameCol As Long, keyCol As Long, pickupDateCol As Long, startDateCol As Long
-    Dim priorStatusCol As Long, priorNameCol As Long, priorKeyCol As Long, priorManagerCol As Long
+    Dim managerCol As Long, statusCol As Long, repCol As Long, nameCol As Long, pickupDateCol As Long, startDateCol As Long
+    Dim priorStatusCol As Long, priorNameCol As Long, priorManagerCol As Long
     Dim r As Long, i As Long
-    Dim manager As String, key As Variant, status As String
+    Dim manager As String, status As String
     Dim ws As Worksheet, dashboard As Worksheet, rawOut As Worksheet
     Dim arrOut As Variant, arrRaw As Variant
     Dim managers As Variant
@@ -320,16 +320,11 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim oldCalc As XlCalculation, oldScreen As Boolean, oldEvents As Boolean, oldAlerts As Boolean
     Dim hasPrior As Boolean
     Dim currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long
-    Dim newKeys As Object
     Dim age30Count As Long, age60Count As Long, age90Count As Long, missingDateCount As Long
     Dim errText As String
     Dim managerLastCol As Long, managerPickupDateCol As Long, managerStartDateCol As Long, managerAgeCol As Long, managerRepCol As Long
     Dim sortedManagerRows As Collection
-    Dim managerSheetNames As Object
-    Dim overallAvgAge As Variant
     Dim reportStamp As String, sourceName As String
-    Dim stillByManager As Object, clearedByManager As Object
-
     #If Not ENABLE_ERL Then
     On Error GoTo CleanFail
     #End If
@@ -403,7 +398,7 @@ Public Function CreatePendingPickupReport() As Boolean
     statusCol = FindHeaderColumn(raw, headerRow, STATUS_HEADER)
     repCol = FindHeaderColumn(raw, headerRow, REP_HEADER)
     nameCol = FindHeaderColumn(raw, headerRow, NAME_HEADER)
-    keyCol = FindHeaderColumn(raw, headerRow, KEY_HEADER)
+
     pickupDateCol = FindHeaderColumn(raw, headerRow, PICKUP_DATE_HEADER)
     startDateCol = FindHeaderColumn(raw, headerRow, START_DATE_HEADER)
 
@@ -430,22 +425,12 @@ Public Function CreatePendingPickupReport() As Boolean
     LogMsg "Value2 start"
     currentData = raw.Range(raw.Cells(headerRow, 1), raw.Cells(lastRow, lastCol)).Value2
     LogMsg "Value2 done rows=" & UBound(currentData, 1)
-    LogMsg "Source dimensions: rows=" & lastRow & " cols=" & lastCol & " statusCol=" & statusCol & " managerCol=" & managerCol & " keyCol=" & keyCol & " pickupDateCol=" & pickupDateCol
-    Set currentRows = New Collection
-    Set currentByKey = CreateObject("Scripting.Dictionary")
-    currentByKey.CompareMode = vbTextCompare
-    Set newKeys = CreateObject("Scripting.Dictionary")
-    newKeys.CompareMode = vbTextCompare
+    LogMsg "Source dimensions: rows=" & lastRow & " cols=" & lastCol & " statusCol=" & statusCol & " managerCol=" & managerCol & " pickupDateCol=" & pickupDateCol
     Set managerRows = CreateObject("Scripting.Dictionary")
     managerRows.CompareMode = vbTextCompare
     Set managerNames = CreateObject("Scripting.Dictionary")
     managerNames.CompareMode = vbTextCompare
-    Set managerSheetNames = CreateObject("Scripting.Dictionary")
-    managerSheetNames.CompareMode = vbTextCompare
-    Set stillByManager = CreateObject("Scripting.Dictionary")
-    stillByManager.CompareMode = vbTextCompare
-    Set clearedByManager = CreateObject("Scripting.Dictionary")
-    clearedByManager.CompareMode = vbTextCompare
+    Set currentRows = New Collection
 
     For r = 2 To UBound(currentData, 1)
         On Error Resume Next
@@ -454,39 +439,25 @@ Public Function CreatePendingPickupReport() As Boolean
             AuditLogEvent "ERROR", "Row " & r & ": Cannot read status cell - " & Err.Number & " " & Err.Description
             Err.Clear
         ElseIf Len(Trim$(status)) = 0 Then
-            mAuditMissingManagers = mAuditMissingManagers + 1
+            mAuditMissingStatus = mAuditMissingStatus + 1
             AuditLogEvent "MISSING_STATUS", "Row " & r & ": Missing status value"
-        Else
-            If InStr(1, status, PENDING_TEXT, vbTextCompare) > 0 Then
-                currentRows.Add r
-                key = GetRecordKey(currentData, r, keyCol, nameCol, r)
-                
-                ' Audit: check for missing key (EMPI)
-                If Len(Trim$(CStr(currentData(r, keyCol).Value))) = 0 Then
-                    mAuditMissingManagers = mAuditMissingManagers + 1
-                    AuditLogEvent "MISSING_KEY", "Row " & r & ": Missing EMPI key"
-                End If
-                
-                ' Audit: check for duplicate keys
-                If currentByKey.Exists(key) Then
-                    mAuditDuplicateKeys = mAuditDuplicateKeys + 1
-                    AuditLogEvent "DUPLICATE_KEY", "Row " & r & ": Duplicate EMPI key '" & key & "' (first seen at row " & currentByKey(key) & ")"
-                Else
-                    currentByKey.Add key, r
-                End If
-                
-                manager = Trim$(CStr(currentData(r, managerCol)))
-                If Len(manager) = 0 Then
-                    manager = "Unassigned"
-                    mAuditMissingManagers = mAuditMissingManagers + 1
-                    AuditLogEvent "MISSING_MANAGER", "Row " & r & ": Missing manager name"
-                End If
-                If Not managerRows.Exists(manager) Then
-                    Set managerRows(manager) = New Collection
-                    managerNames.Add manager, manager
-                End If
-                managerRows(manager).Add r
+        ElseIf InStr(1, status, PENDING_TEXT, vbTextCompare) > 0 Then
+            currentRows.Add r
+
+            manager = Trim$(CStr(currentData(r, managerCol)))
+            If Len(manager) = 0 Then
+                manager = "Unassigned"
+                mAuditMissingManagers = mAuditMissingManagers + 1
+                AuditLogEvent "MISSING_MANAGER", "Row " & r & ": Missing manager name"
             End If
+            If Not managerRows.Exists(manager) Then
+                Set managerRows(manager) = New Collection
+                managerNames.Add manager, manager
+            End If
+            managerRows(manager).Add r
+        Else
+            ' Audit: flag unexpected status values
+            AuditLogEvent "UNEXPECTED_STATUS", "Row " & r & ": Unexpected status '" & status & "'"
         End If
     Next r
     On Error GoTo CleanFail
@@ -534,7 +505,7 @@ Public Function CreatePendingPickupReport() As Boolean
                 priorHeaderRow = FindHeaderRow(prior)
                 priorStatusCol = FindHeaderColumn(prior, priorHeaderRow, STATUS_HEADER)
                 priorNameCol = FindHeaderColumn(prior, priorHeaderRow, NAME_HEADER)
-                priorKeyCol = FindHeaderColumn(prior, priorHeaderRow, KEY_HEADER)
+
                 priorManagerCol = FindHeaderColumn(prior, priorHeaderRow, MANAGER_HEADER)
                 priorLastRow = LastUsedRow(prior)
                 priorLastCol = LastUsedColumn(prior)
@@ -550,7 +521,7 @@ Public Function CreatePendingPickupReport() As Boolean
             status = Trim$(CStr(priorData(r, priorStatusCol)))
             If InStr(1, status, PENDING_TEXT, vbTextCompare) > 0 Then
                 priorRows.Add r
-                key = GetRecordKey(priorData, r, priorKeyCol, priorNameCol, r)
+
                 If Not priorByKey.Exists(key) Then priorByKey.Add key, r
             End If
         Next r
@@ -563,15 +534,15 @@ Public Function CreatePendingPickupReport() As Boolean
     LogMsg "priorCount=" & priorCount & " hasPrior=" & hasPrior
 
     If hasPrior Then
-        For Each key In currentByKey.Keys
-            If priorByKey.Exists(key) Then
+
+
                 stillCount = stillCount + 1
             Else
                 newCount = newCount + 1
-                If Not newKeys.Exists(key) Then newKeys.Add key, True
+
             End If
         Next key
-        For Each key In priorByKey.Keys
+
             If Not currentByKey.Exists(key) Then clearedCount = clearedCount + 1
         Next key
     End If
@@ -581,28 +552,28 @@ Public Function CreatePendingPickupReport() As Boolean
     If hasPrior Then
         For i = 1 To currentRows.Count
             r = CLng(currentRows(i))
-            key = GetRecordKey(currentData, r, keyCol, nameCol, r)
-            If priorByKey.Exists(key) Then
+
+
                 manager = Trim$(CStr(currentData(r, managerCol)))
                 If Len(manager) = 0 Then manager = "Unassigned"
-                If stillByManager.Exists(manager) Then
-                    stillByManager(manager) = stillByManager(manager) + 1
+
+
                 Else
-                    stillByManager.Add manager, 1
+
                 End If
             End If
         Next i
         If priorManagerCol > 0 Then
             For i = 1 To priorRows.Count
                 r = CLng(priorRows(i))
-                key = GetRecordKey(priorData, r, priorKeyCol, priorNameCol, r)
-                If Not currentByKey.Exists(key) Then
+
+
                     manager = Trim$(CStr(priorData(r, priorManagerCol)))
                     If Len(manager) = 0 Then manager = "Unassigned"
-                    If clearedByManager.Exists(manager) Then
-                        clearedByManager(manager) = clearedByManager(manager) + 1
+
+
                     Else
-                        clearedByManager.Add manager, 1
+
                     End If
                 End If
             Next i
@@ -631,7 +602,7 @@ Public Function CreatePendingPickupReport() As Boolean
         Application.StatusBar = "Creating manager tab: " & manager
         Set ws = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
         ws.Name = SafeSheetName(manager, outWb)
-        managerSheetNames.Add manager, ws.Name
+
         Set sortedManagerRows = SortManagerRowsBySalesRep(currentData, managerRows(manager), repCol, nameCol)
         arrOut = BuildManagerOutputArray(currentData, sortedManagerRows, lastCol, pickupDateCol)
         managerLastCol = UBound(arrOut, 2)
@@ -640,7 +611,7 @@ Public Function CreatePendingPickupReport() As Boolean
         managerStartDateCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, START_DATE_HEADER)
         managerAgeCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, "Pickup Age (Days)")
         managerRepCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, REP_HEADER)
-        FormatManagerSheet ws, manager, managerRows(manager).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, currentData, sortedManagerRows, newKeys, keyCol, nameCol, hasPrior
+        FormatManagerSheet ws, manager, managerRows\(manager\).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, currentData, sortedManagerRows, hasPrior
         LogMsg "  ApplyDateFormatsToOutput: " & manager
         ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
         LogMsg "  MatchSourceColumnWidthsForManager: " & manager
@@ -652,8 +623,8 @@ Public Function CreatePendingPickupReport() As Boolean
     ' Build the dashboard after manager sheets exist so manager names can link directly to their tabs.
     LogMsg "BuildDashboard start"
     BuildDashboard dashboard, currentCount, priorCount, newCount, clearedCount, stillCount, _
-                   age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, newKeys, keyCol, nameCol, pickupDateCol, _
-                   overallAvgAge, reportStamp, sourceName, stillByManager, clearedByManager, currentRows
+                   age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, keyCol, nameCol, pickupDateCol, _
+                   reportStamp, sourceName, currentRows
     LogMsg "BuildDashboard done"
 
     Set rawOut = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
@@ -733,7 +704,7 @@ End Function
 ' Builds the Dashboard tab: KPI cards, manager table, charts, and logo.
 Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long, _
     age30Count As Long, age60Count As Long, age90Count As Long, missingDateCount As Long, hasPrior As Boolean, _
-    managers As Variant, managerRows As Object, managerSheetNames As Object, ByRef currentData As Variant, newKeys As Object, keyCol As Long, nameCol As Long, pickupDateCol As Long, _
+    managers As Variant, managerRows As Object, managerSheetNames As Object, ByRef currentData As Variant, keyCol As Long, nameCol As Long, pickupDateCol As Long, _
     ByVal overallAvgAge As Variant, ByVal reportStamp As String, ByVal sourceName As String, ByVal stillByManager As Object, ByVal clearedByManager As Object, ByVal pendingRows As Collection)
 
     Dim pctChange As Variant
@@ -823,9 +794,9 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         mAvgByMgr(managerName) = mAvgAge
         mPct30ByMgr(managerName) = mPct30
         If hasPrior Then
-            mNew = CountNewManagerRows(currentData, managerRows(managerName), newKeys, keyCol, nameCol)
-            If stillByManager.Exists(managerName) Then mStill = stillByManager(managerName) Else mStill = 0
-            If clearedByManager.Exists(managerName) Then mCleared = clearedByManager(managerName) Else mCleared = 0
+            mNew = CountNewManagerRows\(currentData, managerRows\(managerName\)\)
+            mStill = 0
+            mCleared = 0
             mNewByMgr(managerName) = mNew
             mStillByMgr(managerName) = mStill
             mClearedByMgr(managerName) = mCleared
