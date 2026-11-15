@@ -1,0 +1,6 @@
+Fix manager tab KPI card layout so no card sits alone
+
+- Pending_Pickup_Macro.bas:945-955 Rebalanced manager dashboard KPI cards: 5 cards on row 4-6 and 4 cards on row 8-10 so no card sits alone in a row.
+- Pending Pickup Template.xlsm: re-synced from Pending_Pickup_Macro.bas.
+- documentation/screenshots/: regenerated all 12 PNGs with rebalanced KPI layout.
+- documentation/changelog.md: dated entries for layout fixes.

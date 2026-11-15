@@ -5,6 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **17:05:00** — Fixed manager tab KPI card layout: 5 cards on row 4-6 and 4 cards on row 8-10 so no card sits alone (`Pending_Pickup_Macro.bas:945-955`).
 - **17:00:00** — Added `HideUnusedCells` so every sheet hides all rows/columns beyond its used range, keeping the report clean and focused only on actual data (`Pending_Pickup_Macro.bas:469-475,1857-1893`).
 - **16:55:00** — Improved spacing on dashboard and manager tabs: KPI card row heights 34→38, data row heights 22→28, min column width 14→16, font sizes increased for readability (`Pending_Pickup_Macro.bas:738,741,973-975,1091,1150`).
 - **16:54:00** — Improved screenshot quality: `snapshot-report.ps1` now sets zoom to 100% before CopyPicture and uses wider charts (110px/col, 30px/row) so content isn't squished onto one page width (`scripts/snapshot-report.ps1:48-57`).

@@ -943,16 +943,17 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     ws.Rows("1:2").RowHeight = 28
 
     ' KPI cards, fully contained inside the manager data width.
+    ' Row 4-6: 5 cards. Row 8-10: 4 cards. No card sits alone.
     AddDashboardCard ws, "A4:B6", "TOTAL PENDING PICKUPS", "Current", pendingCount, RGB(221, 235, 247)
     AddDashboardCard ws, "C4:D6", "ACTIVE SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerRepCol), RGB(209, 226, 242)
     AddDashboardCard ws, "E4:F6", "NEW SINCE PRIOR", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
     AddDashboardCard ws, "G4:H6", "AGING 30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
-    AddDashboardCard ws, "A8:B10", "AGING 60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
-    AddDashboardCard ws, "C8:D10", "AGING 90+ DAYS", "Older Pending Pickups", age90, RGB(224, 102, 102)
-    AddDashboardCard ws, "E8:F10", "MISSING PICKUP DATE", "AUDIT: TP End Date", missingDate, RGB(255, 242, 204)
-    AddDashboardCard ws, "G8:H10", "AVERAGE PICKUP AGE", "Pending Pickup Age", IIf(IsNumeric(managerAvgAge), Format(managerAvgAge, "0.0"), "N/A"), RGB(209, 226, 242)
-    AddDashboardCard ws, "A13:B14", "% OVER 30 DAYS", "Of Pending Pickups", IIf(rowsToUse.Count > 0, managerPct30, 0), RGB(234, 209, 220)
-    If rowsToUse.Count > 0 Then ws.Range("A13:B14").NumberFormat = "0.0%"
+    AddDashboardCard ws, "I4:J6", "AGING 60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
+    AddDashboardCard ws, "A8:B10", "AGING 90+ DAYS", "Older Pending Pickups", age90, RGB(224, 102, 102)
+    AddDashboardCard ws, "C8:D10", "MISSING PICKUP DATE", "AUDIT: TP End Date", missingDate, RGB(255, 242, 204)
+    AddDashboardCard ws, "E8:F10", "AVERAGE PICKUP AGE", "Pending Pickup Age", IIf(IsNumeric(managerAvgAge), Format(managerAvgAge, "0.0"), "N/A"), RGB(209, 226, 242)
+    AddDashboardCard ws, "G8:H10", "% OVER 30 DAYS", "Of Pending Pickups", IIf(rowsToUse.Count > 0, managerPct30, 0), RGB(234, 209, 220)
+    If rowsToUse.Count > 0 Then ws.Range("G8:H10").NumberFormat = "0.0%"
 
     lastDataRow = LastUsedRow(ws)
     LogMsg "  lastDataRow=" & lastDataRow
@@ -980,7 +981,6 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     SetManagerColumnWidths ws, managerLastCol
     ws.Rows("4:6").RowHeight = 38
     ws.Rows("8:10").RowHeight = 38
-    ws.Rows("13:14").RowHeight = 38
     ws.Rows(CStr(MANAGER_HEADER_ROW) & ":" & CStr(MANAGER_HEADER_ROW)).RowHeight = 36
 
     ws.Tab.Color = RGB(189, 215, 238)
