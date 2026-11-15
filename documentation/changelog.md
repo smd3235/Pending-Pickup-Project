@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-14
 
+- **16:55:00** — Improved spacing on dashboard and manager tabs: KPI card row heights 34→38, data row heights 22→28, min column width 14→16, font sizes increased for readability (`Pending_Pickup_Macro.bas:738,741,973-975,1091,1150`).
+- **16:54:00** — Improved screenshot quality: `snapshot-report.ps1` now sets zoom to 100% before CopyPicture and uses wider charts (110px/col, 30px/row) so content isn't squished onto one page width (`scripts/snapshot-report.ps1:48-57`).
 - **16:50:00** — Fixed screenshot capture: rewrote `scripts/snapshot-report.ps1` using the working PM Project technique (standalone Chart sheet, `xlBitmap` CopyPicture format 2, sleep after paste) so screenshots capture real data instead of blank/garbled output. All 12 sheets (Dashboard, 10 manager tabs, Raw Data) now export as valid PNGs (458KB-2MB each).
 - **16:49:00** — Removed broken VBA screenshot export code (`ExportSheetAsPng`, `ExportAllSheetsPng`) from `Pending_Pickup_Macro.bas`; screenshots now handled purely from PowerShell via `snapshot-report.ps1`.
 - **16:48:00** — Major root README.md overhaul: detailed GitHub landing page with app workflow (5 steps), repository layout, output specification, KPI definitions (dashboard + manager tabs), comparison logic, aging definition, requirements, distribution notes, and embedded screenshots for Dashboard, all 10 manager tabs, and Raw Data.

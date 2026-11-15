@@ -42,7 +42,19 @@ function Save-SheetImage {
 
     $used = $Worksheet.UsedRange
     $range = $Worksheet.Range($Worksheet.Cells(1, 1), $Worksheet.Cells($used.Row + $used.Rows.Count - 1, $used.Column + $used.Columns.Count - 1))
+
+    # Activate sheet and set zoom to 100% so CopyPicture captures at full resolution,
+    # not zoomed out to 85% (which makes everything look squished).
+    $Worksheet.Activate() | Out-Null
+    $Workbook.Application.ActiveWindow.Zoom = 100
+
     $range.CopyPicture(1, 2) | Out-Null   # xlScreen=1, xlBitmap=2
+
+    $rows = [int]$used.Rows.Count
+    $cols = [int]$used.Columns.Count
+    # Wider chart so content isn't squished onto one page width.
+    $w = [Math]::Max(1800, $cols * 110)
+    $h = [Math]::Max(900,  $rows * 30)
 
     $chart = $Workbook.Charts.Add()
     try {
