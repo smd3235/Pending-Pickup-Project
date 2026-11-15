@@ -469,6 +469,13 @@ Public Function CreatePendingPickupReport() As Boolean
     Application.StatusBar = "Saving finished Pending Pickup report..."
     savePath = BuildOutputPath(srcWb)
     LogMsg "Saving to: " & savePath
+
+    ' Hide unused rows/columns on every sheet so the report looks clean
+    Dim hideWs As Worksheet
+    For Each hideWs In outWb.Worksheets
+        HideUnusedCells hideWs
+    Next hideWs
+
     outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbook
     LogMsg "Save done"
     WriteCompletionMarker savePath
@@ -1849,6 +1856,31 @@ Private Sub SaveOutputFolder(ByVal folder As String)
 End Sub
 
 
+' ====================== HIDE UNUSED CELLS ======================
+' Hides all rows/columns beyond the used range on a worksheet so the
+' report looks clean and focused only on actual data.
+Private Sub HideUnusedCells(ByVal ws As Worksheet)
+    Dim lastCol As Long, lastRow As Long, maxCol As Long, maxRow As Long
+    On Error Resume Next
+    
+    lastCol = ws.UsedRange.Columns.Count
+    lastRow = ws.UsedRange.Rows.Count
+    
+    maxCol = ws.UsedRange.Column + lastCol - 1
+    maxRow = ws.UsedRange.Row + lastRow - 1
+    
+    ' Hide columns to the right of the used range
+    If maxCol < ws.Columns.Count Then
+        ws.Range(ws.Cells(1, maxCol + 1), ws.Cells(1, ws.Columns.Count)).EntireColumn.Hidden = True
+    End If
+    
+    ' Hide rows below the used range
+    If maxRow < ws.Rows.Count Then
+        ws.Range(ws.Cells(maxRow + 1, 1), ws.Cells(ws.Rows.Count, 1)).EntireRow.Hidden = True
+    End If
+    
+    On Error GoTo 0
+End Sub
 
 ' v3.4 final change-log note: Manager raw-data header moved to row 10 to prevent KPI overlap.
 
