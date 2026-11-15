@@ -898,6 +898,7 @@ Private Sub AddDashboardCard(ws As Worksheet, address As String, labelText As St
         .Font.Size = 22
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
+        .WrapText = True
     End With
 End Sub
 
@@ -953,6 +954,52 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     AddDashboardCard ws, "E8:F10", "AVERAGE PICKUP AGE", "Pending Pickup Age", IIf(IsNumeric(managerAvgAge), Format(managerAvgAge, "0.0"), "N/A"), RGB(209, 226, 242)
     AddDashboardCard ws, "G8:H10", "% OVER 30 DAYS", "Of Pending Pickups", IIf(rowsToUse.Count > 0, managerPct30, 0), RGB(234, 209, 220)
     If rowsToUse.Count > 0 Then ws.Range("G8:H10").NumberFormat = "0.0%"
+
+    ' Sales Rep Summary card - list each rep with their pending pickup count, sorted by count descending
+    Dim repNames() As String, repCounts() As Long
+    Dim i As Long, j As Long, repName As String, tmpName As String, tmpCount As Long
+    Dim repText As String, repCount As Long
+    Dim found As Boolean
+    repCount = 0
+    ' Build unique rep list with counts
+    For i = MANAGER_HEADER_ROW To lastDataRow
+        repName = NormalizeText(CStr(ws.Cells(i, managerRepCol).Value))
+        If Len(repName) > 0 Then
+            found = False
+            For j = 1 To repCount
+                If StrComp(repNames(j), repName, vbTextCompare) = 0 Then
+                    repCounts(j) = repCounts(j) + 1
+                    found = True
+                    Exit For
+                End If
+            Next j
+            If Not found Then
+                repCount = repCount + 1
+                ReDim Preserve repNames(1 To repCount)
+                ReDim Preserve repCounts(1 To repCount)
+                repNames(repCount) = repName
+                repCounts(repCount) = 1
+            End If
+        End If
+    Next i
+    If repCount > 0 Then
+        ' Sort by count descending, ties alphabetical
+        For i = 1 To repCount - 1
+            For j = i + 1 To repCount
+                If repCounts(j) > repCounts(i) Or _
+                   (repCounts(j) = repCounts(i) And StrComp(repNames(j), repNames(i), vbTextCompare) < 0) Then
+                    tmpName = repNames(i): repNames(i) = repNames(j): repNames(j) = tmpName
+                    tmpCount = repCounts(i): repCounts(i) = repCounts(j): repCounts(j) = tmpCount
+                End If
+            Next j
+        Next i
+        repText = ""
+        For i = 1 To repCount
+            If Len(repText) > 0 Then repText = repText & "   |   "
+            repText = repText & repNames(i) & ": " & CStr(repCounts(i))
+        Next i
+        AddDashboardCard ws, "A11:H13", "SALES REP SUMMARY", "Pending Pickups by Rep", repText, RGB(247, 249, 251)
+    End If
 
     lastDataRow = LastUsedRow(ws)
     LogMsg "  lastDataRow=" & lastDataRow
@@ -1207,6 +1254,21 @@ Private Function CountUniqueManagerRepsOnSheet(ws As Worksheet, ByVal firstRow A
         End If
     Next r
     CountUniqueManagerRepsOnSheet = d.Count
+End Function
+
+Private Function CountRepsInSheet(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Object
+    Dim d As Object, r As Long, repName As String
+    Set d = CreateObject("Scripting.Dictionary")
+    d.CompareMode = vbTextCompare
+    If repCol <= 0 Or firstRow > lastRow Then Exit Function
+    For r = firstRow To lastRow
+        repName = NormalizeText(CStr(ws.Cells(r, repCol).Value))
+        If Len(repName) > 0 Then
+            If Not d.Exists(repName) Then d.Add repName, 0
+            d(repName) = d(repName) + 1
+        End If
+    Next r
+    Set CountRepsInSheet = d
 End Function
 
 Private Function CalculateAverageAge(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal pickupDateCol As Long) As Variant
