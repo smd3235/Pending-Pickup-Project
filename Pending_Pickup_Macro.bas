@@ -942,13 +942,12 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
     End With
     ws.Rows("1:2").RowHeight = 28
 
-    ' KPI cards, fully contained inside the manager data width.
-    ' Row 4-6: 5 cards. Row 8-10: 4 cards. No card sits alone.
+    ' KPI cards, fully contained inside the manager data width (A:H = 8 columns).
+    ' Row 4-6: 4 cards. Row 8-10: 4 cards. No card sits alone.
     AddDashboardCard ws, "A4:B6", "TOTAL PENDING PICKUPS", "Current", pendingCount, RGB(221, 235, 247)
-    AddDashboardCard ws, "C4:D6", "ACTIVE SALES REPS", "Total Reps", CountUniqueManagerRepsOnSheet(ws, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerRepCol), RGB(209, 226, 242)
-    AddDashboardCard ws, "E4:F6", "NEW SINCE PRIOR", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
-    AddDashboardCard ws, "G4:H6", "AGING 30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
-    AddDashboardCard ws, "I4:J6", "AGING 60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
+    AddDashboardCard ws, "C4:D6", "NEW SINCE PRIOR", "Since Prior Report", managerNewCount, RGB(226, 239, 218)
+    AddDashboardCard ws, "E4:F6", "AGING 30+ DAYS", "Older Pending Pickups", age30, RGB(244, 204, 204)
+    AddDashboardCard ws, "G4:H6", "AGING 60+ DAYS", "Older Pending Pickups", age60, RGB(234, 153, 153)
     AddDashboardCard ws, "A8:B10", "AGING 90+ DAYS", "Older Pending Pickups", age90, RGB(224, 102, 102)
     AddDashboardCard ws, "C8:D10", "MISSING PICKUP DATE", "AUDIT: TP End Date", missingDate, RGB(255, 242, 204)
     AddDashboardCard ws, "E8:F10", "AVERAGE PICKUP AGE", "Pending Pickup Age", IIf(IsNumeric(managerAvgAge), Format(managerAvgAge, "0.0"), "N/A"), RGB(209, 226, 242)
