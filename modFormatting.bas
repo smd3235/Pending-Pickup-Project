@@ -464,6 +464,19 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ws.Rows("7:7").RowHeight = 10
     ws.Rows("8:10").RowHeight = 52
 
+    ' Widen columns so the 4 KPI cards (each spanning 2 columns) fill the full data width evenly.
+    ' Cards sit in A:B, C:D, E:F, G:H — balance pair widths so shapes are not narrow.
+    Dim pairW As Double
+    pairW = 44
+    ws.Columns("A").ColumnWidth = 22
+    ws.Columns("B").ColumnWidth = pairW - ws.Columns("A").ColumnWidth
+    ws.Columns("C").ColumnWidth = 22
+    ws.Columns("D").ColumnWidth = pairW - ws.Columns("C").ColumnWidth
+    ws.Columns("E").ColumnWidth = 22
+    ws.Columns("F").ColumnWidth = pairW - ws.Columns("E").ColumnWidth
+    ws.Columns("G").ColumnWidth = 22
+    ws.Columns("H").ColumnWidth = pairW - ws.Columns("G").ColumnWidth
+
     ' Uniform light-blue background for KPI band (rows 3-10) so gaps match the summary band
     ws.Range(ws.Cells(3, 1), ws.Cells(10, managerLastCol)).Interior.Color = RGB(221, 235, 247)
     ' Pre-clear KPI card cell areas so rounded shapes sit on a clean band with gaps
@@ -583,6 +596,23 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
 
     ' Ensure date columns display as dates (after all sizing/wrap adjustments)
     ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
+
+    ' Re-apply balanced KPI column widths after data sizing so cards remain wide (not narrowed by AutoFit)
+    ' 4 equal card pairs (A:B, C:D, E:F, G:H) = 44 units each, 176 total
+    ws.Columns("A").ColumnWidth = 22
+    ws.Columns("B").ColumnWidth = 22
+    ws.Columns("C").ColumnWidth = 22
+    ws.Columns("D").ColumnWidth = 22
+    ws.Columns("E").ColumnWidth = 22
+    ws.Columns("F").ColumnWidth = 22
+    ws.Columns("G").ColumnWidth = 22
+    ws.Columns("H").ColumnWidth = 22
+
+    ' Refit row heights for wrapped text at these widths
+    If lastRow >= firstRow Then
+        ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastRow, managerLastCol)).WrapText = True
+        ws.Rows(firstRow & ":" & lastRow).AutoFit
+    End If
 
     ' Freeze panes below header
     ws.Activate
@@ -785,47 +815,16 @@ Private Sub SetManagerColumnWidths(ByVal ws As Worksheet, ByVal lastCol As Long,
 End Sub
 
 Public Sub ApplyUniformManagerColumnWidths(ByVal outWb As Workbook, ByVal managers As Variant, ByVal managerSheetNames As Object)
-    Dim i As Long, c As Long
+    Dim i As Long
     Dim ws As Worksheet, mgr As String, sheetName As String
-    Dim maxCols As Long, lastCol As Long, lastRow As Long
-    Dim maxWidths() As Double
+    Dim lastCol As Long, lastRow As Long
+    Const KPI_COL_WIDTH As Double = 22
 
     On Error Resume Next
     If Not IsArray(managers) Then Exit Sub
-    maxCols = 0
 
-    ' Pass 1: determine max AutoFit width per column across all manager sheets
-    For i = LBound(managers) To UBound(managers)
-        mgr = CStr(managers(i))
-        sheetName = ""
-        If Not managerSheetNames Is Nothing Then
-            If managerSheetNames.Exists(mgr) Then sheetName = CStr(managerSheetNames(mgr))
-        End If
-        If Len(sheetName) = 0 Then sheetName = mgr
-        Set ws = Nothing
-        Set ws = outWb.Worksheets(sheetName)
-        If ws Is Nothing Then GoTo NextMgr
-
-        lastCol = LastUsedColumn(ws)
-        lastRow = LastUsedRow(ws)
-        If lastCol <= 0 Then GoTo NextMgr
-        If lastCol > maxCols Then
-            ReDim Preserve maxWidths(1 To lastCol)
-            maxCols = lastCol
-        End If
-
-        ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(lastRow, lastCol)).Columns.AutoFit
-        For c = 1 To lastCol
-            If ws.Columns(c).ColumnWidth > maxWidths(c) Then
-                maxWidths(c) = ws.Columns(c).ColumnWidth
-            End If
-        Next c
-NextMgr:
-    Next i
-
-    If maxCols = 0 Then Exit Sub
-
-    ' Pass 2: apply uniform widths to every manager sheet
+    ' All manager tabs share identical, balanced column widths:
+    ' 8 columns x 22 = 176 width units total, giving 4 equal KPI cards (44 units each).
     For i = LBound(managers) To UBound(managers)
         mgr = CStr(managers(i))
         sheetName = ""
@@ -838,31 +837,18 @@ NextMgr:
         If ws Is Nothing Then GoTo NextApply
 
         lastCol = LastUsedColumn(ws)
-        For c = 1 To lastCol
-            If c <= maxCols And maxWidths(c) > 0 Then
-                ws.Columns(c).ColumnWidth = maxWidths(c)
-            End If
-        Next c
-        ' Re-apply min/cap guard for sanity, then refit row heights so all text remains visible
-        lastCol = LastUsedColumn(ws)
         lastRow = LastUsedRow(ws)
-        ' Apply uniform widths from pass 1 (SetManagerColumnWidths may cap; re-enforce max where appropriate)
-        For c = 1 To lastCol
-            If c <= maxCols And maxWidths(c) > 0 Then
-                ws.Columns(c).ColumnWidth = maxWidths(c)
-            End If
-        Next c
-        SetManagerColumnWidths ws, lastCol, False
-        ' But keep uniformity: re-raise to uniform max if guard pushed below
-        For c = 1 To lastCol
-            If c <= maxCols And maxWidths(c) > 0 Then
-                If ws.Columns(c).ColumnWidth < maxWidths(c) Then
-                    ws.Columns(c).ColumnWidth = maxWidths(c)
-                End If
-            End If
-        Next c
+
+        ws.Columns("A:H").ColumnWidth = KPI_COL_WIDTH
+        If lastCol > 8 Then
+            Dim lastColLetter As String
+            lastColLetter = Split(ws.Cells(1, lastCol).Address(True, False), "$")(0)
+            ws.Columns("I:" & lastColLetter).ColumnWidth = KPI_COL_WIDTH
+        End If
+
+        ' Refit data row heights so wrapped text remains visible at uniform widths
         If lastRow >= MANAGER_HEADER_ROW + 1 Then
-            ws.Range(ws.Cells(MANAGER_HEADER_ROW + 1, 1), ws.Cells(lastRow, lastCol)).WrapText = True
+            ws.Range(ws.Cells(MANAGER_HEADER_ROW + 1, 1), ws.Cells(lastRow, IIf(lastCol < 8, 8, lastCol))).WrapText = True
             ws.Rows((MANAGER_HEADER_ROW + 1) & ":" & lastRow).AutoFit
             ws.Rows(MANAGER_HEADER_ROW).RowHeight = 36
         End If
