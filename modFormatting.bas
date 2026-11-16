@@ -265,6 +265,8 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
 
     Dim labelRg As Range, valueRg As Range, cardRg As Range
     Dim topRow As Long, bottomRow As Long, leftCol As Long, rightCol As Long
+    Dim shp As Shape
+    Dim gapX As Double, gapY As Double
 
     LogMsg "AddDashboardCard: " & labelRange & "/" & valueRange & " label=" & Replace(labelText, vbCrLf, " ") & " value=" & valueText
 
@@ -278,38 +280,50 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
     rightCol = labelRg.Column + labelRg.Columns.Count - 1
     Set cardRg = ws.Range(ws.Cells(topRow, leftCol), ws.Cells(bottomRow, rightCol))
 
-    ' Color and border the whole card
-    cardRg.Interior.Color = fillColor
-    cardRg.Borders.LineStyle = xlContinuous
-    cardRg.Borders.Weight = xlMedium
-    With cardRg.Borders(xlEdgeTop)
-        .LineStyle = xlContinuous
-        .Weight = xlThick
-        .Color = RGB(246, 206, 62)
+    ' Clear underlying cells so rounded shape stands out with gaps
+    On Error Resume Next
+    cardRg.UnMerge
+    On Error GoTo CleanFail
+    cardRg.Clear
+    cardRg.Interior.Color = RGB(221, 235, 247)
+    cardRg.Borders.LineStyle = xlLineStyleNone
+
+    ' Create rounded rectangle shape with visible gaps around it
+    gapX = 5
+    gapY = 4
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
+        cardRg.Left + gapX, cardRg.Top + gapY, _
+        cardRg.Width - (gapX * 2), cardRg.Height - (gapY * 2))
+
+    With shp
+        .Fill.ForeColor.RGB = fillColor
+        .Fill.Solid
+        .Line.Visible = msoTrue
+        .Line.ForeColor.RGB = RGB(160, 160, 160)
+        .Line.Weight = 1
+        On Error Resume Next
+        .Adjustments.Item(1) = 0.2
+        On Error GoTo CleanFail
+        .Placement = xlMove
+        .TextFrame2.VerticalAnchor = msoAnchorMiddle
+        .TextFrame2.MarginLeft = 2
+        .TextFrame2.MarginRight = 2
+        .TextFrame2.MarginTop = 2
+        .TextFrame2.MarginBottom = 2
+        .TextFrame2.WordWrap = msoTrue
+        .TextFrame2.AutoSize = msoAutoSizeNone
     End With
 
-    ' Label area
-    labelRg.Merge
-    labelRg.Value = labelText
-    With labelRg
-        .Font.Bold = True
+    With shp.TextFrame2.TextRange
+        .Text = labelText & vbCrLf & valueText
         .Font.Name = "Segoe UI"
-        .Font.Size = 10
-        .HorizontalAlignment = xlCenter
-        .VerticalAlignment = xlCenter
-        .WrapText = True
-    End With
-
-    ' Value area
-    valueRg.Merge
-    valueRg.Value = valueText
-    With valueRg
-        .Font.Bold = True
-        .Font.Name = "Segoe UI"
-        .Font.Size = 22
-        .HorizontalAlignment = xlCenter
-        .VerticalAlignment = xlCenter
-        .WrapText = True
+        .Font.Bold = msoTrue
+        .Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
+        .ParagraphFormat.Alignment = msoAlignCenter
+        On Error Resume Next
+        .Paragraphs(1).Font.Size = 10
+        .Paragraphs(2).Font.Size = 22
+        On Error GoTo CleanFail
     End With
 
     LogMsg "AddDashboardCard done: " & labelRange & "/" & valueRange
@@ -390,6 +404,14 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ws.Rows("4:6").RowHeight = 38.1
     ws.Rows("7:7").RowHeight = 15.75
     ws.Rows("8:10").RowHeight = 38.1
+
+    ' Uniform light-blue background for KPI band (rows 3-10) so gaps match the summary band
+    ws.Range(ws.Cells(3, 1), ws.Cells(10, managerLastCol)).Interior.Color = RGB(221, 235, 247)
+    ' Pre-clear KPI card cell areas so rounded shapes sit on a clean band with gaps
+    ws.Range(ws.Cells(4, 1), ws.Cells(6, managerLastCol)).Clear
+    ws.Range(ws.Cells(8, 1), ws.Cells(10, managerLastCol)).Clear
+    ws.Range(ws.Cells(4, 1), ws.Cells(10, managerLastCol)).Interior.Color = RGB(221, 235, 247)
+    ws.Range(ws.Cells(4, 1), ws.Cells(10, managerLastCol)).Borders.LineStyle = xlLineStyleNone
 
     ' Row 1: summary (keep Total Pending and New Since Prior as #1 and #2)
     cardLabel = "TOTAL PENDING PICKUPS" & vbCrLf & "Current"
