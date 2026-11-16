@@ -289,8 +289,8 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
     cardRg.Borders.LineStyle = xlLineStyleNone
 
     ' Create rounded rectangle shape with minimal gaps so cards are large and readable
-    gapX = 2
-    gapY = 1.5
+    gapX = 1.5
+    gapY = 1
     Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
         cardRg.Left + gapX, cardRg.Top + gapY, _
         cardRg.Width - (gapX * 2), cardRg.Height - (gapY * 2))
@@ -306,10 +306,10 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
         On Error GoTo CleanFail
         .Placement = xlMove
         .TextFrame2.VerticalAnchor = msoAnchorMiddle
-        .TextFrame2.MarginLeft = 4
-        .TextFrame2.MarginRight = 4
-        .TextFrame2.MarginTop = 3
-        .TextFrame2.MarginBottom = 3
+        .TextFrame2.MarginLeft = 6
+        .TextFrame2.MarginRight = 6
+        .TextFrame2.MarginTop = 4
+        .TextFrame2.MarginBottom = 4
         .TextFrame2.WordWrap = msoTrue
         .TextFrame2.AutoSize = msoAutoSizeNone
     End With
@@ -321,8 +321,9 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
         .Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
         .ParagraphFormat.Alignment = msoAlignCenter
         On Error Resume Next
-        .Paragraphs(1).Font.Size = 9
-        .Paragraphs(2).Font.Size = 20
+        .Paragraphs(1).Font.Size = 11
+        If .Paragraphs.Count >= 2 Then .Paragraphs(2).Font.Size = 11
+        If .Paragraphs.Count >= 3 Then .Paragraphs(3).Font.Size = 22
         On Error GoTo CleanFail
     End With
 
@@ -416,11 +417,11 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ' Row 1: summary (keep Total Pending and New Since Prior as #1 and #2)
     cardLabel = "TOTAL PENDING PICKUPS" & vbCrLf & "Current"
     cardValue = CStr(managerRowsCol.Count)
-    AddDashboardCard ws, "A4:B5", "A6:B6", RGB(221, 235, 247), cardLabel, cardValue
+    AddDashboardCard ws, "A4:B6", "A4:B6", RGB(221, 235, 247), cardLabel, cardValue
 
     cardLabel = "NEW SINCE PRIOR" & vbCrLf & "Since Prior Report"
     cardValue = IIf(hasPrior, "0", "N/A")
-    AddDashboardCard ws, "C4:D5", "C6:D6", RGB(226, 239, 218), cardLabel, cardValue
+    AddDashboardCard ws, "C4:D6", "C4:D6", RGB(226, 239, 218), cardLabel, cardValue
 
     cardLabel = "AVERAGE PICKUP AGE" & vbCrLf & "Pending Pickup Age"
     If IsNumeric(avgAge) Then
@@ -428,28 +429,28 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     Else
         cardValue = "N/A"
     End If
-    AddDashboardCard ws, "E4:F5", "E6:F6", RGB(209, 226, 242), cardLabel, cardValue
+    AddDashboardCard ws, "E4:F6", "E4:F6", RGB(209, 226, 242), cardLabel, cardValue
 
     cardLabel = "% OVER 30 DAYS" & vbCrLf & "Of Pending Pickups"
     cardValue = Format(pct30, "0.0%")
-    AddDashboardCard ws, "G4:H5", "G6:H6", RGB(234, 209, 220), cardLabel, cardValue
+    AddDashboardCard ws, "G4:H6", "G4:H6", RGB(234, 209, 220), cardLabel, cardValue
 
     ' Row 2: aging and data-quality metrics grouped together
     cardLabel = "AGING 30+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m30)
-    AddDashboardCard ws, "A8:B9", "A10:B10", RGB(244, 204, 204), cardLabel, cardValue
+    AddDashboardCard ws, "A8:B10", "A8:B10", RGB(244, 204, 204), cardLabel, cardValue
 
     cardLabel = "AGING 60+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m60)
-    AddDashboardCard ws, "C8:D9", "C10:D10", RGB(234, 153, 153), cardLabel, cardValue
+    AddDashboardCard ws, "C8:D10", "C8:D10", RGB(234, 153, 153), cardLabel, cardValue
 
     cardLabel = "AGING 90+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m90)
-    AddDashboardCard ws, "E8:F9", "E10:F10", RGB(224, 102, 102), cardLabel, cardValue
+    AddDashboardCard ws, "E8:F10", "E8:F10", RGB(224, 102, 102), cardLabel, cardValue
 
     cardLabel = "MISSING PICKUP DATE" & vbCrLf & "AUDIT: TP End Date"
     cardValue = CStr(mMiss)
-    AddDashboardCard ws, "G8:H9", "G10:H10", RGB(255, 242, 204), cardLabel, cardValue
+    AddDashboardCard ws, "G8:H10", "G8:H10", RGB(255, 242, 204), cardLabel, cardValue
 
     ' --- Total Per Sales Rep summary (rows 11-15) ---
     AddManagerRepSummary ws, firstRow, lastRow, managerRepCol, managerLastCol
