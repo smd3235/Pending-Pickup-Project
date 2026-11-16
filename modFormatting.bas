@@ -288,9 +288,9 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
     cardRg.Interior.Color = RGB(221, 235, 247)
     cardRg.Borders.LineStyle = xlLineStyleNone
 
-    ' Create rounded rectangle shape with visible gaps around it
-    gapX = 5
-    gapY = 4
+    ' Create rounded rectangle shape with minimal gaps so cards are large and readable
+    gapX = 2
+    gapY = 1.5
     Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
         cardRg.Left + gapX, cardRg.Top + gapY, _
         cardRg.Width - (gapX * 2), cardRg.Height - (gapY * 2))
@@ -302,14 +302,14 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
         .Line.ForeColor.RGB = RGB(160, 160, 160)
         .Line.Weight = 1
         On Error Resume Next
-        .Adjustments.Item(1) = 0.2
+        .Adjustments.Item(1) = 0.18
         On Error GoTo CleanFail
         .Placement = xlMove
         .TextFrame2.VerticalAnchor = msoAnchorMiddle
-        .TextFrame2.MarginLeft = 2
-        .TextFrame2.MarginRight = 2
-        .TextFrame2.MarginTop = 2
-        .TextFrame2.MarginBottom = 2
+        .TextFrame2.MarginLeft = 4
+        .TextFrame2.MarginRight = 4
+        .TextFrame2.MarginTop = 3
+        .TextFrame2.MarginBottom = 3
         .TextFrame2.WordWrap = msoTrue
         .TextFrame2.AutoSize = msoAutoSizeNone
     End With
@@ -321,8 +321,8 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
         .Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
         .ParagraphFormat.Alignment = msoAlignCenter
         On Error Resume Next
-        .Paragraphs(1).Font.Size = 10
-        .Paragraphs(2).Font.Size = 22
+        .Paragraphs(1).Font.Size = 9
+        .Paragraphs(2).Font.Size = 20
         On Error GoTo CleanFail
     End With
 
@@ -401,9 +401,9 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
 
     ' --- Manager KPI cards rows 4-10 ---
     ws.Rows("3:3").RowHeight = 16.5
-    ws.Rows("4:6").RowHeight = 38.1
-    ws.Rows("7:7").RowHeight = 15.75
-    ws.Rows("8:10").RowHeight = 38.1
+    ws.Rows("4:6").RowHeight = 48
+    ws.Rows("7:7").RowHeight = 12
+    ws.Rows("8:10").RowHeight = 48
 
     ' Uniform light-blue background for KPI band (rows 3-10) so gaps match the summary band
     ws.Range(ws.Cells(3, 1), ws.Cells(10, managerLastCol)).Interior.Color = RGB(221, 235, 247)
