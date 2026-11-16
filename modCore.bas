@@ -223,7 +223,9 @@ Public Function CreatePendingPickupReport() As Boolean
             If Len(repName) > 0 Then
                 If mRepSeenDict.Exists(repName) Then
                     mAuditDuplicateNames = mAuditDuplicateNames + 1
-                    AuditLogEvent "DUPLICATE_NAME", "Row " & r & ": Duplicate rep name '" & repName & "' (first seen at row " & mRepSeenDict(repName) & ")"
+                    If mAuditDuplicateNames <= 5 Then
+                        AuditLogEvent "DUPLICATE_NAME", "Row " & r & ": Duplicate rep name '" & repName & "' (first seen at row " & mRepSeenDict(repName) & ")"
+                    End If
                 Else
                     mRepSeenDict.Add repName, r
                 End If
@@ -238,6 +240,11 @@ Public Function CreatePendingPickupReport() As Boolean
     AuditLogEvent "COUNTS", "currentCount=" & currentCount & " managers=" & managerNames.Count & " totalRows=" & UBound(currentData, 1)
     mAuditTotalRecords = UBound(currentData, 1) - 1 ' exclude header
     mAuditPendingRecords = currentCount
+
+    ' Log duplicate name summary instead of flooding the log with one line per duplicate.
+    If mAuditDuplicateNames > 0 Then
+        AuditLogEvent "DUPLICATE_NAME_SUMMARY", mAuditDuplicateNames & " duplicate rep names found across " & managerNames.Count & " managers"
+    End If
 
     If currentCount = 0 Then
         MsgBox "No rows were found where Treatment Status contains '" & PENDING_TEXT & "'.", vbInformation
