@@ -73,8 +73,20 @@ def save_sheet_image(workbook, worksheet, png_path):
     # not zoomed out to 85% (which makes everything look squished).
     worksheet.Activate()
     workbook.Application.ActiveWindow.Zoom = 100
+    time.sleep(0.5)
 
-    rng.CopyPicture(1, 2)  # xlScreen=1, xlBitmap=2
+    # Copy the range as a picture (xlPicture preserves vector formatting better than xlBitmap).
+    # Retry up to 3 times — CopyPicture can fail intermittently over COM.
+    copied = False
+    for attempt in range(3):
+        try:
+            rng.CopyPicture(Appearance=1, Format=1)  # xlScreen=1, xlPicture=1
+            copied = True
+            break
+        except Exception:
+            time.sleep(1.0)
+    if not copied:
+        raise RuntimeError(f"CopyPicture failed after 3 attempts for {worksheet.Name}")
 
     rows = int(used.Rows.Count)
     cols = int(used.Columns.Count)
@@ -85,7 +97,7 @@ def save_sheet_image(workbook, worksheet, png_path):
     chart = workbook.Charts.Add()
     try:
         chart.Paste()
-        time.sleep(0.25)
+        time.sleep(0.5)
         if os.path.exists(png_path):
             os.remove(png_path)
         chart.Export(png_path)
@@ -118,8 +130,8 @@ except Exception:
 wb = None
 exported = 0
 try:
-    wb = xl.Workbooks.Open(path, False, True)
-    time.sleep(1.0)
+    wb = xl.Workbooks.Open(path, False, False)
+    time.sleep(2.0)
 
     if args.list or not args.sheets:
         print(f"Sheets in {os.path.basename(path)}:")

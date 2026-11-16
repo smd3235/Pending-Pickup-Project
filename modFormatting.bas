@@ -24,6 +24,10 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     Dim mgrName As String
     Dim i As Long
 
+    On Error GoTo CleanFail
+
+    LogMsg "BuildDashboard start"
+
     ' Title block
     Set rg = ws.Range("A1:D1")
     rg.Merge
@@ -51,38 +55,46 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     ' Total Pending
     labelText = "Total Pending Records"
     valueText = CStr(currentCount)
+    LogMsg "BuildDashboard: adding card Total Pending=" & valueText
     Call AddDashboardCard(ws, "B4", "D6", fillColor, labelText, valueText)
 
     ' New since prior
     labelText = "New Since Prior Report"
     valueText = CStr(newCount)
+    LogMsg "BuildDashboard: adding card New Since Prior=" & valueText
     Call AddDashboardCard(ws, "F4", "H6", fillColor, labelText, valueText)
 
     ' Still pending
     labelText = "Still Pending"
     valueText = CStr(stillCount)
+    LogMsg "BuildDashboard: adding card Still Pending=" & valueText
     Call AddDashboardCard(ws, "J4", "L6", fillColor, labelText, valueText)
 
     ' Cleared since prior
     labelText = "Cleared Since Prior"
     valueText = CStr(clearedCount)
+    LogMsg "BuildDashboard: adding card Cleared Since Prior=" & valueText
     Call AddDashboardCard(ws, "N4", "P6", fillColor, labelText, valueText)
 
     ' Aging stats row 8
     labelText = "Aging 30+ Days"
     valueText = CStr(age30Count)
+    LogMsg "BuildDashboard: adding card Aging 30+ Days=" & valueText
     Call AddDashboardCard(ws, "B8", "D10", fillColor, labelText, valueText)
 
     labelText = "Aging 60+ Days"
     valueText = CStr(age60Count)
+    LogMsg "BuildDashboard: adding card Aging 60+ Days=" & valueText
     Call AddDashboardCard(ws, "F8", "H10", fillColor, labelText, valueText)
 
     labelText = "Aging 90+ Days"
     valueText = CStr(age90Count)
+    LogMsg "BuildDashboard: adding card Aging 90+ Days=" & valueText
     Call AddDashboardCard(ws, "J8", "L10", fillColor, labelText, valueText)
 
     labelText = "Missing Pickup Dates"
     valueText = CStr(missingDateCount)
+    LogMsg "BuildDashboard: adding card Missing Pickup Dates=" & valueText
     Call AddDashboardCard(ws, "N8", "P10", fillColor, labelText, valueText)
 
     ' Manager table header
@@ -120,13 +132,23 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     StyleTableHeader ws.Range("A14:F14")
     StyleDashboardTable ws.Range("A15:F" & (r - 1))
     ws.Columns("A:P").AutoFit
+
+    LogMsg "BuildDashboard done - all cards and table created"
+    Exit Sub
+
+CleanFail:
+    LogErr "BuildDashboard"
 End Sub
 
-Private Sub AddDashboardCard(ByVal ws As Worksheet, ByVal topLeft As String, ByVal bottomRight As String, _
+Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal topLeft As String, ByVal bottomRight As String, _
     ByVal fillColor As Long, ByVal labelText As String, ByVal valueText As String)
+
+    On Error GoTo CleanFail
 
     Dim rg As Range, labelRg As Range, valueRow As Range
     Dim rows As Long, cols As Long
+
+    LogMsg "AddDashboardCard: " & topLeft & ":" & bottomRight & " label=" & labelText & " value=" & valueText
 
     Set rg = ws.Range(topLeft & ":" & bottomRight)
     rows = rg.Rows.Count
@@ -162,6 +184,12 @@ Private Sub AddDashboardCard(ByVal ws As Worksheet, ByVal topLeft As String, ByV
         .VerticalAlignment = xlCenter
         .WrapText = True
     End With
+
+    LogMsg "AddDashboardCard done: " & topLeft & ":" & bottomRight
+    Exit Sub
+
+CleanFail:
+    LogErr "AddDashboardCard"
 End Sub
 
 Private Sub StyleDashboardTable(ByVal rg As Range)
@@ -194,7 +222,9 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
 
     Dim r As Long, v As Variant
 
-    On Error Resume Next
+    On Error GoTo CleanFail
+
+    LogMsg "FormatManagerSheet start: " & managerName & " rows=" & firstRow & "-" & lastRow & " cols=1-" & managerLastCol
 
     ' Apply age warning font color
     For r = firstRow To lastRow
@@ -226,6 +256,12 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ActiveWindow.DisplayGridlines = False
     ActiveWindow.Zoom = 85
     On Error GoTo 0
+
+    LogMsg "FormatManagerSheet done: " & managerName
+    Exit Sub
+
+CleanFail:
+    LogErr "FormatManagerSheet"
 End Sub
 
 ' ----------------------------------------------------------------------------
