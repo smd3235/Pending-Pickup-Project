@@ -488,9 +488,15 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ' Format Yes/No columns
     FormatYesNoColumns ws, MANAGER_HEADER_ROW, lastRow, managerLastCol
 
-    ' Auto-fit and set min widths
+    ' Auto-fit and set min widths (use current AutoFit as floor; uniform widths applied later across all tabs)
     ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), managerLastCol)).Columns.AutoFit
-    SetManagerColumnWidths ws, managerLastCol
+    SetManagerColumnWidths ws, managerLastCol, False
+
+    ' Ensure data rows can show all text without squishing
+    If lastRow >= firstRow Then
+        ws.Range(ws.Cells(firstRow, 1), ws.Cells(lastRow, managerLastCol)).WrapText = True
+        ws.Rows(firstRow & ":" & lastRow).AutoFit
+    End If
 
     ' Freeze panes below header
     ws.Activate
@@ -660,29 +666,122 @@ Private Sub FormatYesNoColumns(ByVal ws As Worksheet, ByVal headerRow As Long, B
     Next c
 End Sub
 
-Private Sub SetManagerColumnWidths(ByVal ws As Worksheet, ByVal lastCol As Long)
+Private Sub SetManagerColumnWidths(ByVal ws As Worksheet, ByVal lastCol As Long, Optional ByVal doAutoFit As Boolean = True)
     Dim c As Long, headerText As String, minWidth As Double
+    Dim curWidth As Double, capWidth As Double
 
     If lastCol <= 0 Then Exit Sub
 
     On Error Resume Next
-    ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
+    If doAutoFit Then
+        ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
+    End If
 
     For c = 1 To lastCol
         headerText = LCase$(Trim$(CStr(ws.Cells(MANAGER_HEADER_ROW, c).Value)))
         minWidth = 16
+        capWidth = 60
         Select Case headerText
-            Case LCase$(REP_HEADER): minWidth = 24
-            Case LCase$(START_DATE_HEADER): minWidth = 14
-            Case LCase$(NAME_HEADER): minWidth = 26
-            Case LCase$("Billing Customer"): minWidth = 26
-            Case LCase$("Prescribing Physician"): minWidth = 28
-            Case LCase$("No Rental Equipment Provided"): minWidth = 26
-            Case LCase$(PICKUP_DATE_HEADER): minWidth = 19
-            Case LCase$("Pickup Age (Days)"): minWidth = 16
+            Case LCase$(REP_HEADER): minWidth = 24: capWidth = 40
+            Case LCase$(START_DATE_HEADER): minWidth = 14: capWidth = 16
+            Case LCase$(NAME_HEADER): minWidth = 26: capWidth = 45
+            Case LCase$("Billing Customer"): minWidth = 26: capWidth = 45
+            Case LCase$("Prescribing Physician"): minWidth = 28: capWidth = 45
+            Case LCase$("No Rental Equipment Provided"): minWidth = 22: capWidth = 28
+            Case LCase$(PICKUP_DATE_HEADER): minWidth = 19: capWidth = 22
+            Case LCase$("Pickup Age (Days)"): minWidth = 16: capWidth = 18
         End Select
-        If ws.Columns(c).ColumnWidth < minWidth Then ws.Columns(c).ColumnWidth = minWidth
+        curWidth = ws.Columns(c).ColumnWidth
+        If curWidth < minWidth Then curWidth = minWidth
+        If curWidth > capWidth Then curWidth = capWidth
+        ws.Columns(c).ColumnWidth = curWidth
     Next c
+End Sub
+
+Public Sub ApplyUniformManagerColumnWidths(ByVal outWb As Workbook, ByVal managers As Variant, ByVal managerSheetNames As Object)
+    Dim i As Long, c As Long
+    Dim ws As Worksheet, mgr As String, sheetName As String
+    Dim maxCols As Long, lastCol As Long, lastRow As Long
+    Dim maxWidths() As Double
+
+    On Error Resume Next
+    If Not IsArray(managers) Then Exit Sub
+    maxCols = 0
+
+    ' Pass 1: determine max AutoFit width per column across all manager sheets
+    For i = LBound(managers) To UBound(managers)
+        mgr = CStr(managers(i))
+        sheetName = ""
+        If Not managerSheetNames Is Nothing Then
+            If managerSheetNames.Exists(mgr) Then sheetName = CStr(managerSheetNames(mgr))
+        End If
+        If Len(sheetName) = 0 Then sheetName = mgr
+        Set ws = Nothing
+        Set ws = outWb.Worksheets(sheetName)
+        If ws Is Nothing Then GoTo NextMgr
+
+        lastCol = LastUsedColumn(ws)
+        lastRow = LastUsedRow(ws)
+        If lastCol <= 0 Then GoTo NextMgr
+        If lastCol > maxCols Then
+            ReDim Preserve maxWidths(1 To lastCol)
+            maxCols = lastCol
+        End If
+
+        ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(lastRow, lastCol)).Columns.AutoFit
+        For c = 1 To lastCol
+            If ws.Columns(c).ColumnWidth > maxWidths(c) Then
+                maxWidths(c) = ws.Columns(c).ColumnWidth
+            End If
+        Next c
+NextMgr:
+    Next i
+
+    If maxCols = 0 Then Exit Sub
+
+    ' Pass 2: apply uniform widths to every manager sheet
+    For i = LBound(managers) To UBound(managers)
+        mgr = CStr(managers(i))
+        sheetName = ""
+        If Not managerSheetNames Is Nothing Then
+            If managerSheetNames.Exists(mgr) Then sheetName = CStr(managerSheetNames(mgr))
+        End If
+        If Len(sheetName) = 0 Then sheetName = mgr
+        Set ws = Nothing
+        Set ws = outWb.Worksheets(sheetName)
+        If ws Is Nothing Then GoTo NextApply
+
+        lastCol = LastUsedColumn(ws)
+        For c = 1 To lastCol
+            If c <= maxCols And maxWidths(c) > 0 Then
+                ws.Columns(c).ColumnWidth = maxWidths(c)
+            End If
+        Next c
+        ' Re-apply min/cap guard for sanity, then refit row heights so all text remains visible
+        lastCol = LastUsedColumn(ws)
+        lastRow = LastUsedRow(ws)
+        ' Apply uniform widths from pass 1 (SetManagerColumnWidths may cap; re-enforce max where appropriate)
+        For c = 1 To lastCol
+            If c <= maxCols And maxWidths(c) > 0 Then
+                ws.Columns(c).ColumnWidth = maxWidths(c)
+            End If
+        Next c
+        SetManagerColumnWidths ws, lastCol, False
+        ' But keep uniformity: re-raise to uniform max if guard pushed below
+        For c = 1 To lastCol
+            If c <= maxCols And maxWidths(c) > 0 Then
+                If ws.Columns(c).ColumnWidth < maxWidths(c) Then
+                    ws.Columns(c).ColumnWidth = maxWidths(c)
+                End If
+            End If
+        Next c
+        If lastRow >= MANAGER_HEADER_ROW + 1 Then
+            ws.Range(ws.Cells(MANAGER_HEADER_ROW + 1, 1), ws.Cells(lastRow, lastCol)).WrapText = True
+            ws.Rows((MANAGER_HEADER_ROW + 1) & ":" & lastRow).AutoFit
+            ws.Rows(MANAGER_HEADER_ROW).RowHeight = 36
+        End If
+NextApply:
+    Next i
 End Sub
 
 Public Sub FormatRawData(ByVal ws As Worksheet, ByVal lastCol As Long, ByVal lastRow As Long)

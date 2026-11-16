@@ -38,6 +38,9 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim dtCheck As Date, repName As String, ck As String, pk As String, ck2 As String
     Dim rowItem As Variant
 
+    Set managerSheetNames = CreateObject("Scripting.Dictionary")
+    managerSheetNames.CompareMode = vbTextCompare
+
     CreatePendingPickupReport = False
     mInReportRun = True
     mReportStartTime = Now
@@ -391,6 +394,7 @@ Public Function CreatePendingPickupReport() As Boolean
         Set ws = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
         LogMsg "  worksheet added"
         ws.Name = SafeSheetName(manager, outWb)
+        managerSheetNames(manager) = ws.Name
         LogMsg "  sheet named: " & ws.Name
 
         Set sortedManagerRows = SortManagerRowsBySalesRep(currentData, managerRows(manager), repCol, nameCol)
@@ -406,13 +410,12 @@ Public Function CreatePendingPickupReport() As Boolean
         managerRepCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, REP_HEADER)
         FormatManagerSheet ws, manager, managerRows(manager).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerAgeCol, managerPickupDateCol, currentData, sortedManagerRows, hasPrior, pickupDateCol
         ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
-        MatchSourceColumnWidthsForManager raw, ws, lastCol
         LogMsg "  manager tab done: " & manager
 
         ' Add email button to the right of manager data
         Dim emailBtn As Shape
         Set emailBtn = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
-            ws.Columns(LastUsedColumn(ws) + 1).Left + 10, _
+            ws.Columns(managerLastCol + 1).Left + 10, _
             ws.Rows(MANAGER_HEADER_ROW).Top, _
             130, 35)
         emailBtn.Name = "btnEmail" & SafeSheetName(manager, outWb)
@@ -423,6 +426,9 @@ Public Function CreatePendingPickupReport() As Boolean
         emailBtn.AlternativeText = ws.Name
     Next i
     LogMsg "All manager tabs done"
+
+    ' Apply uniform column widths across all manager tabs (based on the longest content in each column)
+    ApplyUniformManagerColumnWidths outWb, managers, managerSheetNames
 
     ' Build the dashboard after manager sheets exist so manager names can link directly to their tabs.
     LogMsg "BuildDashboard start"
