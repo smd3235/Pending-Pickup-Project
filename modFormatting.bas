@@ -32,8 +32,11 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
 
     LogMsg "BuildDashboard start"
 
-    ' Title block A1:H2
-    Set rg = ws.Range("A1:H2")
+    ' Uniform column widths for edge-to-edge alignment across KPI cards, table, and chart (A:K)
+    ws.Columns("A:K").ColumnWidth = 13.5
+
+    ' Title block A1:K2
+    Set rg = ws.Range("A1:K2")
     rg.Merge
     rg.Value = "PENDING PICKUP DASHBOARD"
     With rg
@@ -47,8 +50,8 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     End With
     ws.Rows("1:2").RowHeight = 30
 
-    ' Subtitle A3:J3
-    Set rg = ws.Range("A3:J3")
+    ' Subtitle A3:K3
+    Set rg = ws.Range("A3:K3")
     rg.Merge
     rg.Value = "Report generated " & reportStamp & "   |   Source: " & sourceName
     With rg
@@ -254,7 +257,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     chartEndRow = r - 1           ' last manager row (exclude TOTAL)
     If chartEndRow >= chartStartRow + 1 Then
         Set chartObj = ws.ChartObjects.Add(Left:=ws.Range("A" & (r + 3)).Left, _
-            Top:=ws.Range("A" & (r + 3)).Top, Width:=700, Height:=300)
+            Top:=ws.Range("A" & (r + 3)).Top, Width:=ws.Range("A1:K1").Width, Height:=300)
         With chartObj.Chart
             .ChartType = xlColumnClustered
             .SetSourceData Source:=ws.Range("A" & chartStartRow & ":B" & chartEndRow)
@@ -267,9 +270,8 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
         End With
     End If
 
-    ' Column widths (dashboard layout)
-    ws.Columns("A").ColumnWidth = 16.71
-    ws.Columns("B:K").ColumnWidth = 13.0
+    ' Column widths (dashboard layout) - uniform for edge-to-edge alignment
+    ws.Columns("A:K").ColumnWidth = 13.5
 
     LogMsg "BuildDashboard done - all cards and table created"
     Exit Sub
