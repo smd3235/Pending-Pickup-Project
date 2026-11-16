@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-16
 
+- **13:54:00** — Wired local build package generation into `scripts/sync_template.py` so every sync/build also regenerates `Template (No Macros).xlsx` (macro-free base from synced template) and rebuilds `Project-Local-Build.zip` with the macro-free template, all VBA source modules (`*.bas`/`*.cls`/`*.frm` in project root), and `BUILD-INSTRUCTIONS.txt`. Added `--skip-package` flag for maintenance cases where package rebuild is not needed. ZIP now includes `Pending_Pickup_Macro.bas` legacy module alongside modular sources.
+
 - **13:48:00** — Added work-PC-friendly local build package for locked-down/macro-blocked environments (Mark-of-the-Web “Microsoft has blocked macros…”). Committed `Template (No Macros).xlsx` (macro-free base, no `vbaProject.bin`), `BUILD-INSTRUCTIONS.txt` (download/unblock/import-all-modules/save-as-`.xlsm` steps, no Python/tools), and `Project-Local-Build.zip` containing the macro-free template, all VBA source modules (`modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`), and instructions. Added/committed modular `.bas` source files to repo as source of truth for rebuild; `Pending_Pickup_Macro.bas` retained as legacy monolithic reference.
 - **13:48:01** — Updated `README.md` and `documentation/README.md` with “Work-PC / locked-down machines” quick-start, build package contents, distribution guidance (prebuilt `.xlsm` may still be blocked; macro-free base + modules ZIP is reliable fallback), and maintenance notes to keep ZIP/modules updated with template/VBA changes. No sensitive/PHI data included.
 

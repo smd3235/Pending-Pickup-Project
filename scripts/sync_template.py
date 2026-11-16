@@ -1,20 +1,23 @@
 # sync_template.py
-# Re-imports all .bas VBA modules into the template's embedded VBA project
-# and ensures the styled CREATE PENDING PICKUP REPORT button is installed on START HERE.
-# Run this after every change to any .bas file.
+# Re-imports all .bas VBA modules into the template's embedded VBA project,
+# ensures START HERE buttons are installed, and rebuilds the work-PC local
+# build package (macro-free template + module sources + instructions ZIP).
+# Run this after every change to any .bas/.cls/.frm file.
 
 import argparse
 import glob
 import os
 import sys
+import zipfile
 
 import win32com.client
 
-parser = argparse.ArgumentParser(description="Sync VBA macro modules into the template")
+parser = argparse.ArgumentParser(description="Sync VBA macro modules into the template and rebuild local build package")
 parser.add_argument("--template", default=None)
 parser.add_argument("--bas-dir", default=None, help="Directory containing .bas modules (default: project root)")
 parser.add_argument("--bas", action="append", default=[], help="Specific .bas file to sync (repeatable)")
 parser.add_argument("--button", default="btnCreatePendingPickupReport")
+parser.add_argument("--skip-package", action="store_true", help="Skip rebuilding Template (No Macros).xlsx and Project-Local-Build.zip")
 args = parser.parse_args()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -137,3 +140,46 @@ try:
         print(f"  - {os.path.basename(b)}")
 finally:
     excel.Quit()
+
+if not args.skip_package:
+    no_macro_path = os.path.join(project_root, "Template (No Macros).xlsx")
+    instructions_path = os.path.join(project_root, "BUILD-INSTRUCTIONS.txt")
+    zip_path = os.path.join(project_root, "Project-Local-Build.zip")
+
+    # Collect all VBA source modules in project root (.bas, .cls, .frm)
+    module_files = []
+    for ext in ("*.bas", "*.cls", "*.frm"):
+        module_files.extend(glob.glob(os.path.join(project_root, ext)))
+    module_files = sorted(set(module_files))
+    if not module_files:
+        print("No VBA module files (.bas/.cls/.frm) found for build package", file=sys.stderr)
+        sys.exit(1)
+    if not os.path.exists(instructions_path):
+        print(f"Build instructions not found: {instructions_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # Create macro-free base workbook from the synced template
+    excel2 = win32com.client.Dispatch("Excel.Application")
+    excel2.Visible = False
+    excel2.DisplayAlerts = False
+    excel2.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
+    try:
+        wb2 = excel2.Workbooks.Open(template)
+        if os.path.exists(no_macro_path):
+            os.remove(no_macro_path)
+        # 51 = xlOpenXMLWorkbook (.xlsx, no macros)
+        wb2.SaveAs(no_macro_path, FileFormat=51)
+        wb2.Close(False)
+        print(f"Created macro-free base: {no_macro_path}")
+    finally:
+        excel2.Quit()
+
+    # Build ZIP with macro-free template, all modules, and instructions
+    zip_items = [no_macro_path] + module_files + [instructions_path]
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for item in zip_items:
+            zf.write(item, arcname=os.path.basename(item))
+    print(f"Built local build package: {zip_path}")
+    print("  Includes:")
+    for item in zip_items:
+        print(f"    - {os.path.basename(item)}")

@@ -32,11 +32,13 @@ See **`BUILD-INSTRUCTIONS.txt`** in the ZIP/repo for the full step-by-step notes
 
 ### Maintainers
 
-After editing VBA source, sync modules into the template:
+After editing VBA source, sync modules into the template (also rebuilds `Template (No Macros).xlsx` and `Project-Local-Build.zip` automatically):
 
 ```powershell
 python .\scripts\sync_template.py
 ```
+
+Use `--skip-package` only for rare maintenance cases where you must skip rebuilding the local build package.
 
 To refresh QA screenshots after a successful report run:
 

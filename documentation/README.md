@@ -135,7 +135,7 @@ A prebuilt `.xlsm` may still be blocked when downloaded; the macro-free base + m
 python .\scripts\sync_template.py
 ```
 
-`sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, and saves. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`).
+`sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, saves the template, then **automatically rebuilds** `Template (No Macros).xlsx` and `Project-Local-Build.zip` (macro-free base + all VBA source modules `.bas`/`.cls`/`.frm` + `BUILD-INSTRUCTIONS.txt`) for locked-down work PCs. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`). Use `--skip-package` only for rare maintenance cases.
 
 **QA:** after a successful `scripts\run-report.py` run, refresh committed screenshots with:
 
@@ -145,7 +145,7 @@ python .\scripts\snapshot-report.py
 
 This exports every sheet of the newest report in `Reports/` as PNGs into `documentation/screenshots/`.
 
-**Build package maintenance:** whenever the template or VBA changes, regenerate and commit `Template (No Macros).xlsx`, keep all module `.bas` files current, and refresh `Project-Local-Build.zip` (and `BUILD-INSTRUCTIONS.txt` if steps change). Do not include sensitive/PHI data in the repo.
+**Build package maintenance:** because `sync_template.py` regenerates the package on each sync, commit the updated `Template (No Macros).xlsx`, module files, and `Project-Local-Build.zip` (and `BUILD-INSTRUCTIONS.txt` if steps change) with every template/VBA change. Do not include sensitive/PHI data in the repo.
 
 ---
 
