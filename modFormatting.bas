@@ -309,8 +309,8 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
         cardRg.Interior.Color = RGB(221, 235, 247)
         cardRg.Borders.LineStyle = xlLineStyleNone
 
-        gapX = 1
-        gapY = 0.5
+        gapX = 2
+        gapY = 1
         Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
             cardRg.Left + gapX, cardRg.Top + gapY, _
             cardRg.Width - (gapX * 2), cardRg.Height - (gapY * 2))
