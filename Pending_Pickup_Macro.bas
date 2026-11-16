@@ -71,26 +71,15 @@ Private mRepSeenDict As Object
 ' Centralised debug / audit logging. Every run writes to LOG_PATH and, during a
 ' report run, also to the per-run log in mRunLogPath.
 Private Sub LogMsg(ByVal msg As String)
-    Dim f As Integer
-    On Error Resume Next
-    f = FreeFile
-    Open LOG_PATH For Append As #f
-    Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & msg
-    Close #f
+    On Error GoTo LocalFail
 
-    If mInReportRun And Len(mRunLogPath) > 0 Then
-        f = FreeFile
-        Open mRunLogPath For Append As #f
-        Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & msg
-        Close #f
-    End If
-End Sub
-
-Private Sub LogErr(ByVal procName As String)
-    LogMsg "ERROR in " & procName & ": " & Err.Description & " (Err=" & Err.Number & ", Line=" & Erl & ")"
-End Sub
+    LocalFail:
+    LogErr "LogMsg"
+    Err.Clear
+    Resume Next
 
 Private Function BuildRunLogPath() As String
+    On Error GoTo LocalFail
     Dim logDir As String
     On Error Resume Next
     logDir = Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
@@ -98,6 +87,7 @@ Private Function BuildRunLogPath() As String
 End Function
 
 Private Sub WriteCompletionMarker(ByVal savePath As String)
+    On Error GoTo LocalFail
     Dim f As Integer
     On Error Resume Next
     If Len(Dir$(Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\"))
@@ -113,6 +103,7 @@ End Sub
 ' Records metadata, record counts, data quality issues, and manager breakdowns
 ' both to the run log and to an Audit Log sheet in the output workbook.
 Private Sub AuditInit(ByVal srcPath As String)
+    On Error GoTo LocalFail
     mAuditStartTime = Now
     mAuditSourcePath = srcPath
     mAuditTotalRecords = 0
@@ -132,6 +123,7 @@ Private Sub AuditInit(ByVal srcPath As String)
 End Sub
 
 Private Sub AuditLogEvent(ByVal eventType As String, ByVal msg As String)
+    On Error GoTo LocalFail
     On Error Resume Next
     Dim f As Integer
     f = FreeFile
@@ -152,6 +144,7 @@ Private Sub AuditLogEvent(ByVal eventType As String, ByVal msg As String)
 End Sub
 
 Private Sub AuditIncrementCounter(ByVal counterName As String)
+    On Error GoTo LocalFail
     Select Case counterName
         Case "TotalRecords": mAuditTotalRecords = mAuditTotalRecords + 1
         Case "PendingRecords": mAuditPendingRecords = mAuditPendingRecords + 1
@@ -166,6 +159,7 @@ Private Sub AuditIncrementCounter(ByVal counterName As String)
 End Sub
 
 Private Sub AuditWriteSheet(ByVal wb As Workbook)
+    On Error GoTo LocalFail
     Dim ws As Worksheet, r As Long
     On Error Resume Next
 
@@ -273,6 +267,7 @@ End Sub
 ' ====================== INTERACTIVE ENTRY ======================
 ' Owns the START HERE canvas button and its wiring.
 Private Sub SetupPendingPickupButton()
+    On Error GoTo LocalFail
     Dim ws As Worksheet, shp As Shape, btn As Shape
     On Error GoTo ButtonFail
 
@@ -314,6 +309,7 @@ End Sub
 ' Owns the full report build: source selection, prior comparison, manager tabs,
 ' dashboard, Raw Data copy, and save. Public entry point wired to the button.
 Public Function CreatePendingPickupReport() As Boolean
+    On Error GoTo LocalFail
     CreatePendingPickupReport = False
     #If ENABLE_ERL Then
     On Error GoTo CleanFail
@@ -749,6 +745,7 @@ End Function
 ' Builds the Dashboard tab: KPI cards, manager table, charts, and logo.
 Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long, _
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "BuildDashboard"
         Err.Clear
@@ -793,6 +790,7 @@ End Sub
 ' Formats one manager tab: KPI cards, data table, banding, highlighting, age warnings.
 Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCount As Long, managerLastCol As Long, managerPickupDateCol As Long, managerStartDateCol As Long, managerAgeCol As Long, managerRepCol As Long, _
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "FormatManagerSheet"
         Err.Clear
@@ -811,6 +809,7 @@ Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCo
 End Sub
 
 Private Sub HighlightMissingPickupDates(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal pickupDateCol As Long)
+    On Error GoTo LocalFail
     Dim r As Long, v As Variant, dt As Date
     If pickupDateCol <= 0 Or firstRow > lastRow Then Exit Sub
     On Error Resume Next
@@ -828,6 +827,7 @@ Private Sub HighlightMissingPickupDates(ws As Worksheet, ByVal firstRow As Long,
 End Sub
 
 Private Sub FormatYesNoColumns(ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal lastCol As Long)
+    On Error GoTo LocalFail
     Dim c As Long, r As Long, h As String, v As String
     If lastRow <= headerRow Then Exit Sub
     On Error Resume Next
@@ -858,6 +858,7 @@ Private Sub FormatYesNoColumns(ws As Worksheet, ByVal headerRow As Long, ByVal l
 End Sub
 
 Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
+    On Error GoTo LocalFail
     Dim c As Long, headerText As String, minWidth As Double
     If lastCol <= 0 Then Exit Sub
     ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
@@ -879,6 +880,7 @@ Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
 End Sub
 
 Private Sub FormatRawData(ws As Worksheet, lastCol As Long, lastRow As Long)
+    On Error GoTo LocalFail
     ApplyDataFormatting ws, 1, lastRow, lastCol
     ws.Tab.Color = RGB(128, 128, 128)
     With ws.PageSetup
@@ -900,6 +902,7 @@ End Sub
 
 Private Sub ApplyDataFormatting(ws As Worksheet, headerRow As Long, lastRow As Long, lastCol As Long)
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "ApplyDataFormatting"
         Err.Clear
@@ -916,6 +919,7 @@ Private Sub ApplyDataFormatting(ws As Worksheet, headerRow As Long, lastRow As L
 End Sub
 
 Private Sub StyleDashboardTable(rg As Range)
+    On Error GoTo LocalFail
     Dim r As Long
     rg.Borders.LineStyle = xlContinuous
     rg.Borders.Weight = xlHairline
@@ -927,6 +931,7 @@ End Sub
 ' ====================== METRICS / AGING HELPERS ======================
 ' Manager stats: unique rep count, average age, new-row count, aging bucket stats.
 Private Function CountUniqueManagerRepsOnSheet(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Long
+    On Error GoTo LocalFail
     Dim d As Object, r As Long, repName As String
     Set d = CreateObject("Scripting.Dictionary")
     d.CompareMode = vbTextCompare
@@ -941,6 +946,7 @@ Private Function CountUniqueManagerRepsOnSheet(ws As Worksheet, ByVal firstRow A
 End Function
 
 Private Function CountRepsInSheet(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Object
+    On Error GoTo LocalFail
     Dim d As Object, r As Long, repName As String
     Set d = CreateObject("Scripting.Dictionary")
     d.CompareMode = vbTextCompare
@@ -956,6 +962,7 @@ Private Function CountRepsInSheet(ws As Worksheet, ByVal firstRow As Long, ByVal
 End Function
 
 Private Function CalculateAverageAge(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal pickupDateCol As Long) As Variant
+    On Error GoTo LocalFail
     On Error GoTo LocalFail
     LocalFail:
         LogErr "CalculateAverageAge"
@@ -979,11 +986,13 @@ Private Function CalculateAverageAge(ByRef data As Variant, ByVal rowsToUse As C
 End Sub
 
 Private Sub ApplySourceDateFormats(ws As Worksheet, headerRow As Long, lastRow As Long, startDateCol As Long, pickupDateCol As Long)
+    On Error GoTo LocalFail
     If startDateCol > 0 And lastRow > headerRow Then ws.Range(ws.Cells(headerRow + 1, startDateCol), ws.Cells(lastRow, startDateCol)).NumberFormat = "mm/dd/yyyy"
     If pickupDateCol > 0 And lastRow > headerRow Then ws.Range(ws.Cells(headerRow + 1, pickupDateCol), ws.Cells(lastRow, pickupDateCol)).NumberFormat = "mm/dd/yyyy"
 End Sub
 
 Private Sub ApplyDateFormatsToOutput(ws As Worksheet, headerRow As Long, lastRow As Long, startDateCol As Long, pickupDateCol As Long)
+    On Error GoTo LocalFail
     On Error GoTo LocalFail
     LocalFail:
         LogErr "ApplyDateFormatsToOutput"
@@ -1011,6 +1020,7 @@ End Function
 ' Builds output arrays, sorts manager rows by sales rep, ranks columns, and highlights new records.
 Private Sub HighlightNewRecords(ws As Worksheet, firstRow As Long, lastRow As Long, lastDataCol As Long, _
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "HighlightNewRecords"
         Err.Clear
@@ -1035,6 +1045,7 @@ Private Sub HighlightNewRecords(ws As Worksheet, firstRow As Long, lastRow As Lo
 End Sub
 
 Private Function ManagerColumnRank(ByVal headerText As String, ByVal sourceCol As Long) As Long
+    On Error GoTo LocalFail
     Select Case LCase$(Trim$(headerText))
         Case LCase$(REP_HEADER)
             ManagerColumnRank = 1
@@ -1057,12 +1068,14 @@ End Function
 
 Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal lastCol As Long, ByVal pickupDateCol As Long) As Variant
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "BuildManagerOutputArray"
         Err.Clear
         Resume Next
 
 Private Function IsExcludedManagerHeader(ByVal headerText As String) As Boolean
+    On Error GoTo LocalFail
     On Error GoTo LocalFail
     LocalFail:
         LogErr "IsExcludedManagerHeader"
@@ -1080,6 +1093,7 @@ End Sub
 
 
 Private Sub MatchSourceColumnWidthsForManager(src As Worksheet, dest As Worksheet, sourceLastCol As Long)
+    On Error GoTo LocalFail
     On Error GoTo LocalFail
     LocalFail:
         LogErr "MatchSourceColumnWidthsForManager"
@@ -1101,6 +1115,7 @@ End Function
 
 Private Function SafeValue(v As Variant, defaultText As String) As String
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "SafeValue"
         Err.Clear
@@ -1114,6 +1129,7 @@ Private Function SafeValue(v As Variant, defaultText As String) As String
 End Function
 
 Private Function SheetExists(sheetName As String, wb As Workbook) As Boolean
+    On Error GoTo LocalFail
     On Error GoTo LocalFail
     LocalFail:
         LogErr "SheetExists"
@@ -1129,6 +1145,7 @@ Private Function SheetExists(sheetName As String, wb As Workbook) As Boolean
 End Function
 
 Private Sub SortTextArray(ByRef arr As Variant)
+    On Error GoTo LocalFail
     On Error GoTo LocalFail
     LocalFail:
         LogErr "SortTextArray"
@@ -1171,6 +1188,7 @@ End Function
 
 Private Sub SaveFolderSetting(ByVal settingName As String, ByVal filePath As String)
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "SaveFolderSetting"
         Err.Clear
@@ -1204,6 +1222,7 @@ End Function
 
 Private Function GetSavedOutputFolder() As String
     On Error GoTo LocalFail
+    On Error GoTo LocalFail
     LocalFail:
         LogErr "GetSavedOutputFolder"
         Err.Clear
@@ -1211,6 +1230,7 @@ Private Function GetSavedOutputFolder() As String
 
 ' report looks clean and focused only on actual data.
 Private Sub HideUnusedCells(ByVal ws As Worksheet)
+    On Error GoTo LocalFail
     On Error GoTo LocalFail
     LocalFail:
         LogErr "HideUnusedCells"
