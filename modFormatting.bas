@@ -427,6 +427,9 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     cardValue = Format(pct30, "0.0%")
     AddDashboardCard ws, "G8:H9", "G10:H10", RGB(234, 209, 220), cardLabel, cardValue
 
+    ' --- Total Per Sales Rep summary (rows 11-15) ---
+    AddManagerRepSummary ws, firstRow, lastRow, managerRepCol, managerLastCol
+
     ' --- Data table formatting ---
     ' Write Pickup Age formulas into the age column for each data row
     For r = firstRow To lastRow
@@ -527,6 +530,81 @@ Private Sub ApplyRepBanding(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal
         End If
         prevRep = currentRep
     Next r
+End Sub
+
+Private Sub AddManagerRepSummary(ByVal ws As Worksheet, ByVal firstDataRow As Long, ByVal lastDataRow As Long, _
+    ByVal repCol As Long, ByVal lastCol As Long)
+
+    Dim repCounts As Object
+    Dim repOrder As Collection
+    Dim r As Long, i As Long
+    Dim repName As String
+    Dim blockRg As Range
+    Dim repKey As Variant
+    Dim summaryText As String, parts As String
+
+    On Error Resume Next
+
+    If lastCol <= 0 Then lastCol = 8
+    If lastCol < 1 Then lastCol = 1
+
+    Set repCounts = CreateObject("Scripting.Dictionary")
+    repCounts.CompareMode = vbTextCompare
+    Set repOrder = New Collection
+
+    ' Collect counts per rep in order of first appearance
+    If repCol > 0 And firstDataRow > 0 And lastDataRow >= firstDataRow Then
+        For r = firstDataRow To lastDataRow
+            repName = Trim$(CStr(ws.Cells(r, repCol).Value))
+            If Len(repName) = 0 Then repName = "Unassigned"
+            If Not repCounts.Exists(repName) Then
+                repCounts.Add repName, 1
+                repOrder.Add repName
+            Else
+                repCounts(repName) = CLng(repCounts(repName)) + 1
+            End If
+        Next r
+    End If
+
+    ' Build summary text: "Sales Rep A - 8   |   Sales Rep B - 7"
+    parts = ""
+    For i = 1 To repOrder.Count
+        repKey = repOrder(i)
+        If Len(parts) > 0 Then parts = parts & "     |     "
+        parts = parts & CStr(repKey) & " - " & CStr(repCounts(repKey))
+    Next i
+    If Len(parts) = 0 Then parts = "No sales rep assignments"
+
+    summaryText = "TOTAL PER SALES REP" & vbCrLf & parts
+
+    ' Single merged block spanning rows 11-15 across full data width
+    ws.Rows("11:15").RowHeight = 20
+    Set blockRg = ws.Range(ws.Cells(11, 1), ws.Cells(15, lastCol))
+    blockRg.UnMerge
+    blockRg.Merge
+    blockRg.Value = summaryText
+    With blockRg
+        .Font.Name = "Segoe UI"
+        .Font.Size = 11
+        .Font.Bold = True
+        .Font.Color = RGB(31, 78, 121)
+        .Interior.Color = RGB(221, 235, 247)
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = True
+        .Borders.LineStyle = xlContinuous
+        .Borders.Weight = xlThin
+    End With
+    With blockRg.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .Weight = xlMedium
+        .Color = RGB(31, 78, 121)
+    End With
+    With blockRg.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlMedium
+        .Color = RGB(31, 78, 121)
+    End With
 End Sub
 
 ' ----------------------------------------------------------------------------
