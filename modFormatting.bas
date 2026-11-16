@@ -221,10 +221,33 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ByVal firstRow As Long, ByVal lastRow As Long, ByVal ageCol As Long, ByVal pickupDateCol As Long)
 
     Dim r As Long, v As Variant
+    Dim rg As Range
 
     On Error GoTo CleanFail
 
     LogMsg "FormatManagerSheet start: " & managerName & " rows=" & firstRow & "-" & lastRow & " cols=1-" & managerLastCol
+
+    ' Apply full data formatting (borders, font, alignment) to the entire table including header
+    Set rg = ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(lastRow, managerLastCol))
+    ApplyDataFormatting ws, MANAGER_HEADER_ROW, lastRow, managerLastCol
+
+    ' Style header row
+    Set rg = ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(MANAGER_HEADER_ROW, managerLastCol))
+    With rg
+        .Font.Bold = True
+        .Font.Color = RGB(255, 255, 255)
+        .Interior.Color = RGB(31, 78, 121)
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = True
+    End With
+
+    ' Apply alternating row colors for readability
+    For r = firstRow To lastRow
+        If (r - firstRow) Mod 2 = 0 Then
+            ws.Range(ws.Cells(r, 1), ws.Cells(r, managerLastCol)).Interior.Color = RGB(242, 242, 242)
+        End If
+    Next r
 
     ' Apply age warning font color
     For r = firstRow To lastRow
