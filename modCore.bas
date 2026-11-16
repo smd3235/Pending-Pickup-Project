@@ -404,7 +404,7 @@ Public Function CreatePendingPickupReport() As Boolean
         managerStartDateCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, START_DATE_HEADER)
         managerAgeCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, "Pickup Age (Days)")
         managerRepCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, REP_HEADER)
-        FormatManagerSheet ws, manager, managerRows(manager).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerAgeCol, managerPickupDateCol
+        FormatManagerSheet ws, manager, managerRows(manager).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, MANAGER_HEADER_ROW + 1, LastUsedRow(ws), managerAgeCol, managerPickupDateCol, currentData, sortedManagerRows, hasPrior, pickupDateCol
         ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
         MatchSourceColumnWidthsForManager raw, ws, lastCol
         LogMsg "  manager tab done: " & manager

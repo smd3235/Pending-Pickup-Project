@@ -204,6 +204,31 @@ Public Sub CalculateAgingStats(ByVal data As Variant, ByVal rows As Collection, 
     Next item
 End Sub
 
+Public Function CalculateAverageAge(ByVal data As Variant, ByVal rows As Collection, ByVal pickupDateCol As Long) As Variant
+    Dim r As Long, v As Variant, dt As Date
+    Dim totalDays As Double, cnt As Long
+    Dim item As Variant
+
+    On Error Resume Next
+    totalDays = 0
+    cnt = 0
+
+    For Each item In rows
+        r = CLng(item)
+        v = data(r, pickupDateCol)
+        If Len(Trim$(CStr(v))) > 0 And TryGetExcelDate(v, dt) Then
+            totalDays = totalDays + DateDiff("d", dt, Date)
+            cnt = cnt + 1
+        End If
+    Next item
+
+    If cnt > 0 Then
+        CalculateAverageAge = totalDays / cnt
+    Else
+        CalculateAverageAge = "N/A"
+    End If
+End Function
+
 ' ----------------------------------------------------------------------------
 ' Output arrays
 ' ----------------------------------------------------------------------------
@@ -232,35 +257,86 @@ Public Function BuildOutputArray(ByVal data As Variant, ByVal rows As Collection
     BuildOutputArray = arr
 End Function
 
+Private Function IsExcludedManagerHeader(ByVal headerText As String) As Boolean
+    Dim h As String
+    h = LCase$(Trim$(headerText))
+    IsExcludedManagerHeader = False
+    Select Case h
+        Case LCase$(REP_HEADER), LCase$(START_DATE_HEADER), LCase$(NAME_HEADER), _
+             LCase$("Billing Customer"), LCase$("Prescribing Physician"), _
+             LCase$("No Rental Equipment Provided"), LCase$(PICKUP_DATE_HEADER), _
+             LCase$("Pickup Age (Days)")
+            IsExcludedManagerHeader = False
+        Case LCase$(MANAGER_HEADER), LCase$(STATUS_HEADER), LCase$(KEY_HEADER)
+            IsExcludedManagerHeader = True
+        Case Else
+            IsExcludedManagerHeader = True
+    End Select
+End Function
+
+Private Function ManagerColumnRank(ByVal headerText As String, ByVal sourceCol As Long) As Long
+    Select Case LCase$(Trim$(headerText))
+        Case LCase$(REP_HEADER): ManagerColumnRank = 1
+        Case LCase$(START_DATE_HEADER): ManagerColumnRank = 2
+        Case LCase$(NAME_HEADER): ManagerColumnRank = 3
+        Case LCase$("Billing Customer"): ManagerColumnRank = 4
+        Case LCase$("Prescribing Physician"): ManagerColumnRank = 5
+        Case LCase$("No Rental Equipment Provided"): ManagerColumnRank = 6
+        Case LCase$(PICKUP_DATE_HEADER): ManagerColumnRank = 7
+        Case Else: ManagerColumnRank = 1000 + sourceCol
+    End Select
+End Function
+
 Public Function BuildManagerOutputArray(ByVal data As Variant, ByVal rows As Collection, ByVal lastCol As Long, ByVal pickupDateCol As Long) As Variant
     Dim arr() As Variant
-    Dim r As Long, c As Long, i As Long
+    Dim i As Long, r As Long, c As Long, outCol As Long
     Dim item As Variant
-    Dim v As Variant, dt As Date
+    Dim keepCols() As Long
+    Dim keepCount As Long
+    Dim ageColIdx As Long
+    Dim j As Long, tmp As Long, keyI As Long, keyJ As Long
 
-    ReDim arr(1 To rows.Count + 1, 1 To lastCol + 1)
-
-    ' Header row
+    ' Select which source columns to keep and in what order
+    keepCount = 0
     For c = 1 To lastCol
-        arr(1, c) = data(1, c)
+        If Not IsExcludedManagerHeader(CStr(data(1, c))) Then
+            keepCount = keepCount + 1
+            ReDim Preserve keepCols(1 To keepCount)
+            keepCols(keepCount) = c
+        End If
     Next c
 
-    ' Add pickup age column header
-    arr(1, lastCol + 1) = "Pickup Age (Days)"
+    ' Sort kept columns by rank
+    If keepCount > 1 Then
+        For i = 1 To keepCount - 1
+            For j = i + 1 To keepCount
+                keyI = ManagerColumnRank(CStr(data(1, keepCols(i))), keepCols(i))
+                keyJ = ManagerColumnRank(CStr(data(1, keepCols(j))), keepCols(j))
+                If keyI > keyJ Then
+                    tmp = keepCols(i): keepCols(i) = keepCols(j): keepCols(j) = tmp
+                End If
+            Next j
+        Next i
+    End If
 
+    ' +1 for "Pickup Age (Days)" column
+    ReDim arr(1 To rows.Count + 1, 1 To keepCount + 1)
+
+    ' Header row
+    For outCol = 1 To keepCount
+        arr(1, outCol) = data(1, keepCols(outCol))
+    Next outCol
+    arr(1, keepCount + 1) = "Pickup Age (Days)"
+    ageColIdx = keepCount + 1
+
+    ' Data rows
     i = 2
     For Each item In rows
         r = CLng(item)
-        For c = 1 To lastCol
-            arr(i, c) = data(r, c)
-        Next c
-        ' Pickup age
-        v = data(r, pickupDateCol)
-        If Len(Trim$(CStr(v))) = 0 Or Not TryGetExcelDate(v, dt) Then
-            arr(i, lastCol + 1) = ""
-        Else
-            arr(i, lastCol + 1) = DateDiff("d", dt, Date)
-        End If
+        For outCol = 1 To keepCount
+            arr(i, outCol) = data(r, keepCols(outCol))
+        Next outCol
+        arr(i, ageColIdx) = "" ' formula written later by FormatManagerSheet context
         i = i + 1
     Next item
 
