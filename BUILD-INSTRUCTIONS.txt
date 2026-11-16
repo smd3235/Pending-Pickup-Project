@@ -1,0 +1,42 @@
+﻿PENDING PICKUP REPORT - LOCAL BUILD INSTRUCTIONS (no Python or extra tools required)
+
+Use this package when a downloaded .xlsm is blocked by Windows or organizational macro security (Mark-of-the-Web), e.g. "Microsoft has blocked macros from running because the source of this file is untrusted."
+
+CONTENTS
+- Template (No Macros).xlsx  (macro-free base workbook)
+- modAudit.bas, modCore.bas, modDeclarations.bas, modDialog.bas, modFormatting.bas, modLogging.bas, modUtils.bas  (VBA source modules)
+- BUILD-INSTRUCTIONS.txt (this file)
+
+STEPS
+1. Download the ZIP (GitHub: open the file -> "Download raw file", or use the raw link) and extract to a LOCAL, WRITABLE folder (for example: C:\Project\PendingPickup\).
+   - Do not run from a network share, email attachment, or read-only location if the tool writes outputs/logs next to the workbook.
+
+2. If files are blocked, Unblock them per your organization policy:
+   - Right-click each file (or the extracted files) -> Properties -> check "Unblock" -> Apply.
+   - Or PowerShell (run in the extracted folder):  Get-ChildItem | Unblock-File
+   - If "Unblock" is not shown, the file may not be blocked or policy may restrict it.
+
+3. Open "Template (No Macros).xlsx" in desktop Excel.
+
+4. Press Alt+F11 to open the VBA Editor.
+   - File -> Import File... and import ALL module files (.bas). Select all seven: modAudit.bas, modCore.bas, modDeclarations.bas, modDialog.bas, modFormatting.bas, modLogging.bas, modUtils.bas.
+   - If prompted to replace existing modules, choose Replace/Yes.
+   - Do not import only one module; all modules are required.
+
+5. Confirm the button(s) on the START HERE sheet are assigned to the correct macro(s):
+   - "Create Pending Pickup Report" button should run: CreatePendingPickupReport (modCore)
+   - "Setup Email CC Recipients" button should run: SetupEmailCC (modDialog), if present.
+   - Right-click a button -> Assign Macro... to verify/change.
+
+6. Save as a macro-enabled workbook in a local/trusted folder:
+   - File -> Save As (or Save a Copy) -> Save as type: "Excel Macro-Enabled Workbook (*.xlsm)"
+   - Turn AutoSave off if it prevents saving as .xlsm. VBA cannot be saved in .xlsx.
+   - Save in a local writable folder (or a Trusted Location per your org policy).
+
+7. Close and reopen the saved .xlsm, enable macros/content if prompted, then run the report.
+
+NOTES
+- A prebuilt .xlsm may also be provided, but it can still be blocked when downloaded. This macro-free base + modules package is the reliable fallback for locked-down work machines.
+- Keep this ZIP and module files updated whenever the template or VBA changes.
+- Keep/run from a local writable folder if the tool writes outputs/logs next to the workbook. Follow your organization's macro and Trusted Location policies.
+- Do not include sensitive/PHI data in the repo or shared packages.

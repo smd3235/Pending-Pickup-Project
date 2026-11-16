@@ -16,9 +16,23 @@ Every month the report pulls **every patient in the country** from the All Open 
 4. **(Optional) Select last month's report** for comparison — or **Cancel** to skip.
 5. **Choose where to save** the report. The location is remembered via Windows registry and won't be asked again.
 
+### Work-PC / locked-down machines (macro-blocked downloads)
+
+Downloaded `.xlsm` files may be blocked by Windows or organizational macro security (Mark-of-the-Web: “Microsoft has blocked macros…”). Use the **local build package** instead:
+
+1. Download **`Project-Local-Build.zip`** from this repo (GitHub: open the file → **Download raw file**, or use the raw link) and extract to a **local, writable** folder (e.g. `C:\Project\PendingPickup\`).
+2. **Unblock** extracted files if needed (right-click → Properties → check **Unblock** → Apply, or `Get-ChildItem | Unblock-File`), per org policy.
+3. Open **`Template (No Macros).xlsx`** in desktop Excel.
+4. Press **Alt+F11** → **File → Import File…** and import **all** module files (`.bas`): `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`. Replace existing modules if prompted. **Do not import only one.**
+5. Confirm button(s) are assigned to the correct macro(s): **CREATE PENDING PICKUP REPORT** → `CreatePendingPickupReport`; **Setup Email CC Recipients** → `SetupEmailCC` (if present).
+6. **File → Save As** (or Save a Copy) → **Excel Macro-Enabled Workbook (\*.xlsm)** in a local/trusted folder (turn AutoSave off if needed; VBA cannot be saved in `.xlsx`).
+7. Close/reopen the `.xlsm`, enable macros if prompted, and run.
+
+See **`BUILD-INSTRUCTIONS.txt`** in the ZIP/repo for the full step-by-step notes.
+
 ### Maintainers
 
-After editing `Pending_Pickup_Macro.bas`, sync it into the template:
+After editing VBA source, sync modules into the template:
 
 ```powershell
 python .\scripts\sync_template.py
@@ -49,8 +63,12 @@ python .\scripts\snapshot-report.py
 | Path | Purpose |
 |------|---------|
 | `Pending Pickup Template.xlsm` | Master workbook users run (embedded VBA + START HERE button + company logo) |
-| `Pending_Pickup_Macro.bas` | Readable VBA source of truth |
-| `scripts\sync_template.py` | Re-import `.bas` into the template's embedded VBA |
+| `Template (No Macros).xlsx` | Macro-free base workbook for local rebuild on locked-down machines |
+| `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas` | VBA source modules (source of truth for rebuild/import) |
+| `Pending_Pickup_Macro.bas` | Legacy monolithic VBA export (reference) |
+| `BUILD-INSTRUCTIONS.txt` | Step-by-step local rebuild instructions (no Python/tools) |
+| `Project-Local-Build.zip` | Downloadable build package: macro-free template + all modules + instructions |
+| `scripts\sync_template.py` | Re-import `.bas` modules into the template's embedded VBA |
 | `scripts\run-report.py` | Full report run harness (tests end-to-end) |
 | `scripts\snapshot-report.py` | Exports report sheets as PNG screenshots for README |
 | `Reports/` | Generated report output (build artifacts, not committed) |
@@ -157,7 +175,11 @@ Filtered pending rows with frozen header and date formats.
 
 ## Distribution
 
-End users receive only `Pending Pickup Template.xlsm`. It is self-contained (macro, button, company logo embedded). The `.bas`, PowerShell scripts, documentation, screenshots, and fake data are maintainer-only.
+End users receive only `Pending Pickup Template.xlsm`. It is self-contained (macro, button, company logo embedded).
+
+For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, use **`Project-Local-Build.zip`** (`Template (No Macros).xlsx` + all VBA module files + `BUILD-INSTRUCTIONS.txt`) to rebuild a local `.xlsm` without Python or extra tools. You may also share a prebuilt `.xlsm`, but it can still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback.
+
+The monolithic export, PowerShell scripts, documentation, screenshots, and fake data are maintainer-only (except where explicitly included in the build ZIP for local rebuild). Keep the ZIP and module files updated whenever the template/VBA changes. Run from a local writable folder if the tool writes outputs/logs next to the workbook, and follow org macro/Trusted Location policy. Do not include sensitive/PHI data in the repo.
 
 ---
 
