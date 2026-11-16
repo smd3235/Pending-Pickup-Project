@@ -21,13 +21,13 @@ Every month the report pulls **every patient in the country** from the All Open 
 After editing `Pending_Pickup_Macro.bas`, sync it into the template:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\sync_template.ps1
+python .\scripts\sync_template.py
 ```
 
 To refresh QA screenshots after a successful report run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\snapshot-report.ps1
+python .\scripts\snapshot-report.py
 ```
 
 ---
@@ -50,9 +50,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\snapshot-report.ps1
 |------|---------|
 | `Pending Pickup Template.xlsm` | Master workbook users run (embedded VBA + START HERE button + company logo) |
 | `Pending_Pickup_Macro.bas` | Readable VBA source of truth |
-| `scripts\sync_template.ps1` | Re-import `.bas` into the template's embedded VBA |
-| `scripts\run-report.ps1` | Full report run harness (tests end-to-end) |
-| `scripts\snapshot-report.ps1` | Exports report sheets as PNG screenshots for README |
+| `scripts\sync_template.py` | Re-import `.bas` into the template's embedded VBA |
+| `scripts\run-report.py` | Full report run harness (tests end-to-end) |
+| `scripts\snapshot-report.py` | Exports report sheets as PNG screenshots for README |
 | `Reports/` | Generated report output (build artifacts, not committed) |
 | `log/` | Runtime logs (macro-debug.log, etc.) — runtime artifact, not committed |
 | `documentation/` | All Markdown documentation and QA screenshots |
@@ -124,7 +124,7 @@ Filtered pending rows with frozen header and date formats.
 
 > Screenshots are QA captures from test/fake data, not live production records. Regenerate anytime against a real report run:
 > ```powershell
-> powershell -ExecutionPolicy Bypass -File .\scripts\snapshot-report.ps1 -Path "Reports\Pending Pickup yyyy-mm-dd.xlsx"
+> python .\scripts\snapshot-report.py -Path "Reports\Pending Pickup yyyy-mm-dd.xlsx"
 > ```
 
 ---
@@ -151,7 +151,7 @@ Filtered pending rows with frozen header and date formats.
 
 - Windows + desktop Excel (uses `Application.FileDialog`, `SaveSetting`).
 - Template saved as `.xlsm` — macros must be enabled.
-- "Trust access to the VBA project object model" enabled for `sync_template.ps1` (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`).
+- "Trust access to the VBA project object model" enabled for `sync_template.py` (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`).
 
 ---
 

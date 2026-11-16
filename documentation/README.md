@@ -81,17 +81,17 @@ This report is run **every month**, pulling **every patient in the country** fro
 | File | Role |
 | --- | --- |
 | `Pending Pickup Template.xlsm` | Master workbook. Contains `START HERE`, empty `Raw Data`, `_Config`, and the embedded VBA project (`PendingPickupReport` module). This is what users run. |
-| `Pending_Pickup_Macro.bas` | Readable VBA source for the builder. Edit this, then run `scripts\sync_template.ps1` to push it into the template. |
-| `scripts\sync_template.ps1` | Maintainer script: re-imports the `.bas` into the template's embedded VBA and ensures the `START HERE` button. Run after every `.bas` change. |
-| `scripts\snapshot-report.ps1` | QA script: opens a generated report `.xlsx` and exports every sheet (Dashboard, manager tabs, Raw Data) as a PNG into `documentation/screenshots/`. Run after a successful `run-report.ps1` run to refresh screenshots. |
+| `Pending_Pickup_Macro.bas` | Readable VBA source for the builder. Edit this, then run `scripts\sync_template.py` to push it into the template. |
+| `scripts\sync_template.py` | Maintainer script: re-imports the `.bas` into the template's embedded VBA and ensures the `START HERE` button. Run after every `.bas` change. |
+| `scripts\snapshot-report.py` | QA script: opens a generated report `.xlsx` and exports every sheet (Dashboard, manager tabs, Raw Data) as a PNG into `documentation/screenshots/`. Run after a successful `run-report.py` run to refresh screenshots. |
 | `documentation/screenshots/` | Committed QA PNGs captured from `Reports/Pending Pickup 2026-11-14.xlsx`: Dashboard, all manager tabs, Raw Data. |
 | `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample â€” populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
 | `Reports/` | Output folder for finished reports. The macro's remembered `OutputFolder` is pre-set to this path. Also holds `Pending Pickup 2026-10-13.xlsx`, a **prior-month fixture** for testing comparison (still/new/cleared). |
 | `documentation/changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
 
 > **Distribution:** end users receive only `Pending Pickup Template.xlsm`. It is self-contained
-> (macro, button, and company logo embedded); the `.bas`, `scripts\sync_template.ps1`,
-> `scripts\snapshot-report.ps1`, `documentation/README.md`, `documentation/changelog.md`,
+> (macro, button, and company logo embedded); the `.bas`, `scripts\sync_template.py`,
+> `scripts\snapshot-report.py`, `documentation/README.md`, `documentation/changelog.md`,
 > `documentation/screenshots/`, and fake data are maintainer-only.
 
 ### Template workbook sheets
@@ -126,18 +126,18 @@ imported by end users.
 **not** auto-update from the `.bas`; it carries its own compiled copy. Run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\sync_template.ps1
+python .\scripts\sync_template.py
 ```
 
-`sync_template.ps1` opens the template in Excel, replaces the embedded `PendingPickupReport` module with
+`sync_template.py` opens the template in Excel, replaces the embedded `PendingPickupReport` module with
 the current `.bas`, ensures the `START HERE` button exists and points at `CreatePendingPickupReport`, and
 saves. It requires desktop Excel and "Trust access to the VBA project object model" enabled
 (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`).
 
-**QA:** after a successful `scripts\run-report.ps1` run, refresh the committed screenshots with:
+**QA:** after a successful `scripts\run-report.py` run, refresh the committed screenshots with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\snapshot-report.ps1
+python .\scripts\snapshot-report.py
 ```
 
 This exports every sheet of `Reports/Pending Pickup yyyy-mm-dd.xlsx` as a PNG into
@@ -270,7 +270,7 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 QA screenshots of the generated report (Dashboard KPI cards, manager tabs, Raw Data) are stored in `documentation/screenshots/`. These were captured from `Reports/Pending Pickup 2026-11-14.xlsx` after a clean end-to-end run using the bundled fake export (`AllOpenTreatmentPlansResults618.xlsx`). They are **QA screenshots from test data**, not live production data — they show the layout and formatting but not real patient records.
 
-> Note: screenshots are exported via an automated CopyPicture → chart → PNG method (`scripts/snapshot-report.ps1`). If they appear sparse or blank, regenerate them against a real report run with `scripts/snapshot-report.ps1 -Report <path-to-real-report.xlsx>`.
+> Note: screenshots are exported via an automated CopyPicture → chart → PNG method (`scripts/snapshot-report.py`). If they appear sparse or blank, regenerate them against a real report run with `scripts/snapshot-report.py -Report <path-to-real-report.xlsx>`.
 
 ### Dashboard
 
@@ -302,7 +302,7 @@ Filtered pending rows with frozen header and date formats.
 ## 12. Known issues / technical debt
 
 1. **Embedded VBA vs `.bas` source.** The `.xlsm` embeds its own compiled copy; editing the `.bas` does
-   **not** update the template. After every `.bas` change, run `sync_template.ps1` (Excel + `AccessVBOM=1`)
+   **not** update the template. After every `.bas` change, run `sync_template.py` (Excel + `AccessVBOM=1`)
    to re-import the module. End users never import anything.
 2. **Vestigial `_Config` sheet.** All labels are hardcoded `Const` values; the macro never reads
    `_Config`. Either wire the macro to `_Config` or remove the sheet.

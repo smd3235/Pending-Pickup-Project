@@ -3,6 +3,20 @@
 All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 `YYYY-MM-DD HH:MM:SS` (local time). Version `1.0` is the current baseline.
 
+## 2026-11-16
+
+- **07:49:00** — Split monolithic `Pending_Pickup_Macro.bas` (~1666 lines) into 7 modular `.bas` files for maintainability: `modDeclarations.bas` (Public constants + shared state), `modLogging.bas` (LogMsg/LogErr/BuildRunLogPath/WriteCompletionMarker), `modAudit.bas` (AuditInit/AuditLogEvent/AuditWriteSheet), `modCore.bas` (CreatePendingPickupReport main builder), `modFormatting.bas` (BuildDashboard/FormatManagerSheet), `modUtils.bas` (all utility functions), `modDialog.bas` (file dialogs + email). All modules compile cleanly (`COMPILE OK`).
+- **07:49:01** — Added email feature: "Email <Manager>" button on each manager tab and "Email Dashboard to Director" button on Dashboard. Uses Outlook COM (`CreateObject("Outlook.Application")`) with inline `cid:` image snapshot of the sheet (`CopyPicture` → `ChartObject` → `PNG`). Opens Outlook inspector (`.Display`) so user types To: and hits Send — no `.oft` template file needed.
+- **07:49:02** — Added email configuration cells directly on the template's START HERE sheet: CC recipients (`D16`), Subject (`D17`), Body (`D18`). Emails read from these cells so users can edit CC/subject/body right in the template; changes persist across report runs. No registry or external files required.
+- **07:49:03** — Changed email body from embedded PNG screenshot (`cid:` image + `Attachments.Add`) to direct copy/paste of the Excel range into Outlook's Word editor, preserving formatting and spacing. `SendManagerEmail` and `SendDashboardEmail` now copy the sheet range to clipboard, open the Outlook inspector, and paste into `mail.GetInspector.WordEditor`. Removed `EMAIL_TEMP_IMAGE` temp file and `CopySheetSnapshot` usage from the email flow.
+- **07:49:04** — Added "Setup Email CC Recipients" button on START HERE (`SetupEmailCC`) that activates and selects the CC cell for editing.
+- **07:49:04** — Enhanced logging: report run start time + duration (seconds), email config reads (CC/Subject/Body), email snapshot export (success/failure path), Outlook availability check, email inspector open/close, email button clicks. All logged to `macro-debug.log` via `LogMsg`.
+- **07:49:05** — Fixed `BuildManagerOutputArray` array dimension bug (`lastCol + 1` needed for the extra "Pickup Age (Days)" column — was causing "Subscript out of range" Err=9). Fixed `FormatManagerSheet` parameter mismatch (was called with 8 args, declared 12). Fixed `GetRecordKey` defensive column check (returns `""` if `keyCol <= 0` or `nameCol <= 0`). Fixed `For Each r In` → `For Each rowItem In` (VBA requires Variant for `For Each` control variable). Fixed single-line `If/ElseIf` in `CalculateAgingStats` (VBA requires block If for ElseIf chains).
+- **07:49:06** — Fixed dashboard KPI card nested merge bug (cards now render label + value correctly instead of merged-parent conflict).
+- **07:49:07** — Migrated all PowerShell harnesses to Python: `watch-compile-error.py`, `answer-dialogs.py`, `sync_template.py`, `snapshot-report.py`, `test-compile.py`, `run-report.py`, `audit-peer.py`, plus `documentation/view-logs.py`. All `.ps1` references updated in docs; `.ps1` removed from `section_specs` in `audit-peer.py`.
+- **07:49:08** — Added auto-mode for unattended runs: `log/auto-source.txt` provides the source path (skips CURRENT picker), `log/auto-skip-prior.txt` skips PRIOR picker. Added `VBAWarnings` registry + trusted location + `AutomationSecurity` settings to bypass macro security before Excel opens.
+- **07:49:09** — Graceful Excel/workbook close after report generation (`wb.Close(False)`, `excel.Quit()`) — no more lingering Excel processes or open template/temp files.
+
 ## 2026-11-15
 
 - **17:45:00** — Added comprehensive audit logging to `Pending_Pickup_Macro.bas`:
@@ -17,9 +31,9 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 - **17:05:00** — Fixed manager tab KPI card layout: 5 cards on row 4-6 and 4 cards on row 8-10 so no card sits alone (`Pending_Pickup_Macro.bas:945-955`).
 - **17:00:00** — Added `HideUnusedCells` so every sheet hides all rows/columns beyond its used range, keeping the report clean and focused only on actual data (`Pending_Pickup_Macro.bas:469-475,1857-1893`).
 - **16:55:00** — Improved spacing on dashboard and manager tabs: KPI card row heights 34→38, data row heights 22→28, min column width 14→16, font sizes increased for readability (`Pending_Pickup_Macro.bas:738,741,973-975,1091,1150`).
-- **16:54:00** — Improved screenshot quality: `snapshot-report.ps1` now sets zoom to 100% before CopyPicture and uses wider charts (110px/col, 30px/row) so content isn't squished onto one page width (`scripts/snapshot-report.ps1:48-57`).
-- **16:50:00** — Fixed screenshot capture: rewrote `scripts/snapshot-report.ps1` using the working PM Project technique (standalone Chart sheet, `xlBitmap` CopyPicture format 2, sleep after paste) so screenshots capture real data instead of blank/garbled output. All 12 sheets (Dashboard, 10 manager tabs, Raw Data) now export as valid PNGs (458KB-2MB each).
-- **16:49:00** — Removed broken VBA screenshot export code (`ExportSheetAsPng`, `ExportAllSheetsPng`) from `Pending_Pickup_Macro.bas`; screenshots now handled purely from PowerShell via `snapshot-report.ps1`.
+- **16:54:00** — Improved screenshot quality: `snapshot-report.py` now sets zoom to 100% before CopyPicture and uses wider charts (110px/col, 30px/row) so content isn't squished onto one page width (`scripts/snapshot-report.py:48-57`).
+- **16:50:00** — Fixed screenshot capture: rewrote `scripts/snapshot-report.py` using the working PM Project technique (standalone Chart sheet, `xlBitmap` CopyPicture format 2, sleep after paste) so screenshots capture real data instead of blank/garbled output. All 12 sheets (Dashboard, 10 manager tabs, Raw Data) now export as valid PNGs (458KB-2MB each).
+- **16:49:00** — Removed broken VBA screenshot export code (`ExportSheetAsPng`, `ExportAllSheetsPng`) from `Pending_Pickup_Macro.bas`; screenshots now handled purely from PowerShell via `snapshot-report.py`.
 - **16:48:00** — Major root README.md overhaul: detailed GitHub landing page with app workflow (5 steps), repository layout, output specification, KPI definitions (dashboard + manager tabs), comparison logic, aging definition, requirements, distribution notes, and embedded screenshots for Dashboard, all 10 manager tabs, and Raw Data.
 - **16:47:00** — Replaced 13 old broken PNGs (0-byte / garbled) in `documentation/screenshots/` with 12 new screenshots captured from a live report run using real test data, named `report-*.png`.
 - **16:35:00** — Overhauled dashboard and manager tab KPI cards with descriptive labels (e.g. "CURRENT" → "CURRENT PERIOD", "30+ DAYS" → "AGING 30+ DAYS", "AVG AGE" → "AVERAGE PICKUP AGE", "% 30+" → "% OVER 30 DAYS") and a cohesive color palette (blue for counts, red gradient for aging, amber for missing dates, green for new, purple for %) (`Pending_Pickup_Macro.bas:627-641,939-948`).
@@ -28,7 +42,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 - **16:25:00** — Aligned dashboard KPI cards on equal column widths (A:J) so cards line up vertically with each other and with the manager table; removed the "PENDING BY EQUIPMENT TYPE" chart section since the report tracks pickup status, not inventory (`Pending_Pickup_Macro.bas:627-642,826-900`).
 - **16:24:00** — Cleaned up unused variable declarations (`eqTitleRow`, `eqRow`, `eqCol`, `eqAgg`, `eqKeys`, `eqName`, `aAgg`, `bAgg`, `sTmp`) left after removing the equipment Pareto section (`Pending_Pickup_Macro.bas:537-542`).
 - **19:15:00** — Added AGENTS.md rule (section 9) requiring all existing PNGs in `documentation/screenshots/` to be deleted before each test run so screenshots always reflect the latest report output, never a stale mix.
-- **19:14:00** — Updated `scripts/snapshot-report.ps1` to delete every existing PNG in `documentation/screenshots/` before regenerating them from the current report run.
+- **19:14:00** — Updated `scripts/snapshot-report.py` to delete every existing PNG in `documentation/screenshots/` before regenerating them from the current report run.
 - **19:03:00** — Verified compilation via Excel COM automation: `Pending_Pickup_Macro.bas` imports into a fresh `PendingPickupReport` module with no syntax or compile errors.
 - **19:02:00** — Fixed a latent subscript error in `SaveFolderSetting`: `Left$(..., InStrRev(...)-1)` errored when the path had no separator; now guards `sep > 0` (`Pending_Pickup_Macro.bas:1820-1822`).
 - **19:01:00** — Fixed the Dashboard "% CHANGE" KPI card not applying its `0.0%` number format: the value was written via `CStr` (text), so it showed a raw decimal. It now writes the numeric `pctChange` into the value cell so it renders as a true percentage (`Pending_Pickup_Macro.bas:627-631`).
@@ -36,7 +50,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 - **18:49:00** — Documented the `audit-peer` workflow in `documentation/AGENTS.md`: require read-only cross-project audits, explicit approval before porting, separate agent-rule review, full validation after any port, and Markdown reports under `documentation/`; corrected the audit's rules section to read `documentation/AGENTS.md`.
 - **18:12:00** — Moved `AGENTS.md` into `documentation/` and updated the repository rule so all Markdown files, including agent instructions, are stored there rather than the project root.
 
-- **18:08:01** — Standardized every runtime log entry on full `yyyy-MM-dd HH:mm:ss` timestamps and added `documentation/view-logs.ps1` to reorder every runtime `.log` and `.txt` file newest first with dated headers.
+- **18:08:01** — Standardized every runtime log entry on full `yyyy-MM-dd HH:mm:ss` timestamps and added `documentation/view-logs.py` to reorder every runtime `.log` and `.txt` file newest first with dated headers.
 - **18:08:00** — Moved `README.md`, `changelog.md`, and both `aoti-logo-2023` source images into `documentation/`; updated documentation references and added the documentation-location rule for Markdown files.
 - **17:44:00** — Moved operational PowerShell harnesses into `scripts/` and changed their default paths to derive the project root from `$PSScriptRoot`; updated README and agent commands to use the new locations.
 - **17:48:00** — Removed the final report-completion `vbYesNo` prompt so unattended report runs exit after saving instead of hanging at “Report complete! Open the finished report now?”.
@@ -65,7 +79,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 ## 2026-11-13
 
 - **23:45:00** — Added a read-only cross-project audit that runs from either project:
-  `scripts/audit-peer.ps1` compares this project with the sibling `PM Project` and
+  `scripts/audit-peer.py` compares this project with the sibling `PM Project` and
   reports files only one side has, files that differ (with the functions or Markdown
   sections each side adds), and VBA procedure names that are shared versus peer-only.
   `-Sections` narrows the audit, `-Report <path>` saves Markdown, `-SymbolLimit` caps
@@ -92,14 +106,14 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
   manager tabs + Raw Data, logo embedded, all KPI totals reconcile).
 - **14:04:29** — Redesigned the `START HERE` sheet into a clean branded landing page: title + logo,
   4-step how-it-works, styled rounded-rectangle CTA button, and a good-to-know panel; replaced the plain
-  Forms button with an autoshape and updated `sync_template.ps1` and `SetupPendingPickupButton` to match.
+  Forms button with an autoshape and updated `sync_template.py` and `SetupPendingPickupButton` to match.
 - **13:52:11** — Embedded the company logo (`aoti-logo-2023.svg` rasterized to a transparent 476×136 PNG)
   on `START HERE` as `AOTILogo`, making the template fully self-contained.
 - **13:52:11** — Added `AddLogoFromTemplate` to the builder and placed the logo at the top-right of the
   generated Dashboard (`I1:J2`); re-synced the template.
 - **13:52:11** — Documented single-file distribution: end users receive only the `.xlsm`; `.bas`,
-  `sync_template.ps1`, README, changelog, and fake data are maintainer-only.
-- **13:46:24** — Added `sync_template.ps1` to re-import `Create_Pending_Pickup_Report.bas` into the
+  `sync_template.py`, README, changelog, and fake data are maintainer-only.
+- **13:46:24** — Added `sync_template.py` to re-import `Create_Pending_Pickup_Report.bas` into the
   template's embedded VBA and ensure the `START HERE` button; enabled `AccessVBOM=1` for Excel 16.0.
 - **13:46:24** — Synced the v1.0 module into `Create_Pending_Pickup_Template.xlsm` and pre-installed the
   `CREATE PENDING PICKUP REPORT` button (OnAction = `CreatePendingPickupReport`), so end users never

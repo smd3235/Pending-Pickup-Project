@@ -12,11 +12,11 @@ The peer is discovered automatically: a sibling directory with a root `*.bas` an
 
 Full audit:
 
-!`powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\audit-peer.ps1"
+!`python "scripts\audit-peer.py"
 
 Sections that exist on both sides only (fast):
 
-!`powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\audit-peer.ps1" -Sections scripts,commands -SymbolLimit 40
+!`python "scripts\audit-peer.py" -Sections scripts,commands -SymbolLimit 40
 
 What the audit compares:
 
@@ -36,5 +36,5 @@ Then report, concisely:
 
 Do not copy anything. Porting is a separate, approved task. When it is approved:
 copy the file, adapt its data source and paths to this project, then run the
-mandatory loop (`.\scripts\test-compile.ps1`, `.\scripts\sync_template.ps1`,
-`.\scripts\run-report.ps1`) and update `documentation\CHANGELOG.md`.
+mandatory loop (`.\scripts\test-compile.py`, `.\scripts\sync_template.py`,
+`.\scripts\run-report.py`) and update `documentation\CHANGELOG.md`.

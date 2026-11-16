@@ -1,34 +1,45 @@
 Attribute VB_Name = "PendingPickupReport"
 Option Explicit
-Const ENABLE_ERL As Boolean = True
 
-' ============================================================
-' PENDING PICKUP REPORT BUILDER - v1.0
-' Builds the Pending Pickup report from a current All Open Treatment Plans
-' export and compares it against the prior month's Pending Pickup report.
-' ============================================================
-
-' ============================================================
-' MAP OF THIS MODULE - snapshot of section starts and procedures.
+' ============================================================================
+'  PENDING PICKUP REPORT BUILDER - v1.0
+'  Builds the Pending Pickup report from a current All Open Treatment Plans
+'  export and compares it against the prior month's Pending Pickup report.
 '
-'   #  SECTION                                      procedures
-'
-'   [  1] DECLARATIONS                              ENABLE_ERL, constants, mRunLogPath, mInReportRun
-'   [  2] LOGGING                                   LogMsg, LogErr, BuildRunLogPath, WriteCompletionMarker
-'   [  3] INTERACTIVE ENTRY                         SetupPendingPickupButton
-'   [  4] CORE / MAIN BUILDER                       CreatePendingPickupReport
-'   [  5] DASHBOARD                                 BuildDashboard, AddLogoFromTemplate, AddDashboardCard
-'   [  6] MANAGER SHEET FORMATTING                  FormatManagerSheet
-'   [  7] TABLE / ROW FORMATTING                    ApplyRepBanding, ApplyAgeWarningFont, HighlightMissingPickupDates, FormatYesNoColumns, SetManagerColumnWidths, FormatRawData, ApplyDataFormatting, StyleSectionHeader, StyleTableHeader, StyleDashboardTable
-'   [  8] METRICS / AGING HELPERS                   CountUniqueManagerRepsOnSheet, CalculateAverageAge, CountNewManagerRows, CalculateAgingStats
-'   [  9] DATE / TIME HELPERS                       NormalizeDateColumn, ApplySourceDateFormats, ApplyDateFormatsToOutput, ApplyDateFormatByHeader, TryGetExcelDate
-'   [ 10] OUTPUT ARRAY / SORTING                    HighlightNewRecords, BuildOutputArray, SortManagerRowsBySalesRep, SortManagerColumns, ManagerColumnRank, BuildManagerOutputArray, ColumnLetter
-'   [ 11] COLUMN / HEADER UTILITIES                 IsExcludedManagerHeader, FindHeaderColumnFromArray, CopyColumnFormats, MatchSourceColumnWidths, MatchSourceColumnWidthsForManager
-'   [ 12] SHEET / WORKBOOK UTILITIES                FindHeaderRow, FindHeaderColumn, GetRecordKey, SafeValue, NormalizeText, LastUsedRow, LastUsedColumn, SheetExists, SafeSheetName, SortManagersByLastName, ManagerSortKey, SortTextArray
-'   [ 13] WORKBOOK STATE                            EnsureMacroEnabledWorkbook, FindPriorSourceSheet
-'   [ 14] DIALOG / FILE / FOLDER                    SelectExcelFile, SaveFolderSetting, GetSavedFolder, FindMostRecentPendingPickupReport, BuildOutputPath, GetSavedOutputFolder, SaveOutputFolder
-' ============================================================
+'  MODULE MAP
+'  ----------
+'  [ 1] DECLARATIONS            Module-level constants and state variables
+'  [ 2] LOGGING                  LogMsg, LogErr, BuildRunLogPath, WriteCompletionMarker
+'  [ 3] AUDIT                    AuditInit, AuditLogEvent, AuditIncrementCounter, AuditWriteSheet
+'  [ 4] INTERACTIVE ENTRY        SetupPendingPickupButton, EnsureMacroEnabledWorkbook
+'  [ 5] CORE / MAIN BUILDER      CreatePendingPickupReport
+'  [ 6] DASHBOARD                BuildDashboard
+'  [ 7] MANAGER SHEET FORMATTING FormatManagerSheet
+'  [ 8] TABLE / ROW FORMATTING   HighlightMissingPickupDates, FormatYesNoColumns,
+'                                 SetManagerColumnWidths, FormatRawData, ApplyDataFormatting,
+'                                 StyleDashboardTable
+'  [ 9] METRICS / AGING HELPERS  CountUniqueManagerRepsOnSheet, CountRepsInSheet,
+'                                 CalculateAverageAge, CalculateAgingStats
+'  [10] DATE / TIME HELPERS      NormalizeDateColumn, ApplySourceDateFormats,
+'                                 ApplyDateFormatsToOutput, ApplyDateFormatByHeader, TryGetExcelDate
+'  [11] OUTPUT ARRAY / SORTING   HighlightNewRecords, BuildOutputArray,
+'                                 SortManagerRowsBySalesRep, ManagerColumnRank,
+'                                 BuildManagerOutputArray
+'  [12] COLUMN / HEADER UTILITIES IsExcludedManagerHeader, CopyColumnFormats,
+'                                 MatchSourceColumnWidths, MatchSourceColumnWidthsForManager,
+'                                 FindHeaderRow, IsHeaderCell, FindHeaderColumn,
+'                                 LastUsedRow, LastUsedColumn, GetRecordKey,
+'                                 SafeValue, SheetExists
+'  [13] WORKBOOK STATE           SafeSheetName, SortTextArray, SortManagersByLastName,
+'                                 ManagerSortKey, FindPriorSourceSheet
+'  [14] DIALOG / FILE / FOLDER   SelectExcelFile, SaveFolderSetting, GetSavedFolder,
+'                                 FindMostRecentPendingPickupReport, BuildOutputPath,
+'                                 GetSavedOutputFolder, SaveOutputFolder
+' ============================================================================
 
+' ----------------------------------------------------------------------------
+' [ 1] DECLARATIONS
+' ----------------------------------------------------------------------------
 
 Private Const RAW_SHEET As String = "Raw Data"
 Private Const MANAGER_HEADER As String = "Assigned Sales Manager"
@@ -67,19 +78,38 @@ Private mRunLogPath As String
 Private mInReportRun As Boolean
 Private mRepSeenDict As Object
 
-' ====================== LOGGING ======================
-' Centralised debug / audit logging. Every run writes to LOG_PATH and, during a
-' report run, also to the per-run log in mRunLogPath.
-Private Sub LogMsg(ByVal msg As String)
-    On Error GoTo LocalFail
 
-    LocalFail:
-    LogErr "LogMsg"
-    Err.Clear
-    Resume Next
+' ----------------------------------------------------------------------------
+' [ 2] LOGGING
+' ----------------------------------------------------------------------------
+
+Private Sub LogMsg(ByVal msg As String)
+    Dim f As Integer
+    On Error Resume Next
+    f = FreeFile
+    If Err.Number <> 0 Then Exit Sub
+    If Len(Dir$(Left$(LOG_PATH, InStrRev(LOG_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
+    Open LOG_PATH For Append As #f
+    If Err.Number <> 0 Then Exit Sub
+    Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & msg
+    Close #f
+End Sub
+
+Private Sub LogErr(ByVal procName As String)
+    Dim f As Integer
+    Dim logLine As String
+    On Error Resume Next
+    f = FreeFile
+    If Err.Number <> 0 Then Exit Sub
+    If Len(Dir$(Left$(LOG_PATH, InStrRev(LOG_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
+    logLine = Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & procName & " | Err=" & Err.Number & " | " & Err.Description & " | Erl=" & Erl
+    Open LOG_PATH For Append As #f
+    If Err.Number <> 0 Then Exit Sub
+    Print #f, logLine
+    Close #f
+End Sub
 
 Private Function BuildRunLogPath() As String
-    On Error GoTo LocalFail
     Dim logDir As String
     On Error Resume Next
     logDir = Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
@@ -87,23 +117,25 @@ Private Function BuildRunLogPath() As String
 End Function
 
 Private Sub WriteCompletionMarker(ByVal savePath As String)
-    On Error GoTo LocalFail
     Dim f As Integer
     On Error Resume Next
     If Len(Dir$(Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\"))
     f = FreeFile
+    If Err.Number <> 0 Then Exit Sub
     Open COMPLETION_MARKER_PATH For Output As #f
+    If Err.Number <> 0 Then Exit Sub
     Print #f, "completed=" & Format(Now, "yyyy-mm-dd hh:n:ss")
     Print #f, "saved=" & savePath
     Close #f
 End Sub
 
-' ====================== AUDIT ======================
-' Centralised audit logging for each report run.
-' Records metadata, record counts, data quality issues, and manager breakdowns
-' both to the run log and to an Audit Log sheet in the output workbook.
+
+' ----------------------------------------------------------------------------
+' [ 3] AUDIT
+' ----------------------------------------------------------------------------
+
 Private Sub AuditInit(ByVal srcPath As String)
-    On Error GoTo LocalFail
+    On Error Resume Next
     mAuditStartTime = Now
     mAuditSourcePath = srcPath
     mAuditTotalRecords = 0
@@ -123,17 +155,20 @@ Private Sub AuditInit(ByVal srcPath As String)
 End Sub
 
 Private Sub AuditLogEvent(ByVal eventType As String, ByVal msg As String)
-    On Error GoTo LocalFail
-    On Error Resume Next
     Dim f As Integer
+    On Error Resume Next
     f = FreeFile
+    If Err.Number <> 0 Then Exit Sub
     Open LOG_PATH For Append As #f
+    If Err.Number <> 0 Then Exit Sub
     Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | AUDIT | " & eventType & " | " & msg
     Close #f
 
     If mInReportRun And Len(mRunLogPath) > 0 Then
         f = FreeFile
+        If Err.Number <> 0 Then Exit Sub
         Open mRunLogPath For Append As #f
+        If Err.Number <> 0 Then Exit Sub
         Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | AUDIT | " & eventType & " | " & msg
         Close #f
     End If
@@ -144,7 +179,7 @@ Private Sub AuditLogEvent(ByVal eventType As String, ByVal msg As String)
 End Sub
 
 Private Sub AuditIncrementCounter(ByVal counterName As String)
-    On Error GoTo LocalFail
+    On Error Resume Next
     Select Case counterName
         Case "TotalRecords": mAuditTotalRecords = mAuditTotalRecords + 1
         Case "PendingRecords": mAuditPendingRecords = mAuditPendingRecords + 1
@@ -159,11 +194,10 @@ Private Sub AuditIncrementCounter(ByVal counterName As String)
 End Sub
 
 Private Sub AuditWriteSheet(ByVal wb As Workbook)
-    On Error GoTo LocalFail
-    Dim ws As Worksheet, r As Long
-    On Error Resume Next
+    Dim ws As Worksheet
+    Dim r As Long
+    Dim item As Variant
 
-    ' Remove existing audit sheet if present
     On Error Resume Next
     Application.DisplayAlerts = False
     wb.Worksheets(AUDIT_SHEET_NAME).Delete
@@ -234,7 +268,7 @@ Private Sub AuditWriteSheet(ByVal wb As Workbook)
     ws.Cells(23, 2).Value = mAuditDuplicateNames
 
     ' Audit details section
-    r = 21
+    r = 25
     ws.Cells(r, 1).Value = "AUDIT DETAILS"
     ws.Cells(r, 1).Font.Bold = True
     ws.Cells(r, 1).Interior.Color = RGB(31, 78, 121)
@@ -250,25 +284,28 @@ Private Sub AuditWriteSheet(ByVal wb As Workbook)
     ws.Cells(r, 2).Interior.Color = RGB(217, 234, 247)
     r = r + 1
 
-    Dim item As Variant
     For Each item In mAuditIssues
         ws.Cells(r, 1).Value = Split(item, ":")(0)
         ws.Cells(r, 2).Value = Mid(item, InStr(item, ":") + 2)
         r = r + 1
     Next item
 
-    ' Auto-fit columns
     ws.Columns(1).AutoFit
     ws.Columns(2).AutoFit
 
     LogMsg "Audit sheet written"
 End Sub
 
-' ====================== INTERACTIVE ENTRY ======================
-' Owns the START HERE canvas button and its wiring.
+
+' ----------------------------------------------------------------------------
+' [ 4] INTERACTIVE ENTRY
+' ----------------------------------------------------------------------------
+
 Private Sub SetupPendingPickupButton()
-    On Error GoTo LocalFail
-    Dim ws As Worksheet, shp As Shape, btn As Shape
+    Dim ws As Worksheet
+    Dim shp As Shape
+    Dim btn As Shape
+
     On Error GoTo ButtonFail
 
     If Not EnsureMacroEnabledWorkbook() Then Exit Sub
@@ -277,13 +314,13 @@ Private Sub SetupPendingPickupButton()
 
     For Each shp In ws.Shapes
         If shp.Name = "btnCreatePendingPickupReport" Then
-            shp.OnAction = "CreatePendingPickupReport"
+            shp.OnAction = "PendingPickupReport.CreatePendingPickupReport"
             MsgBox "The CREATE PENDING PICKUP REPORT button is already installed.", vbInformation
             Exit Sub
         End If
     Next shp
 
-    Set btn = ws.Shapes.AddShape(5, ws.Range("B14").Left + 20, ws.Range("B14").Top + 8, 360, 48)   ' 5 = rounded rectangle
+    Set btn = ws.Shapes.AddShape(msoShapeRoundedRectangle, ws.Range("B14").Left + 20, ws.Range("B14").Top + 8, 360, 48)
     btn.Name = "btnCreatePendingPickupReport"
     btn.Fill.ForeColor.RGB = RGB(31, 78, 121)
     btn.Line.ForeColor.RGB = RGB(246, 206, 62)
@@ -295,9 +332,9 @@ Private Sub SetupPendingPickupButton()
         .Font.Name = "Segoe UI"
         .Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
     End With
-    btn.TextFrame2.VerticalAnchor = 3
-    btn.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-    btn.OnAction = "CreatePendingPickupReport"
+    btn.TextFrame2.VerticalAnchor = msoAnchorMiddle
+    btn.TextFrame2.TextRange.ParagraphFormat.Alignment = ppAlignCenter
+    btn.OnAction = "PendingPickupReport.CreatePendingPickupReport"
     MsgBox "Button installed. Click it whenever you need the report. The macro will ask you to select the current source file and prior report, and will remember your report folders.", vbInformation
     Exit Sub
 
@@ -305,15 +342,24 @@ ButtonFail:
     MsgBox "I could not install the button." & vbCrLf & Err.Description, vbCritical
 End Sub
 
-' ====================== CORE / MAIN BUILDER ======================
-' Owns the full report build: source selection, prior comparison, manager tabs,
-' dashboard, Raw Data copy, and save. Public entry point wired to the button.
+Private Function EnsureMacroEnabledWorkbook() As Boolean
+    Dim fm As Long
+    On Error Resume Next
+    fm = ThisWorkbook.FileFormat
+    If Err.Number <> 0 Then Exit Function
+    If fm = 52 Then
+        EnsureMacroEnabledWorkbook = True
+        Exit Function
+    End If
+    MsgBox "This workbook must be saved as .xlsm to run macros. Please Save As .xlsm first.", vbExclamation
+End Function
+
+
+' ----------------------------------------------------------------------------
+' [ 5] CORE / MAIN BUILDER
+' ----------------------------------------------------------------------------
+
 Public Function CreatePendingPickupReport() As Boolean
-    On Error GoTo LocalFail
-    CreatePendingPickupReport = False
-    #If ENABLE_ERL Then
-    On Error GoTo CleanFail
-    #End If
     Dim srcWb As Workbook, sourceWb As Workbook, raw As Worksheet, prior As Worksheet, priorWb As Workbook, outWb As Workbook
     Dim currentData As Variant, priorData As Variant
     Dim currentRows As Collection, priorRows As Collection
@@ -338,17 +384,23 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim managerLastCol As Long, managerPickupDateCol As Long, managerStartDateCol As Long, managerAgeCol As Long, managerRepCol As Long
     Dim sortedManagerRows As Collection
     Dim reportStamp As String, sourceName As String
-    #If Not ENABLE_ERL Then
-    On Error GoTo CleanFail
-    #End If
+    Dim managerSheetNames As Object
+    Dim keyCol As Long
+
+    CreatePendingPickupReport = False
     mInReportRun = True
+
+    On Error GoTo CleanFail
+
     mRunLogPath = BuildRunLogPath()
     Application.DisplayAlerts = False
     Application.EnableEvents = False
+
     LogMsg "=== CreatePendingPickupReport started ==="
     LogMsg "Run log: " & mRunLogPath
     LogMsg "Completion marker: " & COMPLETION_MARKER_PATH
     LogMsg "Excel version: " & Application.Version
+
     oldCalc = Application.Calculation
     oldScreen = Application.ScreenUpdating
     oldEvents = Application.EnableEvents
@@ -366,8 +418,6 @@ Public Function CreatePendingPickupReport() As Boolean
     ' Always perform the format check before doing any report work.
     ' The master must be .xlsm so the imported VBA module is retained.
     If Not EnsureMacroEnabledWorkbook() Then GoTo CleanExit
-    Set srcWb = ThisWorkbook
-    LogMsg "EnsureMacroEnabledWorkbook OK"
 
     ' Select the CURRENT source report. Nothing needs to be pasted into the master.
     Application.StatusBar = "Select the current All Open Treatment Plans report..."
@@ -377,15 +427,18 @@ Public Function CreatePendingPickupReport() As Boolean
         GetSavedFolder("CurrentFolder"), _
         "", _
         False)
+
     If currentPath = False Then
         LogMsg "No current file selected"
         MsgBox "No current source file was selected. The report was not run.", vbExclamation
         GoTo CleanExit
     End If
+
     If StrComp(CStr(currentPath), srcWb.FullName, vbTextCompare) = 0 Then
         MsgBox "Please select the current source report, not the Pending Pickup master workbook.", vbExclamation
         GoTo CleanExit
     End If
+
     SaveFolderSetting "CurrentFolder", CStr(currentPath)
     LogMsg "CURRENT selected: " & currentPath
 
@@ -393,6 +446,7 @@ Public Function CreatePendingPickupReport() As Boolean
     Set sourceWb = Workbooks.Open(Filename:=CStr(currentPath), ReadOnly:=True, UpdateLinks:=False)
     reportStamp = Format(Now, "mm/dd/yyyy h:mm AM/PM")
     sourceName = sourceWb.Name
+
     Set raw = FindPriorSourceSheet(sourceWb)
     If raw Is Nothing Then
         LogMsg "FindPriorSourceSheet returned Nothing"
@@ -400,6 +454,7 @@ Public Function CreatePendingPickupReport() As Boolean
                "Required: " & MANAGER_HEADER & ", " & STATUS_HEADER & ", " & REP_HEADER & ", " & NAME_HEADER, vbCritical
         GoTo CleanExit
     End If
+
     LogMsg "Source sheet: " & raw.Name
 
     headerRow = FindHeaderRow(raw)
@@ -416,13 +471,13 @@ Public Function CreatePendingPickupReport() As Boolean
     statusCol = FindHeaderColumn(raw, headerRow, STATUS_HEADER)
     repCol = FindHeaderColumn(raw, headerRow, REP_HEADER)
     nameCol = FindHeaderColumn(raw, headerRow, NAME_HEADER)
-
     pickupDateCol = FindHeaderColumn(raw, headerRow, PICKUP_DATE_HEADER)
     startDateCol = FindHeaderColumn(raw, headerRow, START_DATE_HEADER)
 
     lastRow = LastUsedRow(raw)
     lastCol = LastUsedColumn(raw)
     LogMsg "lastRow=" & lastRow & " lastCol=" & lastCol
+
     If lastRow <= headerRow Then
         MsgBox "There are no current data rows to process.", vbInformation
         GoTo CleanExit
@@ -444,6 +499,7 @@ Public Function CreatePendingPickupReport() As Boolean
     currentData = raw.Range(raw.Cells(headerRow, 1), raw.Cells(lastRow, lastCol)).Value2
     LogMsg "Value2 done rows=" & UBound(currentData, 1)
     LogMsg "Source dimensions: rows=" & lastRow & " cols=" & lastCol & " statusCol=" & statusCol & " managerCol=" & managerCol & " pickupDateCol=" & pickupDateCol
+
     Set managerRows = CreateObject("Scripting.Dictionary")
     managerRows.CompareMode = vbTextCompare
     Set managerNames = CreateObject("Scripting.Dictionary")
@@ -501,6 +557,7 @@ Public Function CreatePendingPickupReport() As Boolean
             End If
         End If
     Next r
+
     On Error GoTo CleanFail
 
     currentCount = currentRows.Count
@@ -508,6 +565,7 @@ Public Function CreatePendingPickupReport() As Boolean
     AuditLogEvent "COUNTS", "currentCount=" & currentCount & " managers=" & managerNames.Count & " totalRows=" & UBound(currentData, 1)
     mAuditTotalRecords = UBound(currentData, 1) - 1 ' exclude header
     mAuditPendingRecords = currentCount
+
     If currentCount = 0 Then
         MsgBox "No rows were found where Treatment Status contains '" & PENDING_TEXT & "'.", vbInformation
         GoTo CleanExit
@@ -530,6 +588,7 @@ Public Function CreatePendingPickupReport() As Boolean
 
     hasPrior = False
     LogMsg "priorPath=False? " & (priorPath = False)
+
     If priorPath <> False Then
         LogMsg "priorPath selected: " & priorPath
         SaveFolderSetting "PriorFolder", CStr(priorPath)
@@ -546,7 +605,6 @@ Public Function CreatePendingPickupReport() As Boolean
                 priorHeaderRow = FindHeaderRow(prior)
                 priorStatusCol = FindHeaderColumn(prior, priorHeaderRow, STATUS_HEADER)
                 priorNameCol = FindHeaderColumn(prior, priorHeaderRow, NAME_HEADER)
-
                 priorManagerCol = FindHeaderColumn(prior, priorHeaderRow, MANAGER_HEADER)
                 priorLastRow = LastUsedRow(prior)
                 priorLastCol = LastUsedColumn(prior)
@@ -562,8 +620,6 @@ Public Function CreatePendingPickupReport() As Boolean
             status = Trim$(CStr(priorData(r, priorStatusCol)))
             If InStr(1, status, PENDING_TEXT, vbTextCompare) > 0 Then
                 priorRows.Add r
-
-                If Not priorByKey.Exists(key) Then priorByKey.Add key, r
             End If
         Next r
     End If
@@ -574,62 +630,49 @@ Public Function CreatePendingPickupReport() As Boolean
     clearedCount = 0
     LogMsg "priorCount=" & priorCount & " hasPrior=" & hasPrior
 
-    If hasPrior Then
+    ' Compare current vs prior to classify new/cleared/still
+    Set currentByKey = CreateObject("Scripting.Dictionary")
+    currentByKey.CompareMode = vbTextCompare
+    For Each r In currentRows
+        Dim ck As String
+        ck = GetRecordKey(currentData, r, keyCol, nameCol)
+        If Len(ck) > 0 Then currentByKey(ck) = r
+    Next r
 
-
+    For Each r In priorRows
+        Dim pk As String
+        pk = GetRecordKey(priorData, r, priorStatusCol, priorNameCol)
+        If Len(pk) > 0 Then
+            If currentByKey.Exists(pk) Then
                 stillCount = stillCount + 1
             Else
-                newCount = newCount + 1
-
+                clearedCount = clearedCount + 1
             End If
-        Next key
-
-            If Not currentByKey.Exists(key) Then clearedCount = clearedCount + 1
-        Next key
-    End If
-
-    overallAvgAge = CalculateAverageAge(currentData, currentRows, pickupDateCol)
-
-    If hasPrior Then
-        For i = 1 To currentRows.Count
-            r = CLng(currentRows(i))
-
-
-                manager = Trim$(CStr(currentData(r, managerCol)))
-                If Len(manager) = 0 Then manager = "Unassigned"
-
-
-                Else
-
-                End If
-            End If
-        Next i
-        If priorManagerCol > 0 Then
-            For i = 1 To priorRows.Count
-                r = CLng(priorRows(i))
-
-
-                    manager = Trim$(CStr(priorData(r, priorManagerCol)))
-                    If Len(manager) = 0 Then manager = "Unassigned"
-
-
-                    Else
-
-                    End If
-                End If
-            Next i
         End If
-    End If
+    Next r
+
+    For Each r In currentRows
+        Dim ck2 As String
+        ck2 = GetRecordKey(currentData, r, keyCol, nameCol)
+        If Len(ck2) > 0 Then
+            If Not priorByKey.Exists(ck2) Then
+                newCount = newCount + 1
+            End If
+        End If
+    Next r
 
     CalculateAgingStats currentData, currentRows, pickupDateCol, age30Count, age60Count, age90Count, missingDateCount
+    LogMsg "TRACE: CalculateAgingStats done"
     LogMsg "Aging: 30=" & age30Count & " 60=" & age60Count & " 90=" & age90Count & " missing=" & missingDateCount
     AuditLogEvent "AGING", "30=" & age30Count & " 60=" & age60Count & " 90=" & age90Count & " missing=" & missingDateCount
     mAuditMissingDates = missingDateCount
 
     raw.Range(raw.Cells(headerRow, 1), raw.Cells(lastRow, lastCol)).Columns.AutoFit
     ApplySourceDateFormats raw, headerRow, lastRow, startDateCol, pickupDateCol
+    LogMsg "TRACE: ApplySourceDateFormats done"
 
     Set outWb = Workbooks.Add(xlWBATWorksheet)
+    LogMsg "TRACE: Workbooks.Add done"
     Set dashboard = outWb.Worksheets(1)
     dashboard.Name = "Dashboard"
     LogMsg "Output workbook created"
@@ -652,10 +695,8 @@ Public Function CreatePendingPickupReport() As Boolean
         managerStartDateCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, START_DATE_HEADER)
         managerAgeCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, "Pickup Age (Days)")
         managerRepCol = FindHeaderColumn(ws, MANAGER_HEADER_ROW, REP_HEADER)
-        FormatManagerSheet ws, manager, managerRows\(manager\).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol, currentData, sortedManagerRows, hasPrior
-        LogMsg "  ApplyDateFormatsToOutput: " & manager
+        FormatManagerSheet ws, manager, managerRows(manager).Count, managerLastCol, managerPickupDateCol, managerStartDateCol, managerAgeCol, managerRepCol
         ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
-        LogMsg "  MatchSourceColumnWidthsForManager: " & manager
         MatchSourceColumnWidthsForManager raw, ws, lastCol
         LogMsg "  manager tab done: " & manager
     Next i
@@ -664,8 +705,8 @@ Public Function CreatePendingPickupReport() As Boolean
     ' Build the dashboard after manager sheets exist so manager names can link directly to their tabs.
     LogMsg "BuildDashboard start"
     BuildDashboard dashboard, currentCount, priorCount, newCount, clearedCount, stillCount, _
-                   age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, keyCol, nameCol, pickupDateCol, _
-                   reportStamp, sourceName, currentRows
+               age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, keyCol, nameCol, pickupDateCol, _
+               reportStamp, sourceName, currentRows
     LogMsg "BuildDashboard done"
 
     Set rawOut = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
@@ -682,6 +723,7 @@ Public Function CreatePendingPickupReport() As Boolean
 
     Application.StatusBar = "Saving finished Pending Pickup report..."
     savePath = BuildOutputPath(srcWb)
+    LogMsg "TRACE: BuildOutputPath done, savePath=" & savePath
     LogMsg "Saving to: " & savePath
 
     ' Hide unused rows/columns on every sheet so the report looks clean
@@ -696,6 +738,7 @@ Public Function CreatePendingPickupReport() As Boolean
     AuditLogEvent "SAVE", "Report saved to: " & savePath
 
     outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbook
+    LogMsg "TRACE: SaveAs done"
     LogMsg "Save done"
     WriteCompletionMarker savePath
     LogMsg "Completion marker written: " & COMPLETION_MARKER_PATH
@@ -741,31 +784,133 @@ CleanFail:
 End Function
 
 
-' ====================== DASHBOARD ======================
-' Builds the Dashboard tab: KPI cards, manager table, charts, and logo.
-Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long, _
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "BuildDashboard"
-        Err.Clear
-        Resume Next
+' ----------------------------------------------------------------------------
+' [ 6] DASHBOARD
+' ----------------------------------------------------------------------------
 
+Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As Long, newCount As Long, clearedCount As Long, stillCount As Long, _
+    age30Count As Long, age60Count As Long, age90Count As Long, missingDateCount As Long, hasPrior As Boolean, _
+    managers As Variant, managerRows As Object, managerSheetNames As Object, currentData As Variant, _
+    keyCol As Long, nameCol As Long, pickupDateCol As Long, reportStamp As String, sourceName As String, currentRows As Collection)
+
+    Dim rg As Range, labelRg As Range, valueRow As Range
+    Dim fillColor As Long
+    Dim labelText As String, subText As String, valueText As String
+    Dim r As Long, c As Long
+    Dim mgrName As String
+
+    ' Title block
+    Set rg = ws.Range("A1:D1")
+    rg.Merge
+    rg.Value = "PENDING PICKUP REPORT DASHBOARD"
+    rg.Font.Bold = True
+    rg.Font.Size = 18
+    rg.Font.Color = RGB(255, 255, 255)
+    rg.Interior.Color = RGB(31, 78, 121)
+    rg.HorizontalAlignment = xlCenter
+    rg.VerticalAlignment = xlCenter
+    rg.RowHeight = 30
+
+    ' Subtitle
+    Set rg = ws.Range("A2:D2")
+    rg.Merge
+    rg.Value = "Generated: " & reportStamp & "  |  Source: " & sourceName
+    rg.Font.Size = 10
+    rg.Font.Italic = True
+    rg.Interior.Color = RGB(217, 234, 247)
+    rg.HorizontalAlignment = xlCenter
+
+    ' KPI cards row 4
+    fillColor = RGB(217, 234, 247)
+
+    ' Total Pending
+    labelText = "Total Pending Records"
+    valueText = CStr(currentCount)
+    Call AddDashboardCard(ws, "B4", "D6", fillColor, labelText, valueText)
+
+    ' New since prior
+    labelText = "New Since Prior Report"
+    valueText = CStr(newCount)
+    Call AddDashboardCard(ws, "F4", "H6", fillColor, labelText, valueText)
+
+    ' Still pending
+    labelText = "Still Pending"
+    valueText = CStr(stillCount)
+    Call AddDashboardCard(ws, "J4", "L6", fillColor, labelText, valueText)
+
+    ' Cleared since prior
+    labelText = "Cleared Since Prior"
+    valueText = CStr(clearedCount)
+    Call AddDashboardCard(ws, "N4", "P6", fillColor, labelText, valueText)
+
+    ' Aging stats row 8
+    labelText = "Aging 30+ Days"
+    valueText = CStr(age30Count)
+    Call AddDashboardCard(ws, "B8", "D10", fillColor, labelText, valueText)
+
+    labelText = "Aging 60+ Days"
+    valueText = CStr(age60Count)
+    Call AddDashboardCard(ws, "F8", "H10", fillColor, labelText, valueText)
+
+    labelText = "Aging 90+ Days"
+    valueText = CStr(age90Count)
+    Call AddDashboardCard(ws, "J8", "L10", fillColor, labelText, valueText)
+
+    labelText = "Missing Pickup Dates"
+    valueText = CStr(missingDateCount)
+    Call AddDashboardCard(ws, "N8", "P10", fillColor, labelText, valueText)
+
+    ' Manager table header
+    Set rg = ws.Range("A13")
+    rg.Value = "MANAGER BREAKDOWN"
+    rg.Font.Bold = True
+    rg.Font.Size = 14
+    rg.Font.Color = RGB(255, 255, 255)
+    rg.Interior.Color = RGB(31, 78, 121)
+
+    ' Manager table headers
+    Dim headers As Variant
+    headers = Array("Manager", "Pending Count", "30+ Days", "60+ Days", "90+ Days", "Missing Dates")
+    For c = 0 To UBound(headers)
+        Set rg = ws.Cells(14, c + 1)
+        rg.Value = headers(c)
+        rg.Font.Bold = True
+        rg.Interior.Color = RGB(217, 234, 247)
+        rg.HorizontalAlignment = xlCenter
+    Next c
+
+    ' Manager table rows
+    r = 15
+    For i = LBound(managers) To UBound(managers)
+        mgrName = CStr(managers(i))
+        ws.Cells(r, 1).Value = mgrName
+        ws.Cells(r, 2).Value = managerRows(mgrName).Count
+        ws.Cells(r, 3).Value = 0
+        ws.Cells(r, 4).Value = 0
+        ws.Cells(r, 5).Value = 0
+        ws.Cells(r, 6).Value = 0
+        r = r + 1
+    Next i
+
+    StyleTableHeader ws.Range("A14:F14")
+    StyleDashboardTable ws.Range("A15:F" & (r - 1))
+    ws.Columns("A:P").AutoFit
+End Sub
+
+Private Sub AddDashboardCard(ByVal ws As Worksheet, ByVal topLeft As String, ByVal bottomRight As String, ByVal fillColor As Long, ByVal labelText As String, ByVal valueText As String)
+    Dim rg As Range, labelRg As Range, valueRow As Range
+
+    Set rg = ws.Range(topLeft & ":" & bottomRight)
+    rg.Merge
     rg.Interior.Color = fillColor
     rg.Borders.LineStyle = xlContinuous
     rg.Borders.Weight = xlMedium
-    With rg.Borders(xlEdgeTop)
-        .LineStyle = xlContinuous
-        .Weight = xlThick
-        .Color = RGB(246, 206, 62)
-    End With
 
-    ' Label occupies the top rows; the value gets its own merged bottom row so
-    ' the value never overwrites the label.
+    ' Label occupies top rows; value gets its own merged bottom row
     Set labelRg = rg.Resize(rg.Rows.Count - 1, rg.Columns.Count)
     Set valueRow = rg.Offset(rg.Rows.Count - 1, 0).Resize(1, rg.Columns.Count)
     labelRg.Merge
-    labelRg.Value = labelText & vbCrLf & subText
+    labelRg.Value = labelText
     With labelRg
         .Font.Bold = True
         .Font.Name = "Segoe UI"
@@ -775,7 +920,7 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
         .WrapText = True
     End With
     valueRow.Merge
-    valueRow.Value = CStr(valueText)
+    valueRow.Value = valueText
     With valueRow
         .Font.Bold = True
         .Font.Name = "Segoe UI"
@@ -786,33 +931,63 @@ Private Sub BuildDashboard(ws As Worksheet, currentCount As Long, priorCount As 
     End With
 End Sub
 
-' ====================== MANAGER SHEET FORMATTING ======================
-' Formats one manager tab: KPI cards, data table, banding, highlighting, age warnings.
-Private Sub FormatManagerSheet(ws As Worksheet, managerName As String, pendingCount As Long, managerLastCol As Long, managerPickupDateCol As Long, managerStartDateCol As Long, managerAgeCol As Long, managerRepCol As Long, _
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "FormatManagerSheet"
-        Err.Clear
-        Resume Next
 
+' ----------------------------------------------------------------------------
+' [ 7] MANAGER SHEET FORMATTING
+' ----------------------------------------------------------------------------
+
+Private Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String, ByVal pendingCount As Long, _
+    ByVal managerLastCol As Long, ByVal managerPickupDateCol As Long, ByVal managerStartDateCol As Long, _
+    ByVal managerAgeCol As Long, ByVal managerRepCol As Long, _
+    ByVal firstRow As Long, ByVal lastRow As Long, ByVal ageCol As Long, ByVal pickupDateCol As Long)
+
+    Dim r As Long, v As Variant
+
+    On Error Resume Next
+
+    ' Apply age warning font color
     For r = firstRow To lastRow
         v = ws.Cells(r, ageCol).Value
-        On Error Resume Next
         If IsNumeric(v) And Len(Trim$(CStr(v))) > 0 Then
-            If CDbl(v) > 30 Then ws.Cells(r, ageCol).Font.Color = RGB(192, 0, 0) Else ws.Cells(r, ageCol).Font.Color = RGB(0, 0, 0)
+            If CDbl(v) > 30 Then
+                ws.Cells(r, ageCol).Font.Color = RGB(192, 0, 0)
+            Else
+                ws.Cells(r, ageCol).Font.Color = RGB(0, 0, 0)
+            End If
         Else
             ws.Cells(r, ageCol).Font.Color = RGB(0, 0, 0)
         End If
-        On Error GoTo 0
     Next r
+
+    ' Highlight missing pickup dates
+    HighlightMissingPickupDates ws, firstRow, lastRow, pickupDateCol
+
+    ' Auto-fit and set min widths
+    ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), managerLastCol)).Columns.AutoFit
+    SetManagerColumnWidths ws, managerLastCol
+
+    ' Freeze panes below header
+    ws.Activate
+    On Error Resume Next
+    ActiveWindow.FreezePanes = False
+    ActiveWindow.SplitRow = MANAGER_HEADER_ROW
+    ActiveWindow.FreezePanes = True
+    ActiveWindow.DisplayGridlines = False
+    ActiveWindow.Zoom = 85
+    On Error GoTo 0
 End Sub
 
-Private Sub HighlightMissingPickupDates(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal pickupDateCol As Long)
-    On Error GoTo LocalFail
+
+' ----------------------------------------------------------------------------
+' [ 8] TABLE / ROW FORMATTING
+' ----------------------------------------------------------------------------
+
+Private Sub HighlightMissingPickupDates(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal pickupDateCol As Long)
     Dim r As Long, v As Variant, dt As Date
-    If pickupDateCol <= 0 Or firstRow > lastRow Then Exit Sub
+
     On Error Resume Next
+    If pickupDateCol <= 0 Or firstRow > lastRow Then Exit Sub
+
     For r = firstRow To lastRow
         v = ws.Cells(r, pickupDateCol).Value
         If Len(Trim$(CStr(v))) = 0 Or Not TryGetExcelDate(v, dt) Then
@@ -823,14 +998,14 @@ Private Sub HighlightMissingPickupDates(ws As Worksheet, ByVal firstRow As Long,
             End With
         End If
     Next r
-    On Error GoTo 0
 End Sub
 
-Private Sub FormatYesNoColumns(ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal lastCol As Long)
-    On Error GoTo LocalFail
+Private Sub FormatYesNoColumns(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal lastCol As Long)
     Dim c As Long, r As Long, h As String, v As String
-    If lastRow <= headerRow Then Exit Sub
+
     On Error Resume Next
+    If lastRow <= headerRow Then Exit Sub
+
     For c = 1 To lastCol
         h = LCase$(Trim$(CStr(ws.Cells(headerRow, c).Value)))
         If InStr(1, h, "no rental equipment provided", vbTextCompare) > 0 Then
@@ -854,14 +1029,16 @@ Private Sub FormatYesNoColumns(ws As Worksheet, ByVal headerRow As Long, ByVal l
             Next r
         End If
     Next c
-    On Error GoTo 0
 End Sub
 
-Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
-    On Error GoTo LocalFail
+Private Sub SetManagerColumnWidths(ByVal ws As Worksheet, ByVal lastCol As Long)
     Dim c As Long, headerText As String, minWidth As Double
+
     If lastCol <= 0 Then Exit Sub
+
+    On Error Resume Next
     ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), lastCol)).Columns.AutoFit
+
     For c = 1 To lastCol
         headerText = LCase$(Trim$(CStr(ws.Cells(MANAGER_HEADER_ROW, c).Value)))
         minWidth = 16
@@ -879,10 +1056,11 @@ Private Sub SetManagerColumnWidths(ws As Worksheet, lastCol As Long)
     Next c
 End Sub
 
-Private Sub FormatRawData(ws As Worksheet, lastCol As Long, lastRow As Long)
-    On Error GoTo LocalFail
+Private Sub FormatRawData(ByVal ws As Worksheet, ByVal lastCol As Long, ByVal lastRow As Long)
     ApplyDataFormatting ws, 1, lastRow, lastCol
     ws.Tab.Color = RGB(128, 128, 128)
+
+    On Error Resume Next
     With ws.PageSetup
         .Orientation = xlLandscape
         .Zoom = False
@@ -891,7 +1069,6 @@ Private Sub FormatRawData(ws As Worksheet, lastCol As Long, lastRow As Long)
         .PrintTitleRows = "1:1"
     End With
     ws.Activate
-    On Error Resume Next
     ActiveWindow.FreezePanes = False
     ActiveWindow.SplitRow = 1
     ActiveWindow.FreezePanes = True
@@ -900,14 +1077,11 @@ Private Sub FormatRawData(ws As Worksheet, lastCol As Long, lastRow As Long)
     On Error GoTo 0
 End Sub
 
-Private Sub ApplyDataFormatting(ws As Worksheet, headerRow As Long, lastRow As Long, lastCol As Long)
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "ApplyDataFormatting"
-        Err.Clear
-        Resume Next
+Private Sub ApplyDataFormatting(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal lastCol As Long)
+    Dim rg As Range
 
+    On Error Resume Next
+    Set rg = ws.Range(ws.Cells(headerRow, 1), ws.Cells(lastRow, lastCol))
     rg.Font.Name = "Segoe UI"
     rg.Borders.LineStyle = xlContinuous
     rg.HorizontalAlignment = xlCenter
@@ -918,9 +1092,10 @@ Private Sub ApplyDataFormatting(ws As Worksheet, headerRow As Long, lastRow As L
     End With
 End Sub
 
-Private Sub StyleDashboardTable(rg As Range)
-    On Error GoTo LocalFail
+Private Sub StyleDashboardTable(ByVal rg As Range)
     Dim r As Long
+
+    On Error Resume Next
     rg.Borders.LineStyle = xlContinuous
     rg.Borders.Weight = xlHairline
     For r = 1 To rg.Rows.Count
@@ -928,29 +1103,47 @@ Private Sub StyleDashboardTable(rg As Range)
     Next r
 End Sub
 
-' ====================== METRICS / AGING HELPERS ======================
-' Manager stats: unique rep count, average age, new-row count, aging bucket stats.
-Private Function CountUniqueManagerRepsOnSheet(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Long
-    On Error GoTo LocalFail
+Private Sub StyleTableHeader(ByVal rg As Range)
+    On Error Resume Next
+    rg.Font.Bold = True
+    rg.Interior.Color = RGB(31, 78, 121)
+    rg.Font.Color = RGB(255, 255, 255)
+    rg.HorizontalAlignment = xlCenter
+End Sub
+
+
+' ----------------------------------------------------------------------------
+' [ 9] METRICS / AGING HELPERS
+' ----------------------------------------------------------------------------
+
+Private Function CountUniqueManagerRepsOnSheet(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Long
     Dim d As Object, r As Long, repName As String
+
+    On Error Resume Next
     Set d = CreateObject("Scripting.Dictionary")
     d.CompareMode = vbTextCompare
+
     If repCol <= 0 Or firstRow > lastRow Then Exit Function
+
     For r = firstRow To lastRow
         repName = NormalizeText(CStr(ws.Cells(r, repCol).Value))
         If Len(repName) > 0 Then
             If Not d.Exists(repName) Then d.Add repName, True
         End If
     Next r
+
     CountUniqueManagerRepsOnSheet = d.Count
 End Function
 
-Private Function CountRepsInSheet(ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Object
-    On Error GoTo LocalFail
+Private Function CountRepsInSheet(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal repCol As Long) As Object
     Dim d As Object, r As Long, repName As String
+
+    On Error Resume Next
     Set d = CreateObject("Scripting.Dictionary")
     d.CompareMode = vbTextCompare
+
     If repCol <= 0 Or firstRow > lastRow Then Exit Function
+
     For r = firstRow To lastRow
         repName = NormalizeText(CStr(ws.Cells(r, repCol).Value))
         If Len(repName) > 0 Then
@@ -958,222 +1151,557 @@ Private Function CountRepsInSheet(ws As Worksheet, ByVal firstRow As Long, ByVal
             d(repName) = d(repName) + 1
         End If
     Next r
+
     Set CountRepsInSheet = d
 End Function
 
 Private Function CalculateAverageAge(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal pickupDateCol As Long) As Variant
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "CalculateAverageAge"
-        Err.Clear
-        Resume Next
+    Dim r As Long, dt As Date, totalDays As Double, cnt As Long
 
-        LogErr "CalculateAgingStats"
-        Err.Clear
-        Resume Next
-
-    Dim r As Long, dt As Date
-    If dateCol <= 0 Or lastRow <= headerRow Then Exit Sub
     On Error Resume Next
-    For r = headerRow + 1 To lastRow
-        If TryGetExcelDate(ws.Cells(r, dateCol).Value, dt) Then
-            ws.Cells(r, dateCol).Value = dt
+    totalDays = 0
+    cnt = 0
+
+    For Each r In rowsToUse
+        If TryGetExcelDate(data(r, pickupDateCol), dt) Then
+            totalDays = totalDays + (Date - dt)
+            cnt = cnt + 1
         End If
     Next r
-    ws.Range(ws.Cells(headerRow + 1, dateCol), ws.Cells(lastRow, dateCol)).NumberFormat = "mm/dd/yyyy"
-    On Error GoTo 0
+
+    If cnt > 0 Then
+        CalculateAverageAge = totalDays / cnt
+    Else
+        CalculateAverageAge = 0
+    End If
+End Function
+
+Private Sub CalculateAgingStats(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal pickupDateCol As Long, _
+    ByRef age30Count As Long, ByRef age60Count As Long, ByRef age90Count As Long, ByRef missingDateCount As Long)
+
+    Dim r As Long, dtCheck As Date, ageDays As Long
+
+    On Error Resume Next
+    age30Count = 0
+    age60Count = 0
+    age90Count = 0
+    missingDateCount = 0
+
+    For Each r In rowsToUse
+        If TryGetExcelDate(data(r, pickupDateCol), dtCheck) Then
+            ageDays = CLng(Date - dtCheck)
+            If ageDays > 90 Then
+                age90Count = age90Count + 1
+            ElseIf ageDays > 60 Then
+                age60Count = age60Count + 1
+            ElseIf ageDays > 30 Then
+                age30Count = age30Count + 1
+            End If
+        Else
+            missingDateCount = missingDateCount + 1
+        End If
+    Next r
 End Sub
 
-Private Sub ApplySourceDateFormats(ws As Worksheet, headerRow As Long, lastRow As Long, startDateCol As Long, pickupDateCol As Long)
-    On Error GoTo LocalFail
-    If startDateCol > 0 And lastRow > headerRow Then ws.Range(ws.Cells(headerRow + 1, startDateCol), ws.Cells(lastRow, startDateCol)).NumberFormat = "mm/dd/yyyy"
-    If pickupDateCol > 0 And lastRow > headerRow Then ws.Range(ws.Cells(headerRow + 1, pickupDateCol), ws.Cells(lastRow, pickupDateCol)).NumberFormat = "mm/dd/yyyy"
+
+' ----------------------------------------------------------------------------
+' [10] DATE / TIME HELPERS
+' ----------------------------------------------------------------------------
+
+Private Sub NormalizeDateColumn(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal col As Long)
+    Dim r As Long, v As Variant, dt As Date
+
+    On Error Resume Next
+    If col <= 0 Then Exit Sub
+
+    For r = headerRow + 1 To lastRow
+        v = ws.Cells(r, col).Value
+        If IsDate(v) Then
+            ws.Cells(r, col).NumberFormat = "mm/dd/yyyy"
+        ElseIf IsNumeric(v) Then
+            If TryGetExcelDate(v, dt) Then
+                ws.Cells(r, col).Value = dt
+                ws.Cells(r, col).NumberFormat = "mm/dd/yyyy"
+            End If
+        End If
+    Next r
 End Sub
 
-Private Sub ApplyDateFormatsToOutput(ws As Worksheet, headerRow As Long, lastRow As Long, startDateCol As Long, pickupDateCol As Long)
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "ApplyDateFormatsToOutput"
-        Err.Clear
-        Resume Next
+Private Sub ApplySourceDateFormats(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal startDateCol As Long, ByVal pickupDateCol As Long)
+    On Error Resume Next
+    If startDateCol > 0 And lastRow > headerRow Then
+        ws.Range(ws.Cells(headerRow + 1, startDateCol), ws.Cells(lastRow, startDateCol)).NumberFormat = "mm/dd/yyyy"
+    End If
+    If pickupDateCol > 0 And lastRow > headerRow Then
+        ws.Range(ws.Cells(headerRow + 1, pickupDateCol), ws.Cells(lastRow, pickupDateCol)).NumberFormat = "mm/dd/yyyy"
+    End If
+End Sub
 
-        dt = CDate(v)
+Private Sub ApplyDateFormatsToOutput(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal lastRow As Long, ByVal startDateCol As Long, ByVal pickupDateCol As Long)
+    Dim r As Long
+
+    On Error Resume Next
+
+    If startDateCol > 0 Then
+        For r = headerRow + 1 To lastRow
+            ws.Cells(r, startDateCol).NumberFormat = "mm/dd/yyyy"
+        Next r
+    End If
+
+    If pickupDateCol > 0 Then
+        For r = headerRow + 1 To lastRow
+            ws.Cells(r, pickupDateCol).NumberFormat = "mm/dd/yyyy"
+        Next r
+    End If
+End Sub
+
+Private Function TryGetExcelDate(ByVal v As Variant, ByRef dt As Date) As Boolean
+    On Error GoTo Fail
+
+    If IsNull(v) Or IsMissing(v) Then GoTo Fail
+
+    If VarType(v) = vbDate Then
+        dt = v
+        TryGetExcelDate = True
+        Exit Function
     ElseIf IsNumeric(v) Then
-        If CDbl(v) > 0 Then dt = DateSerial(1899, 12, 30) + CDbl(v) Else GoTo Fail
+        If CDbl(v) > 0 Then
+            dt = DateSerial(1899, 12, 30) + CDbl(v)
+            TryGetExcelDate = True
+            Exit Function
+        Else
+            GoTo Fail
+        End If
     ElseIf Len(Trim$(CStr(v))) > 0 Then
         dt = CDate(Trim$(CStr(v)))
+        TryGetExcelDate = True
+        Exit Function
     Else
         GoTo Fail
     End If
+
     ' Placeholder/corrupt dates (before 2000) count as missing.
     If dt < #1/1/2000# Then GoTo Fail
+
     TryGetExcelDate = True
     Exit Function
+
 Fail:
     TryGetExcelDate = False
 End Function
 
+Private Sub ApplyDateFormatByHeader(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal headerName As String)
+    Dim col As Long, r As Long
 
-' ====================== OUTPUT ARRAY / SORTING ======================
-' Builds output arrays, sorts manager rows by sales rep, ranks columns, and highlights new records.
-Private Sub HighlightNewRecords(ws As Worksheet, firstRow As Long, lastRow As Long, lastDataCol As Long, _
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "HighlightNewRecords"
-        Err.Clear
-        Resume Next
-
-        LogErr "SortManagerRowsBySalesRep"
-        Err.Clear
-        Resume Next
-
-    If keepCount <= 1 Then Exit Sub
     On Error Resume Next
-    For i = LBound(keepCols) To UBound(keepCols) - 1
-        For j = i + 1 To UBound(keepCols)
-            keyI = ManagerColumnRank(CStr(data(1, keepCols(i))), keepCols(i))
-            keyJ = ManagerColumnRank(CStr(data(1, keepCols(j))), keepCols(j))
-            If keyI > keyJ Then
-                tmp = keepCols(i): keepCols(i) = keepCols(j): keepCols(j) = tmp
+    col = FindHeaderColumn(ws, firstRow, headerName)
+    If col > 0 Then
+        For r = firstRow + 1 To lastRow
+            If IsDate(ws.Cells(r, col).Value) Or IsNumeric(ws.Cells(r, col).Value) Then
+                ws.Cells(r, col).NumberFormat = "mm/dd/yyyy"
             End If
-        Next j
-    Next i
-    On Error GoTo 0
+        Next r
+    End If
 End Sub
 
+
+' ----------------------------------------------------------------------------
+' [11] OUTPUT ARRAY / SORTING
+' ----------------------------------------------------------------------------
+
+Private Sub HighlightNewRecords(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal lastDataCol As Long, _
+    ByVal newKeys As Object)
+
+    Dim r As Long, c As Long
+
+    On Error Resume Next
+    For r = firstRow To lastRow
+        ' Highlight new records in yellow
+        ws.Cells(r, lastDataCol).Interior.Color = RGB(255, 255, 0)
+    Next r
+End Sub
+
+Private Function BuildOutputArray(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal lastCol As Long) As Variant
+    Dim arrOut As Variant
+    Dim i As Long, r As Long, c As Long
+
+    On Error Resume Next
+
+    ReDim arrOut(1 To rowsToUse.Count, 1 To lastCol)
+    i = 1
+
+    For Each r In rowsToUse
+        For c = 1 To lastCol
+            arrOut(i, c) = data(r, c)
+        Next c
+        i = i + 1
+    Next r
+
+    BuildOutputArray = arrOut
+End Function
+
+Private Function SortManagerRowsBySalesRep(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal repCol As Long, ByVal nameCol As Long) As Collection
+    Dim sorted As New Collection
+    Dim i As Long, j As Long
+    Dim rowI As Long, rowJ As Long
+    Dim repI As String, repJ As String
+    Dim nameI As String, nameJ As String
+
+    On Error Resume Next
+
+    For i = 1 To rowsToUse.Count
+        sorted.Add rowsToUse(i)
+    Next i
+
+    ' Insertion sort by rep, then name
+    For i = 2 To sorted.Count
+        rowI = CLng(sorted(i))
+        repI = NormalizeText(CStr(data(rowI, repCol)))
+        nameI = NormalizeText(CStr(data(rowI, nameCol)))
+        j = i - 1
+        Do While j >= 1
+            rowJ = CLng(sorted(j))
+            repJ = NormalizeText(CStr(data(rowJ, repCol)))
+            nameJ = NormalizeText(CStr(data(rowJ, nameCol)))
+            If repI < repJ Or (repI = repJ And nameI < nameJ) Then
+                sorted(j + 1) = sorted(j)
+                j = j - 1
+            Else
+                Exit Do
+            End If
+        Loop
+        sorted(j + 1) = rowI
+    Next i
+
+    Set SortManagerRowsBySalesRep = sorted
+End Function
+
 Private Function ManagerColumnRank(ByVal headerText As String, ByVal sourceCol As Long) As Long
-    On Error GoTo LocalFail
+    On Error Resume Next
     Select Case LCase$(Trim$(headerText))
-        Case LCase$(REP_HEADER)
-            ManagerColumnRank = 1
-        Case LCase$(START_DATE_HEADER)
-            ManagerColumnRank = 2
-        Case LCase$(NAME_HEADER)
-            ManagerColumnRank = 3
-        Case LCase$("Billing Customer")
-            ManagerColumnRank = 4
-        Case LCase$("Prescribing Physician")
-            ManagerColumnRank = 5
-        Case LCase$("No Rental Equipment Provided")
-            ManagerColumnRank = 6
-        Case LCase$(PICKUP_DATE_HEADER)
-            ManagerColumnRank = 7
-        Case Else
-            ManagerColumnRank = 1000 + sourceCol
+        Case LCase$(REP_HEADER): ManagerColumnRank = 1
+        Case LCase$(START_DATE_HEADER): ManagerColumnRank = 2
+        Case LCase$(NAME_HEADER): ManagerColumnRank = 3
+        Case LCase$("Billing Customer"): ManagerColumnRank = 4
+        Case LCase$("Prescribing Physician"): ManagerColumnRank = 5
+        Case LCase$("No Rental Equipment Provided"): ManagerColumnRank = 6
+        Case LCase$(PICKUP_DATE_HEADER): ManagerColumnRank = 7
+        Case Else: ManagerColumnRank = 1000 + sourceCol
     End Select
 End Function
 
 Private Function BuildManagerOutputArray(ByRef data As Variant, ByVal rowsToUse As Collection, ByVal lastCol As Long, ByVal pickupDateCol As Long) As Variant
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "BuildManagerOutputArray"
-        Err.Clear
-        Resume Next
+    Dim arrOut As Variant
+    Dim i As Long, r As Long, c As Long
+
+    On Error Resume Next
+
+    ReDim arrOut(1 To rowsToUse.Count, 1 To lastCol)
+    i = 1
+
+    For Each r In rowsToUse
+        For c = 1 To lastCol
+            arrOut(i, c) = data(r, c)
+        Next c
+        i = i + 1
+    Next r
+
+    BuildManagerOutputArray = arrOut
+End Function
+
+
+' ----------------------------------------------------------------------------
+' [12] COLUMN / HEADER UTILITIES
+' ----------------------------------------------------------------------------
 
 Private Function IsExcludedManagerHeader(ByVal headerText As String) As Boolean
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "IsExcludedManagerHeader"
-        Err.Clear
-        Resume Next
+    Dim h As String
+    h = LCase$(Trim$(headerText))
+    IsExcludedManagerRead = False
 
-    LocalFail:
-        LogErr "CopyColumnFormats"
-        Err.Clear
-        Resume Next
+    Select Case h
+        Case LCase$(REP_HEADER), LCase$(START_DATE_HEADER), LCase$(NAME_HEADER), _
+             LCase$(MANAGER_HEADER), LCase$(STATUS_HEADER), LCase$(KEY_HEADER), _
+             LCase$(PICKUP_DATE_HEADER)
+            IsExcludedManagerRead = True
+    End Select
+End Function
 
+Private Sub CopyColumnFormats(ByVal src As Worksheet, ByVal dest As Worksheet, ByVal lastCol As Long)
+    Dim c As Long
+
+    On Error Resume Next
+    For c = 1 To lastCol
+        src.Columns(c).Copy
+        dest.Columns(c).PasteSpecial xlPasteFormats
+    Next c
+    Application.CutCopyMode = False
+End Sub
+
+Private Sub MatchSourceColumnWidths(ByVal src As Worksheet, ByVal dest As Worksheet, ByVal lastCol As Long)
+    Dim c As Long
+
+    On Error Resume Next
+    For c = 1 To lastCol
         dest.Columns(c).ColumnWidth = src.Columns(c).ColumnWidth
     Next c
 End Sub
 
+Private Sub MatchSourceColumnWidthsForManager(ByVal src As Worksheet, ByVal dest As Worksheet, ByVal sourceLastCol As Long)
+    Dim c As Long
 
-Private Sub MatchSourceColumnWidthsForManager(src As Worksheet, dest As Worksheet, sourceLastCol As Long)
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "MatchSourceColumnWidthsForManager"
-        Err.Clear
-        Resume Next
+    On Error Resume Next
+    For c = 1 To sourceLastCol
+        dest.Columns(c).ColumnWidth = src.Columns(c).ColumnWidth
+    Next c
+End Sub
 
-        LogErr "FindHeaderColumn"
-        Err.Clear
-        Resume Next
+Private Function FindHeaderRow(ByVal ws As Worksheet) As Long
+    Dim r As Long, c As Long
+    Dim found As Boolean
+
+    On Error GoTo Fail
+    FindHeaderRow = 0
+
+    For r = 1 To 25
+        found = True
+        For c = 1 To 20
+            If Len(Trim$(CStr(ws.Cells(r, c).Value))) > 0 Then
+                If Not IsHeaderCell(ws.Cells(r, c), MANAGER_HEADER) And _
+                   Not IsHeaderCell(ws.Cells(r, c), STATUS_HEADER) And _
+                   Not IsHeaderCell(ws.Cells(r, c), REP_HEADER) And _
+                   Not IsHeaderCell(ws.Cells(r, c), NAME_HEADER) Then
+                    found = False
+                    Exit For
+                End If
+            End If
+        Next c
+        If found Then
+            FindHeaderRow = r
+            Exit Function
+        End If
+    Next r
+
+Fail:
+    If Err.Number <> 0 Then Err.Clear
+    FindHeaderRow = 0
+End Function
+
+Private Function IsHeaderCell(ByVal cell As Range, ByVal headerText As String) As Boolean
+    On Error Resume Next
+    IsHeaderCell = (LCase$(Trim$(CStr(cell.Value))) = LCase$(Trim$(headerText)))
+End Function
+
+Private Function FindHeaderColumn(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal headerText As String) As Long
+    Dim c As Long
+
+    On Error GoTo Fail
+    FindHeaderColumn = 0
+
+    For c = 1 To 50
+        If LCase$(Trim$(CStr(ws.Cells(headerRow, c).Value))) = LCase$(Trim$(headerText)) Then
+            FindHeaderColumn = c
+            Exit Function
+        End If
+    Next c
+
+Fail:
+    If Err.Number <> 0 Then Err.Clear
+End Function
+
+Private Function LastUsedRow(ByVal ws As Worksheet) As Long
+    Dim f As Range
+
+    On Error GoTo Fail
+    Set f = ws.Cells.Find(What:="*", After:=ws.Cells(1, 1), LookIn:=xlFormulas, _
+        LookAt:=xlPart, SearchOrder:=xlByRows, SearchDirection:=xlPrevious, MatchCase:=False)
+    If f Is Nothing Then
+        LastUsedRow = 1
+    Else
+        LastUsedRow = f.Row
+    End If
+    Exit Function
+
+Fail:
+    If Err.Number <> 0 Then Err.Clear
+    LastUsedRow = 1
+End Function
+
+Private Function LastUsedColumn(ByVal ws As Worksheet) As Long
+    Dim f As Range
+
+    On Error GoTo Fail
+    Set f = ws.Cells.Find(What:="*", After:=ws.Cells(1, 1), LookIn:=xlFormulas, _
+        LookAt:=xlPart, SearchOrder:=xlByColumns, SearchDirection:=xlPrevious, MatchCase:=False)
+    If f Is Nothing Then
+        LastUsedColumn = 1
+    Else
+        LastUsedColumn = f.Column
+    End If
+    Exit Function
+
+Fail:
+    If Err.Number <> 0 Then Err.Clear
+    LastUsedColumn = 1
+End Function
+
+Private Function GetRecordKey(ByRef data As Variant, ByVal rowNum As Long, ByVal keyCol As Long, ByVal nameCol As Long) As String
+    Dim s As String
+
+    On Error Resume Next
+    GetRecordKey = ""
 
     If rowNum >= 1 And rowNum <= UBound(data, 1) Then
         If keyCol > 0 And keyCol <= UBound(data, 2) Then s = NormalizeText(CStr(data(rowNum, keyCol)))
         If Len(s) = 0 And nameCol > 0 And nameCol <= UBound(data, 2) Then s = NormalizeText(CStr(data(rowNum, nameCol)))
     End If
-    On Error GoTo 0
-    If Len(s) = 0 Then s = "ROW-" & CStr(fallbackRow)
+
+    If Len(s) = 0 Then s = "ROW-" & CStr(rowNum)
     GetRecordKey = s
 End Function
 
-Private Function SafeValue(v As Variant, defaultText As String) As String
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "SafeValue"
-        Err.Clear
-        Resume Next
-
-        Resume Next
-
-    Set f = ws.Cells.Find(What:="*", After:=ws.Cells(1, 1), LookIn:=xlFormulas, LookAt:=xlPart, SearchOrder:=xlByColumns, SearchDirection:=xlPrevious, MatchCase:=False)
-    On Error GoTo 0
-    If f Is Nothing Then LastUsedColumn = 0 Else LastUsedColumn = f.Column
+Private Function SafeValue(ByVal v As Variant, ByVal defaultText As String) As String
+    On Error Resume Next
+    If IsNull(v) Or IsMissing(v) Then
+        SafeValue = defaultText
+    Else
+        SafeValue = CStr(v)
+    End If
 End Function
 
-Private Function SheetExists(sheetName As String, wb As Workbook) As Boolean
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "SheetExists"
-        Err.Clear
-        Resume Next
+Private Function SheetExists(ByVal sheetName As String, ByVal wb As Workbook) As Boolean
+    Dim ws As Worksheet
 
-        LogErr "SortManagersByLastName"
-        Err.Clear
-        Resume Next
+    On Error Resume Next
+    SheetExists = False
+    Set ws = wb.Worksheets(sheetName)
+    If Err.Number = 0 Then SheetExists = True
+End Function
 
-    p = InStrRev(fullName, " ")
-    If p > 0 Then ManagerSortKey = Mid$(fullName, p + 1) & "|" & Left$(fullName, p - 1) Else ManagerSortKey = fullName
+
+' ----------------------------------------------------------------------------
+' [13] WORKBOOK STATE
+' ----------------------------------------------------------------------------
+
+Private Function SafeSheetName(ByVal manager As String, ByVal wb As Workbook) As String
+    Dim name As String
+
+    On Error Resume Next
+    name = Trim$(manager)
+    If Len(name) = 0 Then name = "Unassigned"
+
+    name = Replace(name, "/", "_")
+    name = Replace(name, "\", "_")
+    name = Replace(name, "?", "_")
+    name = Replace(name, "*", "_")
+    name = Replace(name, "[", "_")
+    name = Replace(name, "]", "_")
+    name = Replace(name, ":", "_")
+
+    ' Excel sheet name max length is 31
+    If Len(name) > 31 Then name = Left$(name, 31)
+
+    SafeSheetName = name
 End Function
 
 Private Sub SortTextArray(ByRef arr As Variant)
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "SortTextArray"
-        Err.Clear
-        Resume Next
+    Dim i As Long, j As Long
+    Dim tmp As Variant
 
-        LogErr "FindPriorSourceSheet"
-        Err.Clear
-        Resume Next
+    On Error Resume Next
+
+    For i = LBound(arr) To UBound(arr) - 1
+        For j = i + 1 To UBound(arr)
+            If LCase$(CStr(arr(i))) > LCase$(CStr(arr(j))) Then
+                tmp = arr(i)
+                arr(i) = arr(j)
+                arr(j) = tmp
+            End If
+        Next j
+    Next i
+End Sub
+
+Private Function ManagerSortKey(ByVal fullName As String) As String
+    Dim p As Long
+
+    On Error Resume Next
+    ManagerSortKey = fullName
+
+    p = InStrRev(fullName, " ")
+    If p > 0 Then
+        ManagerSortKey = Mid$(fullName, p + 1) & "|" & Left$(fullName, p - 1)
+    End If
+End Function
+
+Private Sub SortManagersByLastName(ByRef managers As Variant)
+    Dim i As Long, j As Long
+    Dim tmp As String
+    Dim keyI As String, keyJ As String
+
+    On Error Resume Next
+
+    For i = LBound(managers) To UBound(managers) - 1
+        For j = i + 1 To UBound(managers)
+            keyI = ManagerSortKey(CStr(managers(i)))
+            keyJ = ManagerSortKey(CStr(managers(j)))
+            If keyI > keyJ Then
+                tmp = managers(i)
+                managers(i) = managers(j)
+                managers(j) = tmp
+            End If
+        Next j
+    Next i
+End Sub
+
+Private Function FindPriorSourceSheet(ByVal wb As Workbook) As Worksheet
+    Dim ws As Worksheet
+
+    On Error Resume Next
+    Set FindPriorSourceSheet = Nothing
+
+    For Each ws In wb.Worksheets
+        If ws.Name = "Raw Data" Then
+            Set FindPriorSourceSheet = ws
+            Exit Function
+        End If
+    Next ws
+
+    Set FindPriorSourceSheet = wb.Worksheets(1)
+End Function
+
+
+' ----------------------------------------------------------------------------
+' [14] DIALOG / FILE / FOLDER
+' ----------------------------------------------------------------------------
+
+Private Function SelectExcelFile(ByVal dialogTitle As String, _
+    ByVal initialFolder As String, _
+    ByVal suggestedFile As String, _
+    ByVal allowCancel As Boolean) As Variant
 
     Dim fd As FileDialog
     Dim initialName As String
+
     On Error GoTo Fail
+
+    initialName = ""
+    If Len(initialFolder) > 0 Then
+        If Len(Dir(initialFolder, vbDirectory)) > 0 Then
+            If Len(suggestedFile) > 0 And Len(Dir(suggestedFile)) > 0 Then
+                initialName = suggestedFile
+            Else
+                initialName = initialFolder & Application.PathSeparator
+            End If
+        End If
+    End If
+
     Set fd = Application.FileDialog(msoFileDialogFilePicker)
     With fd
         .Title = dialogTitle
         .AllowMultiSelect = False
         .Filters.Clear
         .Filters.Add "Excel Workbooks", "*.xlsx;*.xlsm;*.xlsb"
-        If Len(initialFolder) > 0 Then
-            If Len(Dir(initialFolder, vbDirectory)) > 0 Then
-                If Len(suggestedFile) > 0 And Len(Dir(suggestedFile)) > 0 Then
-                    .InitialFileName = suggestedFile
-                Else
-                    .InitialFileName = initialFolder & Application.PathSeparator
-                End If
-            End If
-        End If
+        If Len(initialName) > 0 Then .InitialFileName = initialName
         If .Show <> -1 Then
             SelectExcelFile = False
         Else
@@ -1181,22 +1709,61 @@ Private Sub SortTextArray(ByRef arr As Variant)
         End If
     End With
     Exit Function
+
 Fail:
     LogMsg "SelectExcelFile failed: " & Err.Description
     SelectExcelFile = False
 End Function
 
 Private Sub SaveFolderSetting(ByVal settingName As String, ByVal filePath As String)
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "SaveFolderSetting"
-        Err.Clear
-        Resume Next
+    Dim f As Integer
 
-        LogErr "FindMostRecentPendingPickupReport"
-        Err.Clear
-        Resume Next
+    On Error Resume Next
+    f = FreeFile
+    If Err.Number <> 0 Then Exit Sub
+    If Len(Dir$(Left$(LOG_PATH, InStrRev(LOG_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
+    Open LOG_PATH For Append As #f
+    If Err.Number <> 0 Then Exit Sub
+    Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | SaveFolderSetting | " & settingName & " = " & filePath
+    Close #f
+End Sub
+
+Private Function GetSavedFolder(ByVal settingName As String) As String
+    On Error Resume Next
+    GetSavedFolder = GetSetting("PendingPickupReport", "Settings", settingName, "")
+End Function
+
+Private Function FindMostRecentPendingPickupReport(ByVal folder As String, ByVal excludePath As String) As String
+    Dim d As Object, f As Object
+    Dim mostRecent As String, mostRecentTime As Double
+
+    On Error Resume Next
+    mostRecent = ""
+    mostRecentTime = 0
+
+    Set d = CreateObject("Scripting.FileSystemObject")
+    If Not d.FolderExists(folder) Then Exit Function
+
+    For Each f In d.GetFolder(folder).Files
+        If f.Name Like "Pending Pickup *.xlsx" Then
+            If CStr(f.Path) <> excludePath Then
+                If f.DateLastModified > mostRecentTime Then
+                    mostRecentTime = f.DateLastModified
+                    mostRecent = f.Path
+                End If
+            End If
+        End If
+    Next f
+
+    FindMostRecentPendingPickupReport = mostRecent
+End Function
+
+Private Function BuildOutputPath(ByVal srcWb As Workbook) As String
+    Dim folder As String
+    Dim baseName As String
+    Dim candidate As String
+
+    On Error GoTo Fail
 
     folder = GetSavedOutputFolder()
     If Len(folder) = 0 Or Len(Dir(folder, vbDirectory)) = 0 Then
@@ -1208,32 +1775,58 @@ Private Sub SaveFolderSetting(ByVal settingName As String, ByVal filePath As Str
         End With
         SaveOutputFolder folder
     End If
+
     baseName = "Pending Pickup " & Format(Date, "yyyy-mm-dd") & ".xlsx"
     candidate = folder & Application.PathSeparator & baseName
     If Len(Dir(CStr(candidate))) > 0 Then
         candidate = folder & Application.PathSeparator & "Pending Pickup " & Format(Now, "yyyy-mm-dd_HHMMSS") & ".xlsx"
     End If
+
     BuildOutputPath = CStr(candidate)
     Exit Function
+
 Fail:
-    LogMsg "BuildOutputPath failed: " & Err.Description
+    BuildOutputPath = ""
     Err.Raise Err.Number, , "Output folder error: " & Err.Description
 End Function
 
 Private Function GetSavedOutputFolder() As String
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "GetSavedOutputFolder"
-        Err.Clear
-        Resume Next
+    On Error Resume Next
+    GetSavedOutputFolder = GetSetting("PendingPickupReport", "Settings", "OutputFolder", "")
+End Function
 
-' report looks clean and focused only on actual data.
+Private Sub SaveOutputFolder(ByVal folder As String)
+    Dim f As Integer
+
+    On Error Resume Next
+    f = FreeFile
+    If Err.Number <> 0 Then Exit Sub
+    If Len(Dir$(Left$(LOG_PATH, InStrRev(LOG_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
+    Open LOG_PATH For Append As #f
+    If Err.Number <> 0 Then Exit Sub
+    Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | SaveOutputFolder | " & folder
+    Close #f
+End Sub
+
 Private Sub HideUnusedCells(ByVal ws As Worksheet)
-    On Error GoTo LocalFail
-    On Error GoTo LocalFail
-    LocalFail:
-        LogErr "HideUnusedCells"
-        Err.Clear
-        Resume Next
+    Dim lastRow As Long, lastCol As Long
+    Dim maxRow As Long, maxCol As Long
 
+    On Error Resume Next
+    lastRow = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+    lastCol = ws.UsedRange.Column + ws.UsedRange.Columns.Count - 1
+    maxRow = ws.Rows.Count
+    maxCol = ws.Columns.Count
+
+    If lastRow < maxRow Then ws.Rows(lastRow + 1 & ":" & maxRow).EntireRow.Hidden = True
+    If lastCol < maxCol Then ws.Columns(lastCol + 1 & ":" & maxCol).EntireColumn.Hidden = True
+End Sub
+
+Private Function NormalizeText(ByVal value As Variant) As String
+    On Error Resume Next
+    If IsNull(value) Or IsMissing(value) Then
+        NormalizeText = ""
+    Else
+        NormalizeText = Trim$(CStr(value))
+    End If
+End Function

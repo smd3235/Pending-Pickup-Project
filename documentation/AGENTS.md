@@ -12,7 +12,7 @@ These rules must be followed for every code change, no exceptions.
 ### Commit message format
 
 - Use clear, descriptive commit messages that explain *what* changed and *why*.
-- Reference the affected files or modules (e.g., `Pending_Pickup_Macro.bas`, `scripts/run-report.ps1`, `documentation/AGENTS.md`).
+- Reference the affected files or modules (e.g., `Pending_Pickup_Macro.bas`, `scripts/run-report.py`, `documentation/AGENTS.md`).
 - Do not commit generated report files (`Reports/*.xlsx`) unless explicitly asked — they are build artifacts.
 
 ### Changelog format
@@ -62,18 +62,18 @@ Each entry must follow this format:
 
 ## 4. Testing and Debugging
 
-- **Run `scripts\test-compile.ps1` after every VBA code change to verify compilation.**
-- **Run `scripts\sync_template.ps1` after compilation succeeds to update the template.**
-- **Run `scripts\run-report.ps1` to test full report generation.**
+- **Run `scripts\test-compile.py` after every VBA code change to verify compilation.**
+- **Run `scripts\sync_template.py` after compilation succeeds to update the template.**
+- **Run `scripts\run-report.py` to test full report generation.**
 - **Check `macro-debug.log` for any errors after a run.**
 - **Check `log/answer-dialogs.log` for dialog handling issues.**
 - **Kill any stray Excel processes after testing.**
 
 ### Debugging checklist
 
-1. Compile check (`scripts\test-compile.ps1`).
-2. Sync to template (`scripts\sync_template.ps1`).
-3. Run report (`scripts\run-report.ps1`).
+1. Compile check (`scripts\test-compile.py`).
+2. Sync to template (`scripts\sync_template.py`).
+3. Run report (`scripts\run-report.py`).
 4. Check `macro-debug.log` for errors.
 5. Check `Reports/` for output file.
 6. Kill stray Excel processes.
@@ -81,7 +81,7 @@ Each entry must follow this format:
 
 ## 5. Cross-Project Audit (`audit-peer`)
 
-- **Run `scripts/audit-peer.ps1` to compare this project with the sibling PM Project.** Use `-Sections scripts,documentation,commands,vba,rules` to narrow the audit, `-PeerPath <path>` when the peer is not discovered automatically, and `-Report documentation/cross-audit.md` to save a dated Markdown report.
+- **Run `scripts/audit-peer.py` to compare this project with the sibling PM Project.** Use `-Sections scripts,documentation,commands,vba,rules` to narrow the audit, `-PeerPath <path>` when the peer is not discovered automatically, and `-Report documentation/cross-audit.md` to save a dated Markdown report.
 - **The audit is strictly read-only on both projects.** It must not copy, modify, format, or synchronize files. Porting is a separate, explicitly approved task.
 - **Review both directions:** identify useful peer-only files and procedures, plus project-only material the peer may want. Do not recommend copying code that duplicates existing functionality or depends on the other project's data model without adaptation.
 - **Agent-rule changes must be reviewed separately.** Compare `documentation/AGENTS.md`, changelog conventions, testing rules, and deployment constraints; update this file only when a rule is actually adopted by this project.
@@ -100,12 +100,12 @@ Each entry must follow this format:
 - `documentation/README.md` — User documentation.
 - `documentation/aoti-logo-2023.svg` — Vector logo source.
 - `documentation/aoti-logo-2023.png` — Raster logo source.
-- `scripts\sync_template.ps1` — Re-imports .bas into template.
-- `scripts\test-compile.ps1` — Compile check.
-- `scripts\run-report.ps1` — Full report run harness.
-- `scripts\answer-dialogs.ps1` — Dialog auto-answerer.
-- `scripts\audit-peer.ps1` — Read-only cross-project audit of portable files, VBA procedures, commands, and agent rules.
-- `documentation/view-logs.ps1` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
+- `scripts\sync_template.py` — Re-imports .bas into template.
+- `scripts\test-compile.py` — Compile check.
+- `scripts\run-report.py` — Full report run harness.
+- `scripts\answer-dialogs.py` — Dialog auto-answerer.
+- `scripts\audit-peer.py` — Read-only cross-project audit of portable files, VBA procedures, commands, and agent rules.
+- `documentation/view-logs.py` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
 
 ## 7. Version Control
 
@@ -159,7 +159,7 @@ End If
 ## 8. Logging Standards
 
 - All log entries must use full local date and time in `yyyy-MM-dd HH:mm:ss` format.
-- All runtime log review output must be newest to oldest; run `documentation/view-logs.ps1` after log-producing work to reorder every runtime `.log` and `.txt` file in place.
+- All runtime log review output must be newest to oldest; run `documentation/view-logs.py` after log-producing work to reorder every runtime `.log` and `.txt` file in place.
 - All errors must be logged to `macro-debug.log` with:
   - Timestamp (`Format(Now, "yyyy-mm-dd hh:n:ss")`)
   - Procedure name
@@ -207,11 +207,11 @@ End If
 - **All test runs must verify output file creation** in `Reports/`.
 - **All test runs must clean up temp files** (`_run_temp.xlsm`, `~$_run_temp.xlsm`).
 - **All test runs must kill stray Excel processes** before exiting.
-- **Screenshots are regenerated on every test run:** before running `scripts\snapshot-report.ps1`, delete all existing PNGs in `documentation/screenshots/` so the committed screenshots always reflect the latest report output, never a stale mix of old and new sheets.
+- **Screenshots are regenerated on every test run:** before running `scripts\snapshot-report.py`, delete all existing PNGs in `documentation/screenshots/` so the committed screenshots always reflect the latest report output, never a stale mix of old and new sheets.
 
 ## 10. Deployment
 
 - **Single-file distribution** — end users receive only the `.xlsm` template.
-- **Never expose `.bas`, `scripts\sync_template.ps1`, `documentation/README.md`, `documentation/changelog.md`, or fake data to end users.**
+- **Never expose `.bas`, `scripts\sync_template.py`, `documentation/README.md`, `documentation/changelog.md`, or fake data to end users.**
 - **Template must be self-contained** — logo embedded, module imported, button installed.
 - **Registry settings must be pre-configured** — `CurrentFolder`, `PriorFolder`, `OutputFolder`.
