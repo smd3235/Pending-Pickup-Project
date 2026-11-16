@@ -185,8 +185,35 @@ End Sub
 ' Email
 ' ----------------------------------------------------------------------------
 
-Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, ByVal rowCount As Long)
+' ----------------------------------------------------------------------------
+' Helper: wait for Outlook Word editor to be available after opening inspector
+' ----------------------------------------------------------------------------
+Private Function GetWordEditor(ByVal mail As Object, Optional ByVal maxWaitSeconds As Single = 4) As Object
     On Error Resume Next
+    GetWordEditor = Nothing
+    Dim startTime As Single
+    startTime = Timer
+    Do
+        Dim inspector As Object
+        Set inspector = mail.GetInspector
+        If Not inspector Is Nothing Then
+            Dim wd As Object
+            Set wd = inspector.WordEditor
+            If Not wd Is Nothing Then
+                Set GetWordEditor = wd
+                Exit Function
+            End If
+        End If
+        DoEvents
+    Do While Timer - startTime < maxWaitSeconds
+End Function
+
+' ----------------------------------------------------------------------------
+' Send email to a manager using copy/paste of Excel range into Outlook Word editor
+' ----------------------------------------------------------------------------
+
+Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, ByVal rowCount As Long)
+    On Error GoTo CleanFail
 
     Dim snapRg As Range
     Set snapRg = ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), LastUsedColumn(ws)))
@@ -223,15 +250,15 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
         .Display
         DoEvents
 
-        Dim inspector As Object, wordDoc As Object, bodyRange As Object
-        Set inspector = mail.GetInspector
-        Set wordDoc = inspector.WordEditor
+        Dim wordDoc As Object
+        Set wordDoc = GetWordEditor(mail, 4)
         If wordDoc Is Nothing Then
             LogMsg "Email FAILED: Word editor not available for manager " & managerName
             Exit Sub
         End If
 
         ' Insert intro text at the top.
+        Dim bodyRange As Object
         Set bodyRange = wordDoc.Range(0, 0)
         bodyRange.Text = "Hi " & managerName & "," & vbCrLf & _
                          "Please review the Pending Pickup report below. You have " & rowCount & " records requiring pickup action." & vbCrLf & vbCrLf
@@ -248,10 +275,18 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
     End With
 
     LogMsg "Email: inspector displayed for manager " & managerName
+    Exit Sub
+
+CleanFail:
+    LogErr "SendManagerEmail"
 End Sub
 
-Public Sub SendDashboardEmail(ByVal ws As Worksheet)
-    On Error Resume Next
+' ----------------------------------------------------------------------------
+' Send dashboard email to Director using copy/paste of Excel range into Outlook Word editor
+' ----------------------------------------------------------------------------
+
+Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
+    On Error GoTo CleanFail
 
     Dim snapRg As Range
     Set snapRg = ws.Range("A1:P25")
@@ -288,15 +323,15 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet)
         .Display
         DoEvents
 
-        Dim inspector As Object, wordDoc As Object, bodyRange As Object
-        Set inspector = mail.GetInspector
-        Set wordDoc = inspector.WordEditor
+        Dim wordDoc As Object
+        Set wordDoc = GetWordEditor(mail, 4)
         If wordDoc Is Nothing Then
             LogMsg "Email FAILED: Word editor not available for dashboard email"
             Exit Sub
         End If
 
         ' Insert intro text at the top.
+        Dim bodyRange As Object
         Set bodyRange = wordDoc.Range(0, 0)
         bodyRange.Text = "Hi Director," & vbCrLf & _
                          "Please find the Pending Pickup daily dashboard below." & vbCrLf & vbCrLf
@@ -313,20 +348,113 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet)
     End With
 
     LogMsg "Email: inspector displayed for dashboard"
+    Exit Sub
+
+CleanFail:
+    LogErr "SendDashboardEmail"
 End Sub
 
+' ----------------------------------------------------------------------------
+' Button click handlers - use Application.Caller + AlternativeText to identify target sheet
+' ----------------------------------------------------------------------------
+
 Public Sub EmailSelectedManagerTab()
-    On Error Resume Next
+    On Error GoTo CleanFail
     LogMsg "Email: user clicked manager tab email button"
-    If Not mEmailTargetSheet Is Nothing Then
-        SendManagerEmail mEmailTargetSheet, mEmailTargetManager, mEmailTargetRowCount
+
+    ' Use Application.Caller to identify which button was clicked, then read its
+    ' AlternativeText to get the target sheet name. This avoids relying on a
+    ' stale global that gets overwritten during manager tab creation.
+    Dim callerName As String
+    callerName = Application.Caller
+    If Len(callerName) = 0 Then
+        LogMsg "Email FAILED: no caller identified for manager tab email button"
+        Exit Sub
     End If
+
+    Dim shp As Shape
+    Set shp = Nothing
+    On Error Resume Next
+    Set shp = ThisWorkbook.Shapes(callerName)
+    On Error GoTo CleanFail
+    If shp Is Nothing Then
+        ' Try on the active sheet
+        Set shp = ActiveSheet.Shapes(callerName)
+    End If
+    If shp Is Nothing Then
+        LogMsg "Email FAILED: could not find shape '" & callerName & "'"
+        Exit Sub
+    End If
+
+    Dim targetSheetName As String
+    targetSheetName = shp.AlternativeText
+    If Len(targetSheetName) = 0 Then
+        LogMsg "Email FAILED: shape '" & callerName & "' has no target sheet in AlternativeText"
+        Exit Sub
+    End If
+
+    Dim targetSheet As Worksheet
+    On Error Resume Next
+    Set targetSheet = ThisWorkbook.Worksheets(targetSheetName)
+    On Error GoTo CleanFail
+    If targetSheet Is Nothing Then
+        LogMsg "Email FAILED: worksheet '" & targetSheetName & "' not found"
+        Exit Sub
+    End If
+
+    ' Determine manager name from shape text (e.g. "Email Victor Alvarez")
+    Dim mgrName As String
+    mgrName = Replace(shp.TextFrame2.TextRange.Text, "Email ", "")
+
+    ' Count data rows on the manager sheet
+    Dim rowCount As Long
+    rowCount = LastUsedRow(targetSheet) - MANAGER_HEADER_ROW
+    If rowCount < 0 Then rowCount = 0
+
+    SendManagerEmail targetSheet, mgrName, rowCount
+    Exit Sub
+
+CleanFail:
+    LogErr "EmailSelectedManagerTab"
 End Sub
 
 Public Sub EmailDashboard()
-    On Error Resume Next
+    On Error GoTo CleanFail
     LogMsg "Email: user clicked dashboard email button"
-    If Not mEmailTargetSheet Is Nothing Then
-        SendDashboardEmail mEmailTargetSheet
+
+    Dim callerName As String
+    callerName = Application.Caller
+    Dim shp As Shape
+    Set shp = Nothing
+    On Error Resume Next
+    Set shp = ThisWorkbook.Shapes(callerName)
+    On Error GoTo CleanFail
+    If shp Is Nothing Then
+        Set shp = ActiveSheet.Shapes(callerName)
     End If
+
+    Dim targetSheet As Worksheet
+    If Not shp Is Nothing And Len(shp.AlternativeText) > 0 Then
+        On Error Resume Next
+        Set targetSheet = ThisWorkbook.Worksheets(shp.AlternativeText)
+        On Error GoTo CleanFail
+    End If
+    If targetSheet Is Nothing Then
+        ' Fallback: find the Dashboard sheet
+        On Error Resume Next
+        Set targetSheet = ThisWorkbook.Worksheets("Dashboard")
+        On Error GoTo CleanFail
+    End If
+    If targetSheet Is Nothing Then
+        LogMsg "Email FAILED: could not find Dashboard worksheet"
+        Exit Sub
+    End If
+
+    Dim rowCount As Long
+    rowCount = LastUsedRow(targetSheet)
+    SendDashboardEmail targetSheet, rowCount
+    Exit Sub
+
+CleanFail:
+    LogErr "EmailDashboard"
 End Sub

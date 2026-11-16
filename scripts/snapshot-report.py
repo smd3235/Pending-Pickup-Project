@@ -18,6 +18,7 @@ parser.add_argument("--sheets", nargs="*", default=None, help="Specific sheet na
 parser.add_argument("--out", default=None, help="Output folder (defaults to documentation/screenshots/)")
 parser.add_argument("--prefix", default="report", help="Filename prefix")
 parser.add_argument("--list", action="store_true", help="List sheets and exit")
+parser.add_argument("--no-kill", action="store_true", help="Do not kill Excel processes before starting (used when called from run-report.py)")
 args = parser.parse_args()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -92,21 +93,33 @@ def save_sheet_image(workbook, worksheet, png_path):
         chart.Delete()
 
 
-# Kill any lingering Excel processes before starting.
+# Kill any lingering Excel processes before starting (unless --no-kill is set,
+# e.g. when called from run-report.py which still has Excel running).
 import subprocess
-try:
-    subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True)
-except Exception:
-    pass
+if not args.no_kill:
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True)
+    except Exception:
+        pass
+    time.sleep(3.0)
 
 xl = win32com.client.Dispatch("Excel.Application")
-xl.Visible = False
+xl.Visible = True
+xl.WindowState = -4137  # xlMaximized
 xl.DisplayAlerts = False
 xl.AutomationSecurity = 3
+# Reset Excel state so CopyPicture works reliably (non-critical if it fails).
+try:
+    xl.ScreenUpdating = True
+    xl.Calculation = -4135  # xlCalculationAutomatic
+    xl.EnableEvents = True
+except Exception:
+    pass
 wb = None
 exported = 0
 try:
     wb = xl.Workbooks.Open(path, False, True)
+    time.sleep(1.0)
 
     if args.list or not args.sheets:
         print(f"Sheets in {os.path.basename(path)}:")

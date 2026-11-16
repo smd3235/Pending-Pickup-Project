@@ -462,23 +462,6 @@ finally:
         for line in lines[-120:]:
             append_run_log(line.rstrip())
 
-    # After a successful report run, always refresh test screenshots:
-    # delete every existing PNG in documentation/screenshots/ and regenerate
-    # from the newest report so committed screenshots never go stale.
-    if run_completed:
-        snap_script = os.path.join(script_dir, "snapshot-report.py")
-        if os.path.exists(snap_script):
-            try:
-                append_run_log("Regenerating test screenshots from newest report...")
-                subprocess.run([sys.executable, snap_script], check=True, capture_output=True, text=True, timeout=120)
-                append_run_log("Test screenshots regenerated successfully.")
-            except subprocess.CalledProcessError as e:
-                append_run_log(f"Screenshot regeneration failed: {e.stderr}")
-            except Exception as e:
-                append_run_log(f"Screenshot regeneration error: {e}")
-        else:
-            append_run_log("Snapshot script not found, skipping screenshot regeneration.")
-
     run_duration = time.time() - run_start_time
     append_run_log(f"Total Python run duration: {run_duration:.2f} seconds")
     append_run_log(f"Final outcome: {outcome}")
@@ -496,3 +479,19 @@ finally:
 
 t_a.join(timeout=2)
 t_b.join(timeout=2)
+
+# After Excel is fully shut down, regenerate test screenshots from the newest
+# report. snapshot-report.py starts its own Excel instance, so no conflict.
+if run_completed:
+    snap_script = os.path.join(script_dir, "snapshot-report.py")
+    if os.path.exists(snap_script):
+        try:
+            append_run_log("Regenerating test screenshots from newest report...")
+            subprocess.run([sys.executable, snap_script], check=True, capture_output=True, text=True, timeout=120)
+            append_run_log("Test screenshots regenerated successfully.")
+        except subprocess.CalledProcessError as e:
+            append_run_log(f"Screenshot regeneration failed: {e.stderr}")
+        except Exception as e:
+            append_run_log(f"Screenshot regeneration error: {e}")
+    else:
+        append_run_log("Snapshot script not found, skipping screenshot regeneration.")

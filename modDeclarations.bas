@@ -37,7 +37,6 @@ Public Const AUTO_SKIP_PRIOR_FILE As String = "C:\Users\smd32\Downloads\Pending 
 ' ----------------------------------------------------------------------------
 Public Const EMAIL_SUBJECT_MANAGER As String = "Pending Pickup Report - Action Required"
 Public Const EMAIL_SUBJECT_DIRECTOR As String = "Pending Pickup Report - Daily Dashboard"
-Public Const EMAIL_TEMP_IMAGE As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\temp-email-snapshot.png"
 Public Const EMAIL_REG_KEY As String = "PendingPickupReport\Email"
 
 ' ----------------------------------------------------------------------------
@@ -71,13 +70,6 @@ Public mAuditIssues As Collection
 Public mRunLogPath As String
 Public mInReportRun As Boolean
 Public mRepSeenDict As Object
-
-' ----------------------------------------------------------------------------
-' Email target state (set before invoking email button action)
-' ----------------------------------------------------------------------------
-Public mEmailTargetSheet As Object
-Public mEmailTargetManager As String
-Public mEmailTargetRowCount As Long
 
 ' ----------------------------------------------------------------------------
 ' Timing state

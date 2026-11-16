@@ -413,9 +413,6 @@ Public Function CreatePendingPickupReport() As Boolean
         LogMsg "  manager tab done: " & manager
 
         ' Add email button to the right of manager data
-        Set mEmailTargetSheet = ws
-        mEmailTargetManager = manager
-        mEmailTargetRowCount = managerRows(manager).Count
         Dim emailBtn As Shape
         Set emailBtn = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
             ws.Columns(LastUsedColumn(ws) + 1).Left + 10, _
@@ -426,6 +423,7 @@ Public Function CreatePendingPickupReport() As Boolean
         emailBtn.TextFrame2.TextRange.Font.Bold = True
         emailBtn.TextFrame2.TextRange.Font.Size = 10
         emailBtn.OnAction = "EmailSelectedManagerTab"
+        emailBtn.AlternativeText = ws.Name
     Next i
     LogMsg "All manager tabs done"
 
@@ -437,9 +435,6 @@ Public Function CreatePendingPickupReport() As Boolean
     LogMsg "BuildDashboard done"
 
     ' Add email dashboard button
-    Set mEmailTargetSheet = dashboard
-    mEmailTargetManager = "Director"
-    mEmailTargetRowCount = currentCount
     Dim dashBtn As Shape
     Set dashBtn = dashboard.Shapes.AddShape(msoShapeRoundedRectangle, _
         dashboard.Columns("Q").Left + 10, _
@@ -450,6 +445,7 @@ Public Function CreatePendingPickupReport() As Boolean
     dashBtn.TextFrame2.TextRange.Font.Bold = True
     dashBtn.TextFrame2.TextRange.Font.Size = 10
     dashBtn.OnAction = "EmailDashboard"
+    dashBtn.AlternativeText = dashboard.Name
 
     Set rawOut = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
     rawOut.Name = "Raw Data"
