@@ -498,6 +498,9 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
         ws.Rows(firstRow & ":" & lastRow).AutoFit
     End If
 
+    ' Ensure date columns display as dates (after all sizing/wrap adjustments)
+    ApplyDateFormatsToOutput ws, MANAGER_HEADER_ROW, LastUsedRow(ws), managerStartDateCol, managerPickupDateCol
+
     ' Freeze panes below header
     ws.Activate
     On Error Resume Next

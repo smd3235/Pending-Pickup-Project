@@ -451,17 +451,27 @@ End Function
 ' ----------------------------------------------------------------------------
 
 Public Sub ApplyDateFormatsToOutput(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long, ByVal startDateCol As Long, ByVal pickupDateCol As Long)
-    Dim r As Long
+    Dim r As Long, v As Variant
 
     On Error Resume Next
     If startDateCol > 0 Then
-        For r = firstRow To lastRow
-            If IsDate(ws.Cells(r, startDateCol).Value) Then ws.Cells(r, startDateCol).NumberFormat = "m/d/yyyy"
+        For r = firstRow + 1 To lastRow
+            v = ws.Cells(r, startDateCol).Value
+            If Len(Trim$(CStr(v))) > 0 Then
+                If IsDate(v) Or (IsNumeric(v) And CDbl(v) > 25569 And CDbl(v) < 60000) Then
+                    ws.Cells(r, startDateCol).NumberFormat = "m/d/yyyy"
+                End If
+            End If
         Next r
     End If
     If pickupDateCol > 0 Then
-        For r = firstRow To lastRow
-            If IsDate(ws.Cells(r, pickupDateCol).Value) Then ws.Cells(r, pickupDateCol).NumberFormat = "m/d/yyyy"
+        For r = firstRow + 1 To lastRow
+            v = ws.Cells(r, pickupDateCol).Value
+            If Len(Trim$(CStr(v))) > 0 Then
+                If IsDate(v) Or (IsNumeric(v) And CDbl(v) > 25569 And CDbl(v) < 60000) Then
+                    ws.Cells(r, pickupDateCol).NumberFormat = "m/d/yyyy"
+                End If
+            End If
         Next r
     End If
 End Sub
