@@ -232,7 +232,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     Next c
     ws.Cells(r, 9).NumberFormat = "0.0%"
 
-    ' Chart placeholder
+    ' Chart: Pending Pickups by Manager
     ws.Rows(r + 2).RowHeight = 21.95
     Set rg = ws.Range("A" & (r + 2) & ":K" & (r + 2))
     rg.Merge
@@ -247,9 +247,29 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
         .VerticalAlignment = xlCenter
     End With
 
-    ' Column widths
+    ' Build column chart from manager table (Manager, Current)
+    Dim chartObj As ChartObject
+    Dim chartStartRow As Long, chartEndRow As Long
+    chartStartRow = tableStart - 1 ' header row
+    chartEndRow = r - 1           ' last manager row (exclude TOTAL)
+    If chartEndRow >= chartStartRow + 1 Then
+        Set chartObj = ws.ChartObjects.Add(Left:=ws.Range("A" & (r + 3)).Left, _
+            Top:=ws.Range("A" & (r + 3)).Top, Width:=700, Height:=300)
+        With chartObj.Chart
+            .ChartType = xlColumnClustered
+            .SetSourceData Source:=ws.Range("A" & chartStartRow & ":B" & chartEndRow)
+            .HasTitle = True
+            .ChartTitle.Text = "Current Pending Pickups by Manager"
+            .HasLegend = False
+            On Error Resume Next
+            .Axes(xlCategory).TickLabels.Orientation = 45
+            On Error GoTo 0
+        End With
+    End If
+
+    ' Column widths (dashboard layout)
     ws.Columns("A").ColumnWidth = 16.71
-    ws.Columns("B:K").ColumnWidth = 13
+    ws.Columns("B:K").ColumnWidth = 13.0
 
     LogMsg "BuildDashboard done - all cards and table created"
     Exit Sub
@@ -259,7 +279,7 @@ CleanFail:
 End Sub
 
 Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, ByVal valueRange As String, _
-    ByVal fillColor As Long, ByVal labelText As String, ByVal valueText As String)
+    ByVal fillColor As Long, ByVal labelText As String, ByVal valueText As String, Optional ByVal useShape As Boolean = False)
 
     On Error GoTo CleanFail
 
@@ -280,52 +300,90 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
     rightCol = labelRg.Column + labelRg.Columns.Count - 1
     Set cardRg = ws.Range(ws.Cells(topRow, leftCol), ws.Cells(bottomRow, rightCol))
 
-    ' Clear underlying cells so rounded shape stands out with gaps
-    On Error Resume Next
-    cardRg.UnMerge
-    On Error GoTo CleanFail
-    cardRg.Clear
-    cardRg.Interior.Color = RGB(221, 235, 247)
-    cardRg.Borders.LineStyle = xlLineStyleNone
-
-    ' Create rounded rectangle shape with minimal gaps so cards are large and readable
-    gapX = 1.5
-    gapY = 1
-    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
-        cardRg.Left + gapX, cardRg.Top + gapY, _
-        cardRg.Width - (gapX * 2), cardRg.Height - (gapY * 2))
-
-    With shp
-        .Fill.ForeColor.RGB = fillColor
-        .Fill.Solid
-        .Line.Visible = msoTrue
-        .Line.ForeColor.RGB = RGB(160, 160, 160)
-        .Line.Weight = 1
+    If useShape Then
+        ' Shape-based rounded card (manager tabs) - full block with small gaps
         On Error Resume Next
-        .Adjustments.Item(1) = 0.18
+        cardRg.UnMerge
         On Error GoTo CleanFail
-        .Placement = xlMove
-        .TextFrame2.VerticalAnchor = msoAnchorMiddle
-        .TextFrame2.MarginLeft = 6
-        .TextFrame2.MarginRight = 6
-        .TextFrame2.MarginTop = 4
-        .TextFrame2.MarginBottom = 4
-        .TextFrame2.WordWrap = msoTrue
-        .TextFrame2.AutoSize = msoAutoSizeNone
-    End With
+        cardRg.Clear
+        cardRg.Interior.Color = RGB(221, 235, 247)
+        cardRg.Borders.LineStyle = xlLineStyleNone
 
-    With shp.TextFrame2.TextRange
-        .Text = labelText & vbCrLf & valueText
-        .Font.Name = "Segoe UI"
-        .Font.Bold = msoTrue
-        .Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
-        .ParagraphFormat.Alignment = msoAlignCenter
+        gapX = 1
+        gapY = 0.5
+        Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
+            cardRg.Left + gapX, cardRg.Top + gapY, _
+            cardRg.Width - (gapX * 2), cardRg.Height - (gapY * 2))
+
+        With shp
+            .Fill.ForeColor.RGB = fillColor
+            .Fill.Solid
+            .Line.Visible = msoTrue
+            .Line.ForeColor.RGB = RGB(160, 160, 160)
+            .Line.Weight = 1
+            On Error Resume Next
+            .Adjustments.Item(1) = 0.18
+            On Error GoTo CleanFail
+            .Placement = xlMove
+            .TextFrame2.VerticalAnchor = msoAnchorMiddle
+            .TextFrame2.MarginLeft = 6
+            .TextFrame2.MarginRight = 6
+            .TextFrame2.MarginTop = 4
+            .TextFrame2.MarginBottom = 4
+            .TextFrame2.WordWrap = msoTrue
+            .TextFrame2.AutoSize = msoAutoSizeNone
+        End With
+
+        With shp.TextFrame2.TextRange
+            .Text = labelText & vbCrLf & valueText
+            .Font.Name = "Segoe UI"
+            .Font.Bold = msoTrue
+            .Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
+            .ParagraphFormat.Alignment = msoAlignCenter
+            On Error Resume Next
+            .Paragraphs(1).Font.Size = 11
+            If .Paragraphs.Count >= 2 Then .Paragraphs(2).Font.Size = 11
+            If .Paragraphs.Count >= 3 Then .Paragraphs(3).Font.Size = 22
+            On Error GoTo CleanFail
+        End With
+    Else
+        ' Cell-based card (dashboard) - preserves merged layout and alignment
         On Error Resume Next
-        .Paragraphs(1).Font.Size = 11
-        If .Paragraphs.Count >= 2 Then .Paragraphs(2).Font.Size = 11
-        If .Paragraphs.Count >= 3 Then .Paragraphs(3).Font.Size = 22
+        labelRg.UnMerge
+        valueRg.UnMerge
         On Error GoTo CleanFail
-    End With
+
+        cardRg.Interior.Color = fillColor
+        cardRg.Borders.LineStyle = xlContinuous
+        cardRg.Borders.Weight = xlMedium
+        With cardRg.Borders(xlEdgeTop)
+            .LineStyle = xlContinuous
+            .Weight = xlThick
+            .Color = RGB(246, 206, 62)
+        End With
+
+        labelRg.Merge
+        labelRg.Value = labelText
+        With labelRg
+            .Font.Bold = True
+            .Font.Name = "Segoe UI"
+            .Font.Size = 10
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlCenter
+            .WrapText = True
+        End With
+
+        valueRg.Merge
+        valueRg.Value = valueText
+        With valueRg
+            .Font.Bold = True
+            .Font.Name = "Segoe UI"
+            .Font.Size = 22
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlCenter
+            .WrapText = True
+        End With
+    End If
 
     LogMsg "AddDashboardCard done: " & labelRange & "/" & valueRange
     Exit Sub
@@ -401,10 +459,10 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ws.Rows("1:2").RowHeight = 27.95
 
     ' --- Manager KPI cards rows 4-10 ---
-    ws.Rows("3:3").RowHeight = 16.5
-    ws.Rows("4:6").RowHeight = 48
-    ws.Rows("7:7").RowHeight = 12
-    ws.Rows("8:10").RowHeight = 48
+    ws.Rows("3:3").RowHeight = 14
+    ws.Rows("4:6").RowHeight = 52
+    ws.Rows("7:7").RowHeight = 10
+    ws.Rows("8:10").RowHeight = 52
 
     ' Uniform light-blue background for KPI band (rows 3-10) so gaps match the summary band
     ws.Range(ws.Cells(3, 1), ws.Cells(10, managerLastCol)).Interior.Color = RGB(221, 235, 247)
@@ -417,11 +475,11 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ' Row 1: summary (keep Total Pending and New Since Prior as #1 and #2)
     cardLabel = "TOTAL PENDING PICKUPS" & vbCrLf & "Current"
     cardValue = CStr(managerRowsCol.Count)
-    AddDashboardCard ws, "A4:B6", "A4:B6", RGB(221, 235, 247), cardLabel, cardValue
+    AddDashboardCard ws, "A4:B6", "A4:B6", RGB(221, 235, 247), cardLabel, cardValue, True
 
     cardLabel = "NEW SINCE PRIOR" & vbCrLf & "Since Prior Report"
     cardValue = IIf(hasPrior, "0", "N/A")
-    AddDashboardCard ws, "C4:D6", "C4:D6", RGB(226, 239, 218), cardLabel, cardValue
+    AddDashboardCard ws, "C4:D6", "C4:D6", RGB(226, 239, 218), cardLabel, cardValue, True
 
     cardLabel = "AVERAGE PICKUP AGE" & vbCrLf & "Pending Pickup Age"
     If IsNumeric(avgAge) Then
@@ -429,28 +487,28 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     Else
         cardValue = "N/A"
     End If
-    AddDashboardCard ws, "E4:F6", "E4:F6", RGB(209, 226, 242), cardLabel, cardValue
+    AddDashboardCard ws, "E4:F6", "E4:F6", RGB(209, 226, 242), cardLabel, cardValue, True
 
     cardLabel = "% OVER 30 DAYS" & vbCrLf & "Of Pending Pickups"
     cardValue = Format(pct30, "0.0%")
-    AddDashboardCard ws, "G4:H6", "G4:H6", RGB(234, 209, 220), cardLabel, cardValue
+    AddDashboardCard ws, "G4:H6", "G4:H6", RGB(234, 209, 220), cardLabel, cardValue, True
 
     ' Row 2: aging and data-quality metrics grouped together
     cardLabel = "AGING 30+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m30)
-    AddDashboardCard ws, "A8:B10", "A8:B10", RGB(244, 204, 204), cardLabel, cardValue
+    AddDashboardCard ws, "A8:B10", "A8:B10", RGB(244, 204, 204), cardLabel, cardValue, True
 
     cardLabel = "AGING 60+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m60)
-    AddDashboardCard ws, "C8:D10", "C8:D10", RGB(234, 153, 153), cardLabel, cardValue
+    AddDashboardCard ws, "C8:D10", "C8:D10", RGB(234, 153, 153), cardLabel, cardValue, True
 
     cardLabel = "AGING 90+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m90)
-    AddDashboardCard ws, "E8:F10", "E8:F10", RGB(224, 102, 102), cardLabel, cardValue
+    AddDashboardCard ws, "E8:F10", "E8:F10", RGB(224, 102, 102), cardLabel, cardValue, True
 
     cardLabel = "MISSING PICKUP DATE" & vbCrLf & "AUDIT: TP End Date"
     cardValue = CStr(mMiss)
-    AddDashboardCard ws, "G8:H10", "G8:H10", RGB(255, 242, 204), cardLabel, cardValue
+    AddDashboardCard ws, "G8:H10", "G8:H10", RGB(255, 242, 204), cardLabel, cardValue, True
 
     ' --- Total Per Sales Rep summary (rows 11-15) ---
     AddManagerRepSummary ws, firstRow, lastRow, managerRepCol, managerLastCol
