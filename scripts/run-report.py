@@ -105,6 +105,7 @@ append_run_log("Wrote auto skip-prior flag.")
 shutil.copy2(template, temp_copy)
 outcome = "UNKNOWN"
 run_completed = False
+run_start_time = time.time()
 excel_pid = None
 cancel_event = threading.Event()
 
@@ -477,6 +478,21 @@ finally:
                 append_run_log(f"Screenshot regeneration error: {e}")
         else:
             append_run_log("Snapshot script not found, skipping screenshot regeneration.")
+
+    run_duration = time.time() - run_start_time
+    append_run_log(f"Total Python run duration: {run_duration:.2f} seconds")
+    append_run_log(f"Final outcome: {outcome}")
+
+    # Log any new report files created during this run.
+    try:
+        after = {f.name for f in os.scandir(reports_dir) if f.name.lower().endswith(".xlsx")}
+        new_files = after - before
+        if new_files:
+            append_run_log(f"New report file(s): {', '.join(sorted(new_files))}")
+        else:
+            append_run_log("No new report file created.")
+    except OSError:
+        append_run_log("Could not scan Reports/ for new files.")
 
 t_a.join(timeout=2)
 t_b.join(timeout=2)

@@ -454,14 +454,30 @@ Public Function CreatePendingPickupReport() As Boolean
     Set rawOut = outWb.Worksheets.Add(After:=outWb.Worksheets(outWb.Worksheets.Count))
     rawOut.Name = "Raw Data"
     LogMsg "Raw Data sheet created"
+    LogMsg "TRACE: BuildOutputArray start"
     arrRaw = BuildOutputArray(currentData, currentRows, lastCol)
+    LogMsg "TRACE: BuildOutputArray done, rows=" & UBound(arrRaw, 1) & " cols=" & UBound(arrRaw, 2)
+    LogMsg "TRACE: writing raw data values to sheet"
     rawOut.Range(rawOut.Cells(1, 1), rawOut.Cells(UBound(arrRaw, 1), lastCol)).Value = arrRaw
+    LogMsg "TRACE: raw data values written"
+    LogMsg "TRACE: FormatRawData start"
     FormatRawData rawOut, lastCol, UBound(arrRaw, 1)
+    LogMsg "TRACE: FormatRawData done"
+    LogMsg "TRACE: CopyColumnFormats start"
     CopyColumnFormats raw, rawOut, lastCol
+    LogMsg "TRACE: CopyColumnFormats done"
+    LogMsg "TRACE: MatchSourceColumnWidths start"
     MatchSourceColumnWidths raw, rawOut, lastCol
+    LogMsg "TRACE: MatchSourceColumnWidths done"
+    LogMsg "TRACE: ApplyDateFormatsToOutput start"
     ApplyDateFormatsToOutput rawOut, 1, UBound(arrRaw, 1), startDateCol, pickupDateCol
+    LogMsg "TRACE: ApplyDateFormatsToOutput done"
+    LogMsg "TRACE: ApplyDateFormatByHeader (Patient Date of Birth) start"
     ApplyDateFormatByHeader rawOut, 1, UBound(arrRaw, 1), "Patient Date of Birth"
+    LogMsg "TRACE: ApplyDateFormatByHeader (Patient Date of Birth) done"
+    LogMsg "TRACE: ApplyDateFormatByHeader (Last Modified) start"
     ApplyDateFormatByHeader rawOut, 1, UBound(arrRaw, 1), "Last Modified"
+    LogMsg "TRACE: ApplyDateFormatByHeader (Last Modified) done"
 
     Application.StatusBar = "Saving finished Pending Pickup report..."
     savePath = BuildOutputPath(srcWb)
@@ -470,15 +486,24 @@ Public Function CreatePendingPickupReport() As Boolean
 
     ' Hide unused rows/columns on every sheet so the report looks clean
     Dim hideWs As Worksheet
+    Dim hideCount As Long
+    hideCount = 0
     For Each hideWs In outWb.Worksheets
         HideUnusedCells hideWs
+        hideCount = hideCount + 1
     Next hideWs
+    LogMsg "TRACE: HideUnusedCells done for " & hideCount & " sheets"
 
     ' Write audit data to the output workbook
     mAuditOutputPath = savePath
+    LogMsg "TRACE: AuditWriteSheet start"
     AuditWriteSheet outWb
+    LogMsg "TRACE: AuditWriteSheet done"
+    LogMsg "TRACE: AuditLogEvent SAVE start"
     AuditLogEvent "SAVE", "Report saved to: " & savePath
+    LogMsg "TRACE: AuditLogEvent SAVE done"
 
+    LogMsg "TRACE: SaveAs start"
     outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbook
     LogMsg "TRACE: SaveAs done"
     LogMsg "Save done"
@@ -487,6 +512,7 @@ Public Function CreatePendingPickupReport() As Boolean
     LogMsg "Run duration (seconds): " & Format(runDuration, "0.00")
     WriteCompletionMarker savePath
     LogMsg "Completion marker written: " & COMPLETION_MARKER_PATH
+    LogMsg "Output file: " & savePath
     LogMsg "=== CreatePendingPickupReport completed ==="
     CreatePendingPickupReport = True
 

@@ -425,10 +425,14 @@ Public Sub CopyColumnFormats(ByVal src As Worksheet, ByVal dst As Worksheet, ByV
     Dim c As Long
 
     On Error Resume Next
+    ' Set column widths from source (fast, no clipboard)
     For c = 1 To lastCol
-        src.Columns(c).Copy
-        dst.Columns(c).PasteSpecial xlPasteFormats
+        dst.Columns(c).ColumnWidth = src.Columns(c).ColumnWidth
     Next c
+
+    ' Copy header row formats in a single clipboard operation
+    src.Range(src.Cells(1, 1), src.Cells(1, lastCol)).Copy
+    dst.Range(dst.Cells(1, 1), dst.Cells(1, lastCol)).PasteSpecial xlPasteFormats
     Application.CutCopyMode = False
 End Sub
 
