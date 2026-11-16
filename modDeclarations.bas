@@ -64,7 +64,6 @@ Public mAuditMissingManagers As Long
 Public mAuditMissingStatus As Long
 Public mAuditFutureDates As Long
 Public mAuditVeryOldDates As Long
-Public mAuditDuplicateNames As Long
 Public mAuditErrorCount As Long
 Public mAuditIssues As Collection
 Public mRunLogPath As String

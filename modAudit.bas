@@ -23,7 +23,6 @@ Public Sub AuditInit(ByVal srcPath As String)
     mAuditMissingStatus = 0
     mAuditFutureDates = 0
     mAuditVeryOldDates = 0
-    mAuditDuplicateNames = 0
     mAuditErrorCount = 0
     Set mAuditIssues = New Collection
 End Sub
@@ -138,8 +137,6 @@ Public Sub AuditWriteSheet(ByVal wb As Workbook)
     ws.Cells(21, 2).Value = mAuditFutureDates
     ws.Cells(22, 1).Value = "Very Old Dates (>5 years):"
     ws.Cells(22, 2).Value = mAuditVeryOldDates
-    ws.Cells(23, 1).Value = "Duplicate Rep Names:"
-    ws.Cells(23, 2).Value = mAuditDuplicateNames
 
     ' Audit details section
     r = 25
