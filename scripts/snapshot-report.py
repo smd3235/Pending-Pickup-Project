@@ -105,6 +105,14 @@ def save_sheet_image(workbook, worksheet, png_path):
     # Activate sheet and set zoom so CopyPicture captures a stable, fully-rendered view.
     worksheet.Activate()
     try:
+        workbook.Application.CutCopyMode = False
+    except Exception:
+        pass
+    try:
+        worksheet.Range("A1").Select()
+    except Exception:
+        pass
+    try:
         workbook.Application.ActiveWindow.ScrollRow = 1
         workbook.Application.ActiveWindow.ScrollColumn = 1
         workbook.Application.ActiveWindow.Zoom = 100
@@ -114,24 +122,28 @@ def save_sheet_image(workbook, worksheet, png_path):
         workbook.Application.ScreenUpdating = True
     except Exception:
         pass
+    try:
+        workbook.Application.Calculate()
+    except Exception:
+        pass
     # Allow Excel time to render/layout (hidden sheets, charts, shapes, formatting).
-    time.sleep(1.5)
+    time.sleep(2.0)
 
-    # Copy the range as a picture (xlPicture preserves vector formatting better than xlBitmap).
-    # Retry up to 4 times - CopyPicture can fail intermittently over COM.
+    # Copy the range as a picture. Bitmap (Format=2) is more faithful to on-screen
+    # rendering and avoids metafile artifacts that can expose hidden/overlay elements.
     copied = False
     for attempt in range(4):
         try:
-            rng.CopyPicture(Appearance=1, Format=1)  # xlScreen=1, xlPicture=1
+            rng.CopyPicture(Appearance=1, Format=2)  # xlScreen=1, xlBitmap=2
             copied = True
             break
         except Exception:
             time.sleep(1.2)
     if not copied:
-        # Fallback: bitmap can be more reliable for some rendered content.
+        # Fallback: picture/metafile
         for attempt in range(2):
             try:
-                rng.CopyPicture(Appearance=1, Format=2)  # xlScreen=1, xlBitmap=2
+                rng.CopyPicture(Appearance=1, Format=1)  # xlScreen=1, xlPicture=1
                 copied = True
                 break
             except Exception:

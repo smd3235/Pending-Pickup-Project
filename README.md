@@ -124,10 +124,9 @@ Generated workbook includes:
 
 ![Dashboard](documentation/screenshots/report-dashboard.png)
 
-**Manager tab examples**
+**Manager tab (example)**
 
-![Victor Alvarez](documentation/screenshots/report-victor-alvarez.png)
-![Rachel Nguyen](documentation/screenshots/report-rachel-nguyen.png)
+![Manager tab example](documentation/screenshots/report-victor-alvarez.png)
 
 **Raw Data**
 
