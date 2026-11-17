@@ -44,9 +44,9 @@ Public Const EMAIL_REG_KEY As String = "PendingPickupReport\Email"
 ' ----------------------------------------------------------------------------
 Public Const EMAIL_CONFIG_SHEET As String = "Manager Email Template"
 Public Const EMAIL_CONFIG_TO_CELL As String = "D5"
-Public Const EMAIL_CONFIG_CC_CELL As String = "D6"
-Public Const EMAIL_CONFIG_SUBJECT_CELL As String = "D7"
-Public Const EMAIL_CONFIG_BODY_CELL As String = "D9"
+Public Const EMAIL_CONFIG_CC_CELL As String = "D7"
+Public Const EMAIL_CONFIG_SUBJECT_CELL As String = "D9"
+Public Const EMAIL_CONFIG_BODY_CELL As String = "D11"
 ' Legacy START HERE cells (fallback)
 Public Const LEGACY_EMAIL_CONFIG_SHEET As String = "START HERE"
 Public Const LEGACY_EMAIL_CONFIG_CC_CELL As String = "D16"
@@ -58,9 +58,9 @@ Public Const LEGACY_EMAIL_CONFIG_BODY_CELL As String = "D18"
 ' ----------------------------------------------------------------------------
 Public Const DIRECTOR_EMAIL_SHEET As String = "Director Email Template"
 Public Const DIRECTOR_EMAIL_TO_CELL As String = "D5"
-Public Const DIRECTOR_EMAIL_CC_CELL As String = "D6"
-Public Const DIRECTOR_EMAIL_SUBJECT_CELL As String = "D7"
-Public Const DIRECTOR_EMAIL_BODY_CELL As String = "D9"
+Public Const DIRECTOR_EMAIL_CC_CELL As String = "D7"
+Public Const DIRECTOR_EMAIL_SUBJECT_CELL As String = "D9"
+Public Const DIRECTOR_EMAIL_BODY_CELL As String = "D11"
 
 ' ----------------------------------------------------------------------------
 ' Shared runtime state (populated during each report run)

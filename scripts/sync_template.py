@@ -239,7 +239,7 @@ try:
 
     def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE"):
         # field_values: dict with keys to, cc, subject, body
-        # NOTE: VBA readers expect D5 (To), D6 (CC), D7 (Subject), D9 (Body) - keep these cells.
+        # NOTE: VBA readers expect D5 (To), D7 (CC), D9 (Subject), D11 (Body) - keep these cells.
         try:
             if hide:
                 sh.Visible = 0  # xlSheetHidden
@@ -269,8 +269,7 @@ try:
         except Exception:
             pass
 
-        # Layout (preserve VBA-read cells): header 2-3, instructions 4, TO 5, gap 6 spacer row? no-can't shift.
-        # Keep fixed cells D5/D6/D7/D9; use spacer rows 4 and 8 and visual card separation.
+        # Layout (preserve VBA-read cells): header 2-3, instructions 4, TO 5, gap 6, CC 7, gap 8, SUBJECT 9, gap 10, BODY 11:31
         try:
             sh.Columns("A").ColumnWidth = 1.0
             sh.Columns("B").ColumnWidth = 1.4
@@ -281,18 +280,20 @@ try:
             sh.Rows("2").RowHeight = 38
             sh.Rows("3").RowHeight = 18
             sh.Rows("4").RowHeight = 18   # instructions
-            sh.Rows("5").RowHeight = 38   # TO (D5)
-            sh.Rows("6").RowHeight = 38   # CC (D6)
-            sh.Rows("7").RowHeight = 38   # SUBJECT (D7)
-            sh.Rows("8").RowHeight = 16   # spacer before BODY
-            sh.Rows("9").RowHeight = 26   # BODY top (merged D9:K30)
-            for rr in range(10, 31):
+            sh.Rows("5").RowHeight = 36   # TO (D5)
+            sh.Rows("6").RowHeight = 10   # spacer
+            sh.Rows("7").RowHeight = 36   # CC (D7)
+            sh.Rows("8").RowHeight = 10   # spacer
+            sh.Rows("9").RowHeight = 36   # SUBJECT (D9)
+            sh.Rows("10").RowHeight = 14  # spacer before BODY
+            sh.Rows("11").RowHeight = 26  # BODY top (merged D11:K31)
+            for rr in range(12, 32):
                 sh.Rows(str(rr)).RowHeight = 20
         except Exception:
             pass
 
         try:
-            sh.Rows("31:1048576").Hidden = True
+            sh.Rows("32:1048576").Hidden = True
             sh.Columns("L:XFD").Hidden = True
             sh.Columns("A").Hidden = True
         except Exception:
@@ -318,7 +319,6 @@ try:
             sh.Range("B3").HorizontalAlignment = -4131
             sh.Range("B3").VerticalAlignment = -4108
             sh.Range("B3").IndentLevel = 1
-            # Reserve top-right area for Return button (keep cells clean)
             try:
                 sh.Range("J2:K2").UnMerge()
                 sh.Range("J2:K2").Interior.Color = accent
@@ -336,7 +336,7 @@ try:
         except Exception:
             pass
 
-        # Return to START HERE / re-hide button (shape in header only; does not cover input fields)
+        # Return to START HERE / re-hide button
         try:
             btn_cell = sh.Range("J2:K2")
             btn = sh.Shapes.AddShape(5, btn_cell.Left + 4, btn_cell.Top + 5, btn_cell.Width - 8, 26)
@@ -350,10 +350,10 @@ try:
             btn.TextFrame2.TextRange.Font.Bold = True
             btn.TextFrame2.TextRange.Font.Size = 9
             btn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = accent
-            btn.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
-            btn.TextFrame2.VerticalAnchor = 3  # middle
+            btn.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+            btn.TextFrame2.VerticalAnchor = 3
             try:
-                btn.Placement = 2  # move without sizing
+                btn.Placement = 2
             except Exception:
                 pass
         except Exception:
@@ -371,7 +371,7 @@ try:
             sh.Range("B4").HorizontalAlignment = -4131
             sh.Range("B4").VerticalAlignment = -4108
             sh.Range("B4").IndentLevel = 1
-            for edge in (8, 9):  # bottom/top subtle
+            for edge in (8, 9):
                 try:
                     b = sh.Range("B4:K4").Borders(edge)
                     b.LineStyle = 1
@@ -422,7 +422,6 @@ try:
                 rg.VerticalAlignment = -4160 if wrap else -4108
                 rg.WrapText = wrap
                 rg.IndentLevel = 1
-                # card-like border
                 for edge in (7, 8, 9, 10):
                     try:
                         b = rg.Borders(edge)
@@ -438,37 +437,36 @@ try:
                 pass
 
         # Canvas spacers
-        try:
-            sh.Range("B8:K8").Interior.Color = 0xF4F1EB
-            sh.Range("B8:K8").Borders.LineStyle = -4142
-            sh.Range("B8:K8").ClearContents()
-        except Exception:
-            pass
+        for r in (6, 8, 10):
+            try:
+                sh.Range(f"B{r}:K{r}").Interior.Color = 0xF4F1EB
+                sh.Range(f"B{r}:K{r}").Borders.LineStyle = -4142
+                sh.Range(f"B{r}:K{r}").ClearContents()
+            except Exception:
+                pass
 
-        # Sections (ordered, one per field). Fixed VBA cells: D5,D6,D7,D9
+        # Sections (ordered, one per field). Fixed VBA cells: D5,D7,D9,D11
         _style_label("C5", "TO", 0xE8F1FB)
         _style_input("D5:K5", "D5", wrap=False)
 
-        _style_label("C6", "CC", 0xEAF7F0)
-        _style_input("D6:K6", "D6", wrap=False)
-
-        _style_label("C7", "SUBJECT", 0xFFF4DF)
+        _style_label("C7", "CC", 0xEAF7F0)
         _style_input("D7:K7", "D7", wrap=False)
 
-        _style_label("C9", "BODY", 0xF3ECFF)
-        _style_input("D9:K30", "D9", wrap=True)
+        _style_label("C9", "SUBJECT", 0xFFF4DF)
+        _style_input("D9:K9", "D9", wrap=False)
 
-        # Clear any stray/old content outside defined areas (keep header/instructions/fields)
+        _style_label("C11", "BODY", 0xF3ECFF)
+        _style_input("D11:K31", "D11", wrap=True)
+
+        # Clear stray/old content outside defined areas
         try:
-            for rr in list(range(1, 2)) + list(range(10, 31)):
-                # row 1 and below-body label column cleanup
+            for rr in list(range(1, 2)) + list(range(12, 32)):
                 cell = sh.Range(f"C{rr}")
-                if rr >= 10:
+                if rr >= 12:
                     cell.ClearContents()
                     cell.Interior.Color = 0xF4F1EB
                     cell.Borders.LineStyle = -4142
-            # clear legacy cells/spacers
-            for addr in ("D8", "E8", "F8", "G8", "H8", "I8", "J8", "K8", "C8"):
+            for addr in ("C6", "D6", "C8", "D8", "C10", "D10"):
                 try:
                     sh.Range(addr).ClearContents()
                     sh.Range(addr).Interior.Color = 0xF4F1EB
@@ -481,10 +479,14 @@ try:
         # Set values into the VBA-read cells
         try:
             sh.Range("D5").Value = field_values.get("to", "")
-            sh.Range("D6").Value = field_values.get("cc", "")
-            sh.Range("D7").Value = field_values.get("subject", "")
-            sh.Range("D9").Value = field_values.get("body", "")
-            sh.Range("D8").ClearContents()
+            sh.Range("D7").Value = field_values.get("cc", "")
+            sh.Range("D9").Value = field_values.get("subject", "")
+            sh.Range("D11").Value = field_values.get("body", "")
+            for addr in ("D6", "D8", "D10"):
+                try:
+                    sh.Range(addr).ClearContents()
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -517,23 +519,37 @@ try:
     # Ensure hidden Manager Email Template sheet exists with TO/CC/SUBJECT/BODY config.
     mgr_ws = get_or_create_sheet("Manager Email Template")
     try:
-        # migrate old values if present
-        mgr_to = str(mgr_ws.Range("D5").Value or "").strip() if str(mgr_ws.Range("C5").Value or "").upper().startswith("TO") else ""
-        if not mgr_to:
-            mgr_to = str(mgr_ws.Range("D4").Value or "").strip()
-        mgr_cc = str(mgr_ws.Range("D6").Value or mgr_ws.Range("D5").Value or "").strip()
-        mgr_subj = str(mgr_ws.Range("D7").Value or mgr_ws.Range("D6").Value or "").strip() or "Pending Pickup Report - Action Required"
-        mgr_body = str(mgr_ws.Range("D9").Value or mgr_ws.Range("D7").Value or "").strip()
+        c5 = str(mgr_ws.Range("C5").Value or "").upper()
+        c6 = str(mgr_ws.Range("C6").Value or "").upper()
+        c7 = str(mgr_ws.Range("C7").Value or "").upper()
+        c9 = str(mgr_ws.Range("C9").Value or "").upper()
+
+        # New spaced layout (D5,D7,D9,D11)
+        if c7.startswith("CC") and c9.startswith("SUBJ"):
+            mgr_to = str(mgr_ws.Range("D5").Value or "").strip()
+            mgr_cc = str(mgr_ws.Range("D7").Value or "").strip()
+            mgr_subj = str(mgr_ws.Range("D9").Value or "").strip() or "Pending Pickup Report - Action Required"
+            mgr_body = str(mgr_ws.Range("D11").Value or mgr_ws.Range("D9").Value or "").strip()
+        # Recent layout (D5,D6,D7,D9)
+        elif c6.startswith("CC") and c7.startswith("SUBJ"):
+            mgr_to = str(mgr_ws.Range("D5").Value or "").strip()
+            mgr_cc = str(mgr_ws.Range("D6").Value or "").strip()
+            mgr_subj = str(mgr_ws.Range("D7").Value or "").strip() or "Pending Pickup Report - Action Required"
+            mgr_body = str(mgr_ws.Range("D9").Value or "").strip()
+        # Old layout (CC/Subject/Body at D5,D6,D7)
+        elif c5.startswith("CC"):
+            mgr_to = ""
+            mgr_cc = str(mgr_ws.Range("D5").Value or "").strip()
+            mgr_subj = str(mgr_ws.Range("D6").Value or "").strip() or "Pending Pickup Report - Action Required"
+            mgr_body = str(mgr_ws.Range("D7").Value or "").strip()
+        else:
+            mgr_to = str(mgr_ws.Range("D5").Value or "").strip()
+            mgr_cc = str(mgr_ws.Range("D7").Value or mgr_ws.Range("D6").Value or "").strip()
+            mgr_subj = str(mgr_ws.Range("D9").Value or mgr_ws.Range("D7").Value or "").strip() or "Pending Pickup Report - Action Required"
+            mgr_body = str(mgr_ws.Range("D11").Value or mgr_ws.Range("D9").Value or "").strip()
+
         if not mgr_body or mgr_body == "Please review the Pending Pickup report snapshot below.":
             mgr_body = "Please review the Pending Pickup report below.\n\n{{REPORT}}\n\nPlease review and respond as needed.\nPending Pickup Report System"
-        # if layout was old (CC at D5), avoid duplicating
-        if str(mgr_ws.Range("C5").Value or "").upper().startswith("CC"):
-            mgr_cc = str(mgr_ws.Range("D5").Value or "").strip()
-            mgr_subj = str(mgr_ws.Range("D6").Value or "").strip() or mgr_subj
-            old_body = str(mgr_ws.Range("D7").Value or "").strip()
-            if old_body and old_body != "Please review the Pending Pickup report snapshot below.":
-                mgr_body = old_body
-            mgr_to = ""
     except Exception:
         mgr_to, mgr_cc, mgr_subj, mgr_body = "", "", "Pending Pickup Report - Action Required", "Please review the Pending Pickup report below.\n\n{{REPORT}}\n\nPlease review and respond as needed.\nPending Pickup Report System"
     format_email_template_sheet(
@@ -549,12 +565,31 @@ try:
     # Ensure hidden Director Email Template sheet exists with TO/CC/SUBJECT/BODY config.
     director_ws = get_or_create_sheet("Director Email Template")
     try:
-        d_to = str(director_ws.Range("D5").Value or "").strip() if str(director_ws.Range("C5").Value or "").upper().startswith("TO") else str(director_ws.Range("D5").Value or "").strip()
-        d_cc = str(director_ws.Range("D6").Value or "").strip()
-        d_subj = str(director_ws.Range("D7").Value or "").strip()
+        c5 = str(director_ws.Range("C5").Value or "").upper()
+        c6 = str(director_ws.Range("C6").Value or "").upper()
+        c7 = str(director_ws.Range("C7").Value or "").upper()
+        c9 = str(director_ws.Range("C9").Value or "").upper()
+
+        # New spaced layout (D5,D7,D9,D11)
+        if c7.startswith("CC") and c9.startswith("SUBJ"):
+            d_to = str(director_ws.Range("D5").Value or "").strip()
+            d_cc = str(director_ws.Range("D7").Value or "").strip()
+            d_subj = str(director_ws.Range("D9").Value or "").strip()
+            d_body = str(director_ws.Range("D11").Value or director_ws.Range("D9").Value or "").strip()
+        # Recent layout (D5,D6,D7,D9)
+        elif c6.startswith("CC") and c7.startswith("SUBJ"):
+            d_to = str(director_ws.Range("D5").Value or "").strip()
+            d_cc = str(director_ws.Range("D6").Value or "").strip()
+            d_subj = str(director_ws.Range("D7").Value or "").strip()
+            d_body = str(director_ws.Range("D9").Value or "").strip()
+        else:
+            d_to = str(director_ws.Range("D5").Value or "").strip()
+            d_cc = str(director_ws.Range("D7").Value or director_ws.Range("D6").Value or "").strip()
+            d_subj = str(director_ws.Range("D9").Value or director_ws.Range("D7").Value or "").strip()
+            d_body = str(director_ws.Range("D11").Value or director_ws.Range("D9").Value or "").strip()
+
         if d_subj == "" or d_subj == "Pending Pickup Report - Daily Dashboard":
             d_subj = "Pending Pickup Report - Monthly Dashboard"
-        d_body = str(director_ws.Range("D9").Value or director_ws.Range("D8").Value or "").strip()
         if d_body == "" or d_body == "Please find the Pending Pickup daily dashboard below." or d_body == "Please find the Pending Pickup monthly dashboard below.":
             d_body = "Please find the Pending Pickup monthly dashboard below.\n\n{{REPORT}}\n\nPending Pickup Report System"
     except Exception:
