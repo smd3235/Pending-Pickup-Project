@@ -411,6 +411,10 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
     With mail
         .To = GetEmailTo()
         .Subject = GetEmailSubject(EMAIL_SUBJECT_MANAGER & " - " & managerName & " (" & rowCount & " pending)")
+        If InStr(1, .Subject, Format(Date, "m/d/yyyy"), vbTextCompare) = 0 And _
+           InStr(1, .Subject, Format(Date, "yyyy-mm-dd"), vbTextCompare) = 0 Then
+            .Subject = Trim$(.Subject) & " (" & Format(Date, "m/d/yyyy") & ")"
+        End If
         .CC = GetEmailCC()
 
         ' Display the inspector so we can access the Word editor and paste formatted Excel content.
