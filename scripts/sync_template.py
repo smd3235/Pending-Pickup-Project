@@ -362,7 +362,7 @@ try:
         # Instructions row
         try:
             sh.Range("B4:K4").Merge()
-            sh.Range("B4").Value = "TO / CC: enter email addresses separated by semicolons (;)  •  SUBJECT/BODY: leave blank to use defaults where available."
+            sh.Range("B4").Value = "TO/CC: separate addresses with semicolons (;)  •  BODY: keep {{REPORT}} for pasted report (text above = intro, below = closing); use Alt+Enter for a new line."
             sh.Range("B4").Font.Name = "Segoe UI"
             sh.Range("B4").Font.Size = 9
             sh.Range("B4").Font.Italic = True
@@ -523,15 +523,19 @@ try:
             mgr_to = str(mgr_ws.Range("D4").Value or "").strip()
         mgr_cc = str(mgr_ws.Range("D6").Value or mgr_ws.Range("D5").Value or "").strip()
         mgr_subj = str(mgr_ws.Range("D7").Value or mgr_ws.Range("D6").Value or "").strip() or "Pending Pickup Report - Action Required"
-        mgr_body = str(mgr_ws.Range("D9").Value or mgr_ws.Range("D7").Value or "").strip() or "Please review the Pending Pickup report snapshot below."
+        mgr_body = str(mgr_ws.Range("D9").Value or mgr_ws.Range("D7").Value or "").strip()
+        if not mgr_body or mgr_body == "Please review the Pending Pickup report snapshot below.":
+            mgr_body = "Please review the Pending Pickup report below.\n\n{{REPORT}}\n\nPlease review and respond as needed.\nPending Pickup Report System"
         # if layout was old (CC at D5), avoid duplicating
         if str(mgr_ws.Range("C5").Value or "").upper().startswith("CC"):
             mgr_cc = str(mgr_ws.Range("D5").Value or "").strip()
             mgr_subj = str(mgr_ws.Range("D6").Value or "").strip() or mgr_subj
-            mgr_body = str(mgr_ws.Range("D7").Value or "").strip() or mgr_body
+            old_body = str(mgr_ws.Range("D7").Value or "").strip()
+            if old_body and old_body != "Please review the Pending Pickup report snapshot below.":
+                mgr_body = old_body
             mgr_to = ""
     except Exception:
-        mgr_to, mgr_cc, mgr_subj, mgr_body = "", "", "Pending Pickup Report - Action Required", "Please review the Pending Pickup report snapshot below."
+        mgr_to, mgr_cc, mgr_subj, mgr_body = "", "", "Pending Pickup Report - Action Required", "Please review the Pending Pickup report below.\n\n{{REPORT}}\n\nPlease review and respond as needed.\nPending Pickup Report System"
     format_email_template_sheet(
         mgr_ws,
         "Manager Email Template",
@@ -551,10 +555,10 @@ try:
         if d_subj == "" or d_subj == "Pending Pickup Report - Daily Dashboard":
             d_subj = "Pending Pickup Report - Monthly Dashboard"
         d_body = str(director_ws.Range("D9").Value or director_ws.Range("D8").Value or "").strip()
-        if d_body == "" or d_body == "Please find the Pending Pickup daily dashboard below.":
-            d_body = "Please find the Pending Pickup monthly dashboard below."
+        if d_body == "" or d_body == "Please find the Pending Pickup daily dashboard below." or d_body == "Please find the Pending Pickup monthly dashboard below.":
+            d_body = "Please find the Pending Pickup monthly dashboard below.\n\n{{REPORT}}\n\nPending Pickup Report System"
     except Exception:
-        d_to, d_cc, d_subj, d_body = "", "", "Pending Pickup Report - Monthly Dashboard", "Please find the Pending Pickup monthly dashboard below."
+        d_to, d_cc, d_subj, d_body = "", "", "Pending Pickup Report - Monthly Dashboard", "Please find the Pending Pickup monthly dashboard below.\n\n{{REPORT}}\n\nPending Pickup Report System"
     format_email_template_sheet(
         director_ws,
         "Director Email Template",

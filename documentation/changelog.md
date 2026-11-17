@@ -5,7 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
-- **10:41:00** — Updated hidden email template tabs: replaced top-right badge with "Return to START HERE" header button (`btnReturnStartHere` → `ReturnToStartHere` in `modDialog.bas`) to reactivate START HERE and re-hide the template tab; refined email tab layout/instructions (separated sections, semicolon TO/CC guidance) and refreshed template/build artifacts/screenshots. VBA config cells preserved (`D5/D6/D7/D9`).
+- **11:14:00** — Email template tabs: BODY now uses `{{REPORT}}` marker for pasted Excel data (text above intro, below closing; if removed report pastes after body with default closing). Updated on-sheet instructions (semicolon TO/CC, `{{REPORT}}`, Alt+Enter for new line in BODY), director email set to monthly with current date appended to subject, and added "Return to START HERE" button to re-hide template tabs. VBA config cells preserved (`D5/D6/D7/D9`).
 
 
 ## 2026-11-16
