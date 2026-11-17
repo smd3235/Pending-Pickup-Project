@@ -143,7 +143,7 @@ Public Function EnsureMacroEnabledWorkbook() As Boolean
 End Function
 
 ' ----------------------------------------------------------------------------
-' Email config (read from START HERE cells on the template)
+' Email config (manager emails from START HERE; director from hidden template tab)
 ' ----------------------------------------------------------------------------
 
 Public Function GetEmailCC() As String
@@ -151,7 +151,7 @@ Public Function GetEmailCC() As String
     GetEmailCC = Trim$(CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_CC_CELL).Value))
     If Err.Number <> 0 Then GetEmailCC = ""
     Err.Clear
-    LogMsg "Email config read: CC=" & GetEmailCC
+    LogMsg "Email config read: Manager CC=" & GetEmailCC
 End Function
 
 Public Function GetEmailSubject(ByVal defaultSubject As String) As String
@@ -159,7 +159,7 @@ Public Function GetEmailSubject(ByVal defaultSubject As String) As String
     GetEmailSubject = Trim$(CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_SUBJECT_CELL).Value))
     If Err.Number <> 0 Or Len(GetEmailSubject) = 0 Then GetEmailSubject = defaultSubject
     Err.Clear
-    LogMsg "Email config read: Subject=" & GetEmailSubject
+    LogMsg "Email config read: Manager Subject=" & GetEmailSubject
 End Function
 
 Public Function GetEmailBody(ByVal defaultBody As String) As String
@@ -167,7 +167,39 @@ Public Function GetEmailBody(ByVal defaultBody As String) As String
     GetEmailBody = CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_BODY_CELL).Value)
     If Err.Number <> 0 Or Len(Trim$(GetEmailBody)) = 0 Then GetEmailBody = defaultBody
     Err.Clear
-    LogMsg "Email config read: Body=" & Left$(Replace(GetEmailBody, vbCr, " "), 80)
+    LogMsg "Email config read: Manager Body=" & Left$(Replace(GetEmailBody, vbCr, " "), 80)
+End Function
+
+Public Function GetDirectorEmailTo() As String
+    On Error Resume Next
+    GetDirectorEmailTo = Trim$(CStr(ThisWorkbook.Worksheets(DIRECTOR_EMAIL_SHEET).Range(DIRECTOR_EMAIL_TO_CELL).Value))
+    If Err.Number <> 0 Then GetDirectorEmailTo = ""
+    Err.Clear
+    LogMsg "Email config read: Director To=" & GetDirectorEmailTo
+End Function
+
+Public Function GetDirectorEmailCC() As String
+    On Error Resume Next
+    GetDirectorEmailCC = Trim$(CStr(ThisWorkbook.Worksheets(DIRECTOR_EMAIL_SHEET).Range(DIRECTOR_EMAIL_CC_CELL).Value))
+    If Err.Number <> 0 Then GetDirectorEmailCC = ""
+    Err.Clear
+    LogMsg "Email config read: Director CC=" & GetDirectorEmailCC
+End Function
+
+Public Function GetDirectorEmailSubject(ByVal defaultSubject As String) As String
+    On Error Resume Next
+    GetDirectorEmailSubject = Trim$(CStr(ThisWorkbook.Worksheets(DIRECTOR_EMAIL_SHEET).Range(DIRECTOR_EMAIL_SUBJECT_CELL).Value))
+    If Err.Number <> 0 Or Len(GetDirectorEmailSubject) = 0 Then GetDirectorEmailSubject = defaultSubject
+    Err.Clear
+    LogMsg "Email config read: Director Subject=" & GetDirectorEmailSubject
+End Function
+
+Public Function GetDirectorEmailBody(ByVal defaultBody As String) As String
+    On Error Resume Next
+    GetDirectorEmailBody = CStr(ThisWorkbook.Worksheets(DIRECTOR_EMAIL_SHEET).Range(DIRECTOR_EMAIL_BODY_CELL).Value)
+    If Err.Number <> 0 Or Len(Trim$(GetDirectorEmailBody)) = 0 Then GetDirectorEmailBody = defaultBody
+    Err.Clear
+    LogMsg "Email config read: Director Body=" & Left$(Replace(GetDirectorEmailBody, vbCr, " "), 80)
 End Function
 
 Public Sub SetupEmailCC()
@@ -176,15 +208,36 @@ Public Sub SetupEmailCC()
     Set ws = ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET)
     ws.Activate
     ws.Range(EMAIL_CONFIG_CC_CELL).Select
-    LogMsg "Email setup: user opened CC configuration on START HERE"
-    MsgBox "Edit email settings on the START HERE sheet:" & vbCrLf & _
+    LogMsg "Email setup: user opened manager CC configuration on START HERE"
+    MsgBox "Edit manager email settings on the START HERE sheet:" & vbCrLf & _
            "  " & EMAIL_CONFIG_CC_CELL & " - CC recipients (comma-separated)" & vbCrLf & _
            "  " & EMAIL_CONFIG_SUBJECT_CELL & " - Subject override (leave blank for default)" & vbCrLf & _
-           "  " & EMAIL_CONFIG_BODY_CELL & " - Intro message (leave blank for default)", vbInformation
+           "  " & EMAIL_CONFIG_BODY_CELL & " - Intro message (leave blank for default)" & vbCrLf & vbCrLf & _
+           "Dashboard/Director email To/CC/Subject/Body are configured on the hidden '" & DIRECTOR_EMAIL_SHEET & "' sheet in the template.", vbInformation
     Exit Sub
 CleanFail:
     LogErr "SetupEmailCC"
     MsgBox "Unable to open email settings on START HERE.", vbExclamation
+End Sub
+
+Public Sub SetupDirectorEmail()
+    Dim ws As Worksheet
+    On Error GoTo CleanFail
+    Set ws = ThisWorkbook.Worksheets(DIRECTOR_EMAIL_SHEET)
+    ws.Visible = xlSheetVisible
+    ws.Activate
+    ws.Range(DIRECTOR_EMAIL_TO_CELL).Select
+    LogMsg "Email setup: user opened Director email template sheet"
+    MsgBox "Edit dashboard/director email settings on '" & DIRECTOR_EMAIL_SHEET & "':" & vbCrLf & _
+           "  " & DIRECTOR_EMAIL_TO_CELL & " - To recipients (comma-separated)" & vbCrLf & _
+           "  " & DIRECTOR_EMAIL_CC_CELL & " - CC recipients (comma-separated)" & vbCrLf & _
+           "  " & DIRECTOR_EMAIL_SUBJECT_CELL & " - Subject override (leave blank for default)" & vbCrLf & _
+           "  " & DIRECTOR_EMAIL_BODY_CELL & " - Intro message (leave blank for default)" & vbCrLf & vbCrLf & _
+           "You can re-hide this sheet after editing if desired.", vbInformation
+    Exit Sub
+CleanFail:
+    LogErr "SetupDirectorEmail"
+    MsgBox "Unable to open '" & DIRECTOR_EMAIL_SHEET & "'.", vbExclamation
 End Sub
 
 ' ----------------------------------------------------------------------------
@@ -370,8 +423,9 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
     Set mail = outlook.CreateItem(0)
 
     With mail
-        .Subject = GetEmailSubject(EMAIL_SUBJECT_DIRECTOR & " (" & Format(Date, "m/d/yyyy") & ")")
-        .CC = GetEmailCC()
+        .To = GetDirectorEmailTo()
+        .Subject = GetDirectorEmailSubject(EMAIL_SUBJECT_DIRECTOR & " (" & Format(Date, "m/d/yyyy") & ")")
+        .CC = GetDirectorEmailCC()
 
         ' Display the inspector so we can access the Word editor and paste formatted Excel content.
         .Display
@@ -386,9 +440,9 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
 
         Dim introText As String
         If rowCount > 0 Then
-            introText = GetEmailBody("Please find the Pending Pickup daily dashboard below. Current pending records: " & rowCount & ".")
+            introText = GetDirectorEmailBody("Please find the Pending Pickup daily dashboard below. Current pending records: " & rowCount & ".")
         Else
-            introText = GetEmailBody("Please find the Pending Pickup daily dashboard below.")
+            introText = GetDirectorEmailBody("Please find the Pending Pickup daily dashboard below.")
         End If
 
         ' Insert intro text at the top.
@@ -404,7 +458,7 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
         Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
         bodyRange.Text = vbCrLf & vbCrLf & "Pending Pickup Report System"
 
-        LogMsg "Email: inspector ready for dashboard (CC=" & .CC & ", Subject=" & .Subject & ")"
+        LogMsg "Email: inspector ready for dashboard (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
     End With
 
     LogMsg "Email: inspector displayed for dashboard"

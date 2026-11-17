@@ -101,37 +101,118 @@ try:
         setup_btn.Name = "btnSetupEmailCC"
         setup_btn.Fill.ForeColor.RGB = 7949855
         setup_btn.Line.ForeColor.RGB = 4116214
-        setup_btn.TextFrame2.TextRange.Text = "Setup Email CC Recipients"
+        setup_btn.TextFrame2.TextRange.Text = "Setup Manager Email Settings"
         setup_btn.TextFrame2.TextRange.Font.Bold = True
         setup_btn.TextFrame2.TextRange.Font.Size = 11
         setup_btn.TextFrame2.TextRange.Font.Name = "Segoe UI"
         setup_btn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 16777215
+    else:
+        try:
+            setup_btn.TextFrame2.TextRange.Text = "Setup Manager Email Settings"
+        except Exception:
+            pass
     setup_btn.OnAction = "SetupEmailCC"
 
-    # Add email configuration cells on START HERE so users can edit CC/subject/body directly in the template.
+    # Ensure the Setup Director Email button shape exists on START HERE.
+    director_btn = None
+    for s in ws.Shapes:
+        if s.Name == "btnSetupDirectorEmail":
+            director_btn = s
+            break
+    if director_btn is None:
+        cta = ws.Range("B14")
+        director_btn = ws.Shapes.AddShape(5, cta.Left + 600, cta.Top + 8, 220, 48)
+        director_btn.Name = "btnSetupDirectorEmail"
+        director_btn.Fill.ForeColor.RGB = 7949855
+        director_btn.Line.ForeColor.RGB = 4116214
+        director_btn.TextFrame2.TextRange.Text = "Setup Director Email Template"
+        director_btn.TextFrame2.TextRange.Font.Bold = True
+        director_btn.TextFrame2.TextRange.Font.Size = 11
+        director_btn.TextFrame2.TextRange.Font.Name = "Segoe UI"
+        director_btn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 16777215
+    else:
+        try:
+            director_btn.TextFrame2.TextRange.Text = "Setup Director Email Template"
+        except Exception:
+            pass
+    director_btn.OnAction = "SetupDirectorEmail"
+
+    # Add email configuration cells on START HERE so users can edit manager CC/subject/body directly in the template.
     config_cells = {
-        "C16": "Email CC Recipients (comma-separated):",
+        "C16": "Manager Email CC Recipients (comma-separated):",
         "D16": "",
-        "C17": "Email Subject:",
+        "C17": "Manager Email Subject:",
         "D17": "Pending Pickup Report - Action Required",
-        "C18": "Email Body (text only, image is added automatically):",
+        "C18": "Manager Email Intro (text only, table is pasted automatically):",
         "D18": "Please review the Pending Pickup report snapshot below.",
+        "C20": "Director Email Template (hidden tab):",
+        "D20": "Use 'Setup Director Email Template' to edit To/CC/Subject/Body.",
     }
     for addr, val in config_cells.items():
         try:
-            existing = ws.Range(addr).Value
-            if existing is None or existing == "":
-                ws.Range(addr).Value = val
+            ws.Range(addr).Value = val
         except Exception:
             pass
 
     # Style the label cells
-    for label_addr in ["C16", "C17", "C18"]:
+    for label_addr in ["C16", "C17", "C18", "C20"]:
         try:
             ws.Range(label_addr).Font.Bold = True
             ws.Range(label_addr).Font.Size = 10
         except Exception:
             pass
+
+    # Ensure hidden Director Email Template sheet exists with To/CC/Subject/Body config.
+    director_sheet_name = "Director Email Template"
+    director_ws = None
+    for sh in wb.Worksheets:
+        try:
+            if sh.Name == director_sheet_name:
+                director_ws = sh
+                break
+        except Exception:
+            pass
+    if director_ws is None:
+        director_ws = wb.Worksheets.Add(After=wb.Worksheets(wb.Worksheets.Count))
+        director_ws.Name = director_sheet_name
+    try:
+        director_ws.Visible = 0  # xlSheetHidden
+    except Exception:
+        pass
+
+    director_cells = {
+        "B2": "Director / Dashboard Email Template",
+        "B3": "Edit the values in column D. This tab can remain hidden; the Dashboard email button reads from it.",
+        "C5": "To (comma-separated):",
+        "D5": "",
+        "C6": "CC (comma-separated):",
+        "D6": "",
+        "C7": "Subject (leave blank for default):",
+        "D7": "Pending Pickup Report - Daily Dashboard",
+        "C8": "Intro message (leave blank for default):",
+        "D8": "Please find the Pending Pickup daily dashboard below.",
+    }
+    for addr, val in director_cells.items():
+        try:
+            existing = director_ws.Range(addr).Value
+            if existing is None or str(existing).strip() == "" or addr in ["B2", "B3", "C5", "C6", "C7", "C8"]:
+                director_ws.Range(addr).Value = val
+        except Exception:
+            pass
+    try:
+        director_ws.Range("B2").Font.Bold = True
+        director_ws.Range("B2").Font.Size = 14
+        director_ws.Range("B3").Font.Size = 10
+        for addr in ["C5", "C6", "C7", "C8"]:
+            director_ws.Range(addr).Font.Bold = True
+        director_ws.Columns("C").ColumnWidth = 34
+        director_ws.Columns("D").ColumnWidth = 60
+    except Exception:
+        pass
+    try:
+        director_ws.Range("D8").WrapText = True
+    except Exception:
+        pass
 
     wb.Save()
     wb.Close(True)

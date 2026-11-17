@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
+- **09:10:20** — Added separate Director/dashboard email template in template: `modDeclarations.bas`/`modDialog.bas` now read director `To/CC/Subject/Intro` from hidden `Director Email Template` sheet (`D5-D8`) for dashboard drafts, added `SetupDirectorEmail` and `GetDirectorEmail*` helpers, and updated `scripts/sync_template.py` to provision the hidden sheet plus START HERE “Setup Director Email Template”/manager email setup labels and config cells. Synced/rebuilt template and build artifacts.
+
 - **09:04:14** — Matched Dashboard sheet background to manager-tab KPI band by applying `RGB(221,235,247)` across dashboard cells in `modFormatting.bas` (`BuildDashboard`) for consistent report styling.
 
 - **08:59:16** — Set Dashboard as the default active sheet on save in `modCore.bas` so generated reports open on Dashboard. Reworked Dashboard "Pending Pickups by Manager" table/chart in `modFormatting.bas` and rounded average age to whole days in `modUtils.bas` (`CalculateAverageAge`): table header now `Avg Age (Days)` with whole-number values/formatting, improved header/row/TOTAL styling and outer borders, widened manager column, and enhanced chart styling (data labels, cleaner axes/gridlines, title/spacing/colors).

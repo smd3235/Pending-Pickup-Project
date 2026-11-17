@@ -40,12 +40,21 @@ Public Const EMAIL_SUBJECT_DIRECTOR As String = "Pending Pickup Report - Daily D
 Public Const EMAIL_REG_KEY As String = "PendingPickupReport\Email"
 
 ' ----------------------------------------------------------------------------
-' Email config cells on START HERE template sheet
+' Email config cells on START HERE template sheet (manager emails)
 ' ----------------------------------------------------------------------------
 Public Const EMAIL_CONFIG_SHEET As String = "START HERE"
 Public Const EMAIL_CONFIG_CC_CELL As String = "D16"
 Public Const EMAIL_CONFIG_SUBJECT_CELL As String = "D17"
 Public Const EMAIL_CONFIG_BODY_CELL As String = "D18"
+
+' ----------------------------------------------------------------------------
+' Director email template/config sheet (hidden tab in template)
+' ----------------------------------------------------------------------------
+Public Const DIRECTOR_EMAIL_SHEET As String = "Director Email Template"
+Public Const DIRECTOR_EMAIL_TO_CELL As String = "D5"
+Public Const DIRECTOR_EMAIL_CC_CELL As String = "D6"
+Public Const DIRECTOR_EMAIL_SUBJECT_CELL As String = "D7"
+Public Const DIRECTOR_EMAIL_BODY_CELL As String = "D8"
 
 ' ----------------------------------------------------------------------------
 ' Shared runtime state (populated during each report run)
