@@ -148,15 +148,15 @@ End Function
 
 Public Function GetEmailCC() As String
     On Error Resume Next
-    GetEmailCC = ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_CC_CELL).Value
+    GetEmailCC = Trim$(CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_CC_CELL).Value))
     If Err.Number <> 0 Then GetEmailCC = ""
     Err.Clear
-    LogMsg "Email config read: CC=" & GetEmailCC()
+    LogMsg "Email config read: CC=" & GetEmailCC
 End Function
 
 Public Function GetEmailSubject(ByVal defaultSubject As String) As String
     On Error Resume Next
-    GetEmailSubject = ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_SUBJECT_CELL).Value
+    GetEmailSubject = Trim$(CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_SUBJECT_CELL).Value))
     If Err.Number <> 0 Or Len(GetEmailSubject) = 0 Then GetEmailSubject = defaultSubject
     Err.Clear
     LogMsg "Email config read: Subject=" & GetEmailSubject
@@ -164,21 +164,27 @@ End Function
 
 Public Function GetEmailBody(ByVal defaultBody As String) As String
     On Error Resume Next
-    GetEmailBody = ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_BODY_CELL).Value
-    If Err.Number <> 0 Or Len(GetEmailBody) = 0 Then GetEmailBody = defaultBody
+    GetEmailBody = CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_BODY_CELL).Value)
+    If Err.Number <> 0 Or Len(Trim$(GetEmailBody)) = 0 Then GetEmailBody = defaultBody
     Err.Clear
-    LogMsg "Email config read: Body=" & Left$(GetEmailBody, 80)
+    LogMsg "Email config read: Body=" & Left$(Replace(GetEmailBody, vbCr, " "), 80)
 End Function
 
 Public Sub SetupEmailCC()
     Dim ws As Worksheet
+    On Error GoTo CleanFail
     Set ws = ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET)
     ws.Activate
     ws.Range(EMAIL_CONFIG_CC_CELL).Select
     LogMsg "Email setup: user opened CC configuration on START HERE"
-    MsgBox "Edit the CC recipients in cell " & EMAIL_CONFIG_CC_CELL & " on the START HERE sheet." & vbCrLf & _
-           "Enter comma-separated email addresses, then press Enter." & vbCrLf & vbCrLf & _
-           "Subject and body can be edited in cells " & EMAIL_CONFIG_SUBJECT_CELL & " and " & EMAIL_CONFIG_BODY_CELL & ".", vbInformation
+    MsgBox "Edit email settings on the START HERE sheet:" & vbCrLf & _
+           "  " & EMAIL_CONFIG_CC_CELL & " - CC recipients (comma-separated)" & vbCrLf & _
+           "  " & EMAIL_CONFIG_SUBJECT_CELL & " - Subject override (leave blank for default)" & vbCrLf & _
+           "  " & EMAIL_CONFIG_BODY_CELL & " - Intro message (leave blank for default)", vbInformation
+    Exit Sub
+CleanFail:
+    LogErr "SetupEmailCC"
+    MsgBox "Unable to open email settings on START HERE.", vbExclamation
 End Sub
 
 ' ----------------------------------------------------------------------------
@@ -188,7 +194,7 @@ End Sub
 ' ----------------------------------------------------------------------------
 ' Helper: wait for Outlook Word editor to be available after opening inspector
 ' ----------------------------------------------------------------------------
-Private Function GetWordEditor(ByVal mail As Object, Optional ByVal maxWaitSeconds As Single = 4) As Object
+Private Function GetWordEditor(ByVal mail As Object, Optional ByVal maxWaitSeconds As Single = 8) As Object
     On Error Resume Next
     GetWordEditor = Nothing
     Dim startTime As Single
@@ -205,8 +211,49 @@ Private Function GetWordEditor(ByVal mail As Object, Optional ByVal maxWaitSecon
             End If
         End If
         DoEvents
-    Do While Timer - startTime < maxWaitSeconds
+    Loop While Timer - startTime < maxWaitSeconds
 End Function
+
+Private Function GetDashboardSnapshotRange(ByVal ws As Worksheet) As Range
+    On Error Resume Next
+    Dim lastRow As Long, lastCol As Long
+    lastRow = LastUsedRow(ws)
+    lastCol = LastUsedColumn(ws)
+
+    Dim co As ChartObject
+    For Each co In ws.ChartObjects
+        If co.BottomRightCell.Row > lastRow Then lastRow = co.BottomRightCell.Row
+        If co.BottomRightCell.Column > lastCol Then lastCol = co.BottomRightCell.Column
+    Next co
+
+    If lastRow < 1 Then lastRow = 25
+    If lastCol < 1 Then lastCol = 16 ' Column P
+    If lastCol < 16 Then lastCol = 16
+
+    Set GetDashboardSnapshotRange = ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol))
+End Function
+
+Private Function GetManagerSnapshotRange(ByVal ws As Worksheet) As Range
+    On Error Resume Next
+    Dim lastRow As Long, lastCol As Long
+    lastRow = LastUsedRow(ws)
+
+    ' Prefer the data table header row bounds to avoid copying email button columns.
+    lastCol = LastUsedColumn(ws)
+    Dim headerLast As Long
+    headerLast = ws.Cells(MANAGER_HEADER_ROW, ws.Columns.Count).End(xlToLeft).Column
+    If headerLast > 0 And headerLast < lastCol Then lastCol = headerLast
+
+    If lastRow < MANAGER_HEADER_ROW Then lastRow = MANAGER_HEADER_ROW
+    If lastCol < 1 Then lastCol = 1
+
+    Set GetManagerSnapshotRange = ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(lastRow, lastCol))
+End Function
+
+Private Sub NotifyEmailFailure(ByVal context As String, ByVal userMessage As String)
+    LogMsg "Email FAILED [" & context & "]: " & userMessage
+    MsgBox userMessage & vbCrLf & vbCrLf & "See macro-debug.log for details.", vbExclamation, "Email Not Created"
+End Sub
 
 ' ----------------------------------------------------------------------------
 ' Send email to a manager using copy/paste of Excel range into Outlook Word editor
@@ -216,28 +263,28 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
     On Error GoTo CleanFail
 
     Dim snapRg As Range
-    Set snapRg = ws.Range(ws.Cells(MANAGER_HEADER_ROW, 1), ws.Cells(LastUsedRow(ws), LastUsedColumn(ws)))
+    Set snapRg = GetManagerSnapshotRange(ws)
 
-    LogMsg "Email: preparing Excel content for manager " & managerName & " (" & rowCount & " pending rows)"
+    LogMsg "Email: preparing Excel content for manager " & managerName & " (rows=" & rowCount & ", range=" & snapRg.Address(False, False) & ")"
 
     If ws Is Nothing Or snapRg Is Nothing Then
-        LogMsg "Email FAILED: invalid range for manager " & managerName
+        NotifyEmailFailure "SendManagerEmail", "Could not determine the manager report range to copy."
         Exit Sub
     End If
 
     ' Copy the Excel range to the clipboard so formatting and spacing are preserved when pasted into Outlook.
     snapRg.Copy
     If Err.Number <> 0 Then
-        LogMsg "Email FAILED: could not copy range for manager " & managerName & " (Err=" & Err.Number & ")"
+        NotifyEmailFailure "SendManagerEmail", "Could not copy the manager report range to the clipboard."
         Err.Clear
-        Exit Sub
+        GoTo CleanExit
     End If
 
     Dim outlook As Object, mail As Object
     Set outlook = CreateObject("Outlook.Application")
     If outlook Is Nothing Then
-        LogMsg "Email FAILED: Outlook not available for manager " & managerName
-        Exit Sub
+        NotifyEmailFailure "SendManagerEmail", "Outlook is not available. Open Outlook and try again."
+        GoTo CleanExit
     End If
     LogMsg "Email: Outlook application created for manager " & managerName
     Set mail = outlook.CreateItem(0)
@@ -251,17 +298,19 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
         DoEvents
 
         Dim wordDoc As Object
-        Set wordDoc = GetWordEditor(mail, 4)
+        Set wordDoc = GetWordEditor(mail, 8)
         If wordDoc Is Nothing Then
-            LogMsg "Email FAILED: Word editor not available for manager " & managerName
-            Exit Sub
+            NotifyEmailFailure "SendManagerEmail", "Outlook opened, but the email editor was not ready. Try again in a few seconds."
+            GoTo CleanExit
         End If
+
+        Dim introText As String
+        introText = GetEmailBody("Please review the Pending Pickup report below. You have " & rowCount & " records requiring pickup action.")
 
         ' Insert intro text at the top.
         Dim bodyRange As Object
         Set bodyRange = wordDoc.Range(0, 0)
-        bodyRange.Text = "Hi " & managerName & "," & vbCrLf & _
-                         "Please review the Pending Pickup report below. You have " & rowCount & " records requiring pickup action." & vbCrLf & vbCrLf
+        bodyRange.Text = "Hi " & managerName & "," & vbCrLf & introText & vbCrLf & vbCrLf
 
         ' Move to the end and paste the copied Excel range (preserves formatting).
         Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
@@ -271,14 +320,19 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
         Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
         bodyRange.Text = vbCrLf & vbCrLf & "Please review and respond as needed." & vbCrLf & "Pending Pickup Report System"
 
-        LogMsg "Email: inspector ready for manager " & managerName & " (CC=" & GetEmailCC() & ")"
+        LogMsg "Email: inspector ready for manager " & managerName & " (CC=" & .CC & ", Subject=" & .Subject & ")"
     End With
 
     LogMsg "Email: inspector displayed for manager " & managerName
-    Exit Sub
+    GoTo CleanExit
 
 CleanFail:
     LogErr "SendManagerEmail"
+    MsgBox "An unexpected error occurred while creating the manager email." & vbCrLf & vbCrLf & "See macro-debug.log for details.", vbExclamation, "Email Not Created"
+
+CleanExit:
+    On Error Resume Next
+    Application.CutCopyMode = False
 End Sub
 
 ' ----------------------------------------------------------------------------
@@ -289,34 +343,34 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
     On Error GoTo CleanFail
 
     Dim snapRg As Range
-    Set snapRg = ws.Range("A1:P25")
+    Set snapRg = GetDashboardSnapshotRange(ws)
 
-    LogMsg "Email: preparing Excel content for dashboard"
+    LogMsg "Email: preparing Excel content for dashboard (rows=" & rowCount & ", range=" & snapRg.Address(False, False) & ")"
 
     If ws Is Nothing Or snapRg Is Nothing Then
-        LogMsg "Email FAILED: invalid range for dashboard"
+        NotifyEmailFailure "SendDashboardEmail", "Could not determine the dashboard range to copy."
         Exit Sub
     End If
 
     ' Copy the Excel range to the clipboard so formatting and spacing are preserved when pasted into Outlook.
     snapRg.Copy
     If Err.Number <> 0 Then
-        LogMsg "Email FAILED: could not copy range for dashboard (Err=" & Err.Number & ")"
+        NotifyEmailFailure "SendDashboardEmail", "Could not copy the dashboard range to the clipboard."
         Err.Clear
-        Exit Sub
+        GoTo CleanExit
     End If
 
     Dim outlook As Object, mail As Object
     Set outlook = CreateObject("Outlook.Application")
     If outlook Is Nothing Then
-        LogMsg "Email FAILED: Outlook not available for dashboard email"
-        Exit Sub
+        NotifyEmailFailure "SendDashboardEmail", "Outlook is not available. Open Outlook and try again."
+        GoTo CleanExit
     End If
     LogMsg "Email: Outlook application created for dashboard email"
     Set mail = outlook.CreateItem(0)
 
     With mail
-        .Subject = GetEmailSubject(EMAIL_SUBJECT_DIRECTOR)
+        .Subject = GetEmailSubject(EMAIL_SUBJECT_DIRECTOR & " (" & Format(Date, "m/d/yyyy") & ")")
         .CC = GetEmailCC()
 
         ' Display the inspector so we can access the Word editor and paste formatted Excel content.
@@ -324,17 +378,23 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
         DoEvents
 
         Dim wordDoc As Object
-        Set wordDoc = GetWordEditor(mail, 4)
+        Set wordDoc = GetWordEditor(mail, 8)
         If wordDoc Is Nothing Then
-            LogMsg "Email FAILED: Word editor not available for dashboard email"
-            Exit Sub
+            NotifyEmailFailure "SendDashboardEmail", "Outlook opened, but the email editor was not ready. Try again in a few seconds."
+            GoTo CleanExit
+        End If
+
+        Dim introText As String
+        If rowCount > 0 Then
+            introText = GetEmailBody("Please find the Pending Pickup daily dashboard below. Current pending records: " & rowCount & ".")
+        Else
+            introText = GetEmailBody("Please find the Pending Pickup daily dashboard below.")
         End If
 
         ' Insert intro text at the top.
         Dim bodyRange As Object
         Set bodyRange = wordDoc.Range(0, 0)
-        bodyRange.Text = "Hi Director," & vbCrLf & _
-                         "Please find the Pending Pickup daily dashboard below." & vbCrLf & vbCrLf
+        bodyRange.Text = "Hi Director," & vbCrLf & introText & vbCrLf & vbCrLf
 
         ' Move to the end and paste the copied Excel range (preserves formatting).
         Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
@@ -344,69 +404,84 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
         Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
         bodyRange.Text = vbCrLf & vbCrLf & "Pending Pickup Report System"
 
-        LogMsg "Email: inspector ready for dashboard (CC=" & GetEmailCC() & ")"
+        LogMsg "Email: inspector ready for dashboard (CC=" & .CC & ", Subject=" & .Subject & ")"
     End With
 
     LogMsg "Email: inspector displayed for dashboard"
-    Exit Sub
+    GoTo CleanExit
 
 CleanFail:
     LogErr "SendDashboardEmail"
+    MsgBox "An unexpected error occurred while creating the dashboard email." & vbCrLf & vbCrLf & "See macro-debug.log for details.", vbExclamation, "Email Not Created"
+
+CleanExit:
+    On Error Resume Next
+    Application.CutCopyMode = False
 End Sub
 
 ' ----------------------------------------------------------------------------
 ' Button click handlers - use Application.Caller + AlternativeText to identify target sheet
 ' ----------------------------------------------------------------------------
 
+Private Function ResolveCallerShape(ByVal callerName As String) As Shape
+    On Error Resume Next
+    Set ResolveCallerShape = Nothing
+    If Len(callerName) = 0 Then Exit Function
+
+    Set ResolveCallerShape = ActiveSheet.Shapes(callerName)
+    If ResolveCallerShape Is Nothing Then
+        Set ResolveCallerShape = ThisWorkbook.ActiveSheet.Shapes(callerName)
+    End If
+    If ResolveCallerShape Is Nothing Then
+        Dim ws As Worksheet
+        For Each ws In ThisWorkbook.Worksheets
+            Set ResolveCallerShape = ws.Shapes(callerName)
+            If Not ResolveCallerShape Is Nothing Then Exit Function
+        Next ws
+    End If
+End Function
+
 Public Sub EmailSelectedManagerTab()
     On Error GoTo CleanFail
     LogMsg "Email: user clicked manager tab email button"
 
-    ' Use Application.Caller to identify which button was clicked, then read its
-    ' AlternativeText to get the target sheet name. This avoids relying on a
-    ' stale global that gets overwritten during manager tab creation.
     Dim callerName As String
-    callerName = Application.Caller
+    callerName = CStr(Application.Caller)
     If Len(callerName) = 0 Then
-        LogMsg "Email FAILED: no caller identified for manager tab email button"
+        NotifyEmailFailure "EmailSelectedManagerTab", "Could not identify which manager email button was clicked."
         Exit Sub
     End If
 
     Dim shp As Shape
-    Set shp = Nothing
-    On Error Resume Next
-    Set shp = ThisWorkbook.Shapes(callerName)
-    On Error GoTo CleanFail
+    Set shp = ResolveCallerShape(callerName)
     If shp Is Nothing Then
-        ' Try on the active sheet
-        Set shp = ActiveSheet.Shapes(callerName)
-    End If
-    If shp Is Nothing Then
-        LogMsg "Email FAILED: could not find shape '" & callerName & "'"
+        NotifyEmailFailure "EmailSelectedManagerTab", "Could not locate the clicked email button."
         Exit Sub
     End If
 
+    Dim targetWb As Workbook
+    Set targetWb = shp.Parent.Parent
+
     Dim targetSheetName As String
-    targetSheetName = shp.AlternativeText
+    targetSheetName = Trim$(CStr(shp.AlternativeText))
     If Len(targetSheetName) = 0 Then
-        LogMsg "Email FAILED: shape '" & callerName & "' has no target sheet in AlternativeText"
+        NotifyEmailFailure "EmailSelectedManagerTab", "The clicked email button is not linked to a manager sheet."
         Exit Sub
     End If
 
     Dim targetSheet As Worksheet
     On Error Resume Next
-    Set targetSheet = ThisWorkbook.Worksheets(targetSheetName)
+    Set targetSheet = targetWb.Worksheets(targetSheetName)
     On Error GoTo CleanFail
     If targetSheet Is Nothing Then
-        LogMsg "Email FAILED: worksheet '" & targetSheetName & "' not found"
+        NotifyEmailFailure "EmailSelectedManagerTab", "The target manager sheet '" & targetSheetName & "' could not be found."
         Exit Sub
     End If
 
-    ' Determine manager name from shape text (e.g. "Email Victor Alvarez")
     Dim mgrName As String
-    mgrName = Replace(shp.TextFrame2.TextRange.Text, "Email ", "")
+    mgrName = Trim$(Replace(shp.TextFrame2.TextRange.Text, "Email ", ""))
+    If Len(mgrName) = 0 Then mgrName = targetSheetName
 
-    ' Count data rows on the manager sheet
     Dim rowCount As Long
     rowCount = LastUsedRow(targetSheet) - MANAGER_HEADER_ROW
     If rowCount < 0 Then rowCount = 0
@@ -416,6 +491,7 @@ Public Sub EmailSelectedManagerTab()
 
 CleanFail:
     LogErr "EmailSelectedManagerTab"
+    MsgBox "An unexpected error occurred while handling the manager email button." & vbCrLf & vbCrLf & "See macro-debug.log for details.", vbExclamation, "Email Not Created"
 End Sub
 
 Public Sub EmailDashboard()
@@ -423,38 +499,55 @@ Public Sub EmailDashboard()
     LogMsg "Email: user clicked dashboard email button"
 
     Dim callerName As String
-    callerName = Application.Caller
+    callerName = CStr(Application.Caller)
+
     Dim shp As Shape
-    Set shp = Nothing
-    On Error Resume Next
-    Set shp = ThisWorkbook.Shapes(callerName)
-    On Error GoTo CleanFail
-    If shp Is Nothing Then
-        Set shp = ActiveSheet.Shapes(callerName)
+    Set shp = ResolveCallerShape(callerName)
+
+    Dim targetWb As Workbook
+    If Not shp Is Nothing Then
+        Set targetWb = shp.Parent.Parent
+    Else
+        Set targetWb = ThisWorkbook
     End If
 
     Dim targetSheet As Worksheet
-    If Not shp Is Nothing And Len(shp.AlternativeText) > 0 Then
+    If Not shp Is Nothing And Len(Trim$(CStr(shp.AlternativeText))) > 0 Then
         On Error Resume Next
-        Set targetSheet = ThisWorkbook.Worksheets(shp.AlternativeText)
+        Set targetSheet = targetWb.Worksheets(Trim$(CStr(shp.AlternativeText)))
         On Error GoTo CleanFail
     End If
     If targetSheet Is Nothing Then
-        ' Fallback: find the Dashboard sheet
         On Error Resume Next
-        Set targetSheet = ThisWorkbook.Worksheets("Dashboard")
+        Set targetSheet = targetWb.Worksheets("Dashboard")
         On Error GoTo CleanFail
     End If
     If targetSheet Is Nothing Then
-        LogMsg "Email FAILED: could not find Dashboard worksheet"
+        NotifyEmailFailure "EmailDashboard", "Could not find the Dashboard worksheet."
         Exit Sub
     End If
 
+    ' Count pending records from the manager breakdown table when available; fallback to last used row.
     Dim rowCount As Long
-    rowCount = LastUsedRow(targetSheet)
+    rowCount = 0
+    On Error Resume Next
+    Dim breakdownHeader As Range
+    Set breakdownHeader = targetSheet.Cells.Find(What:="Assigned Sales Manager", LookIn:=xlValues, LookAt:=xlWhole)
+    If Not breakdownHeader Is Nothing Then
+        Dim r As Long
+        For r = breakdownHeader.Row + 1 To LastUsedRow(targetSheet)
+            If Len(Trim$(CStr(targetSheet.Cells(r, breakdownHeader.Column).Value))) = 0 Then Exit For
+            If StrComp(Trim$(CStr(targetSheet.Cells(r, breakdownHeader.Column).Value)), "TOTAL", vbTextCompare) = 0 Then Exit For
+            rowCount = rowCount + 1
+        Next r
+    End If
+    On Error GoTo CleanFail
+    If rowCount = 0 Then rowCount = LastUsedRow(targetSheet)
+
     SendDashboardEmail targetSheet, rowCount
     Exit Sub
 
 CleanFail:
     LogErr "EmailDashboard"
+    MsgBox "An unexpected error occurred while handling the dashboard email button." & vbCrLf & vbCrLf & "See macro-debug.log for details.", vbExclamation, "Email Not Created"
 End Sub

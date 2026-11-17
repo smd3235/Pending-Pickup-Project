@@ -3,7 +3,20 @@
 All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 `YYYY-MM-DD HH:MM:SS` (local time). Version `1.0` is the current baseline.
 
+## 2026-11-17
+
+- **08:41:26** — Improved email system in `modDialog.bas`: wired START HERE `D18` intro text into manager/dashboard drafts via `GetEmailBody` (with sensible defaults), trimmed config reads, and clarified `SetupEmailCC` guidance for CC/subject/body cells.
+- **08:41:26** — Made email range capture dynamic: dashboard now copies computed bounds including embedded charts/shapes instead of fixed `A1:P25`; manager emails copy the data table region (header row to last data row/header columns) to avoid including the email button column.
+- **08:41:26** — Hardened Outlook compose flow: increased Word-editor wait to 8s, added user-facing `MsgBox` failures via `NotifyEmailFailure`, resolved clicked button targets from the owning workbook/sheet more robustly, cleared clipboard (`Application.CutCopyMode = False`) after sends, and added dashboard date/row-count context to subject/intro. `scripts/test-compile.py` passed and `scripts/sync_template.py` refreshed template/build artifacts.
+
 ## 2026-11-16
+
+- **14:43:00** — Removed bordered/filled "board" styling from the manager-tab `TOTAL PER SALES REP` summary block in `modFormatting.bas` (`AddManagerRepSummary`): summary now uses plain text (no background/borders) to match surrounding manager-tab style.
+
+- **14:33:00** — Extended right-edge dashboard KPI cards to include column K: `STILL PENDING` and `MISSING PICKUP DATE` now merge across `I4:K5`/`I6:K6` and `I8:K9`/`I10:K10` in `modFormatting.bas`, removing the blank cell at the right side of those cards.
+- **14:33:01** — Fixed Dashboard screenshot export omitting the bottom chart: `scripts/snapshot-report.py` now expands the captured range to include embedded chart/shape bounds below the sheet `UsedRange`, so `PENDING PICKUPS BY MANAGER (CHART)` is included in exported PNGs.
+- **14:33:02** — Fixed `HideUnusedCells` in `modUtils.bas` hiding rows occupied by embedded charts/shapes: now expands the last-used row/column to include `ChartObjects`/`Shapes` bottom-right bounds so the Dashboard manager chart remains visible below the table.
+- **14:33:03** — Regenerated `Pending Pickup Template.xlsm`, `Template (No Macros).xlsx`, `Project-Local-Build.zip`, and refreshed `documentation/screenshots/report-dashboard.png` from the latest report output.
 
 - **14:24:00** — Fixed dashboard edge-to-edge spacing/alignment: set uniform column widths `A:K = 13.5`, expanded title/subtitle and chart header merges to `A1:K2`/`A3:K3`/`A26:K26` (was `A1:H2`/`A3:J3`), and sized the manager chart to full `A:K` width so KPI cards, table, and chart align consistently across the dashboard.
 
