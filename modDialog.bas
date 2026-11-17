@@ -491,7 +491,11 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
 
     With mail
         .To = GetDirectorEmailTo()
-        .Subject = GetDirectorEmailSubject(EMAIL_SUBJECT_DIRECTOR & " (" & Format(Date, "m/d/yyyy") & ")")
+        .Subject = GetDirectorEmailSubject(EMAIL_SUBJECT_DIRECTOR)
+        If InStr(1, .Subject, Format(Date, "m/d/yyyy"), vbTextCompare) = 0 And _
+           InStr(1, .Subject, Format(Date, "yyyy-mm-dd"), vbTextCompare) = 0 Then
+            .Subject = Trim$(.Subject) & " (" & Format(Date, "m/d/yyyy") & ")"
+        End If
         .CC = GetDirectorEmailCC()
 
         ' Display the inspector so we can access the Word editor and paste formatted Excel content.
@@ -507,9 +511,9 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
 
         Dim introText As String
         If rowCount > 0 Then
-            introText = GetDirectorEmailBody("Please find the Pending Pickup daily dashboard below. Current pending records: " & rowCount & ".")
+            introText = GetDirectorEmailBody("Please find the Pending Pickup monthly dashboard below. Current pending records: " & rowCount & ".")
         Else
-            introText = GetDirectorEmailBody("Please find the Pending Pickup daily dashboard below.")
+            introText = GetDirectorEmailBody("Please find the Pending Pickup monthly dashboard below.")
         End If
 
         ' Insert intro text at the top.

@@ -444,7 +444,7 @@ Public Function CreatePendingPickupReport() As Boolean
         dashboard.Rows(2).Top, _
         170, 35)
     dashBtn.Name = "btnEmailDashboard"
-    dashBtn.TextFrame2.TextRange.Text = "Email Dashboard to Director"
+    dashBtn.TextFrame2.TextRange.Text = "Email Monthly Dashboard to Director"
     dashBtn.TextFrame2.TextRange.Font.Bold = True
     dashBtn.TextFrame2.TextRange.Font.Size = 10
     dashBtn.OnAction = "EmailDashboard"

@@ -547,10 +547,14 @@ try:
     try:
         d_to = str(director_ws.Range("D5").Value or "").strip() if str(director_ws.Range("C5").Value or "").upper().startswith("TO") else str(director_ws.Range("D5").Value or "").strip()
         d_cc = str(director_ws.Range("D6").Value or "").strip()
-        d_subj = str(director_ws.Range("D7").Value or "").strip() or "Pending Pickup Report - Daily Dashboard"
-        d_body = str(director_ws.Range("D9").Value or director_ws.Range("D8").Value or "").strip() or "Please find the Pending Pickup daily dashboard below."
+        d_subj = str(director_ws.Range("D7").Value or "").strip()
+        if d_subj == "" or d_subj == "Pending Pickup Report - Daily Dashboard":
+            d_subj = "Pending Pickup Report - Monthly Dashboard"
+        d_body = str(director_ws.Range("D9").Value or director_ws.Range("D8").Value or "").strip()
+        if d_body == "" or d_body == "Please find the Pending Pickup daily dashboard below.":
+            d_body = "Please find the Pending Pickup monthly dashboard below."
     except Exception:
-        d_to, d_cc, d_subj, d_body = "", "", "Pending Pickup Report - Daily Dashboard", "Please find the Pending Pickup daily dashboard below."
+        d_to, d_cc, d_subj, d_body = "", "", "Pending Pickup Report - Monthly Dashboard", "Please find the Pending Pickup monthly dashboard below."
     format_email_template_sheet(
         director_ws,
         "Director Email Template",

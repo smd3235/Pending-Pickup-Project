@@ -36,7 +36,7 @@ Public Const AUTO_SKIP_PRIOR_FILE As String = "C:\Users\smd32\Downloads\Pending 
 ' Email constants
 ' ----------------------------------------------------------------------------
 Public Const EMAIL_SUBJECT_MANAGER As String = "Pending Pickup Report - Action Required"
-Public Const EMAIL_SUBJECT_DIRECTOR As String = "Pending Pickup Report - Daily Dashboard"
+Public Const EMAIL_SUBJECT_DIRECTOR As String = "Pending Pickup Report - Monthly Dashboard"
 Public Const EMAIL_REG_KEY As String = "PendingPickupReport\Email"
 
 ' ----------------------------------------------------------------------------
