@@ -238,10 +238,11 @@ Public Sub SetupEmailCC()
     ws.Range(EMAIL_CONFIG_TO_CELL).Select
     LogMsg "Email setup: user opened Manager Email Template sheet"
     MsgBox "Edit manager email settings on '" & EMAIL_CONFIG_SHEET & "':" & vbCrLf & _
-           "  TO - " & EMAIL_CONFIG_TO_CELL & vbCrLf & _
-           "  CC - " & EMAIL_CONFIG_CC_CELL & vbCrLf & _
+           "  TO - " & EMAIL_CONFIG_TO_CELL & " (separate multiple addresses with ;)" & vbCrLf & _
+           "  CC - " & EMAIL_CONFIG_CC_CELL & " (separate multiple addresses with ;)" & vbCrLf & _
            "  SUBJECT - " & EMAIL_CONFIG_SUBJECT_CELL & " (leave blank for default)" & vbCrLf & _
            "  BODY - " & EMAIL_CONFIG_BODY_CELL & " (leave blank for default intro)" & vbCrLf & vbCrLf & _
+           "Use the 'Return to START HERE' button on the sheet to go back and re-hide this tab." & vbCrLf & _
            "Director/dashboard email settings are on '" & DIRECTOR_EMAIL_SHEET & "'.", vbInformation
     Exit Sub
 CleanFail:
@@ -258,20 +259,56 @@ Public Sub SetupDirectorEmail()
     ws.Range(DIRECTOR_EMAIL_TO_CELL).Select
     LogMsg "Email setup: user opened Director email template sheet"
     MsgBox "Edit dashboard/director email settings on '" & DIRECTOR_EMAIL_SHEET & "':" & vbCrLf & _
-           "  TO - " & DIRECTOR_EMAIL_TO_CELL & vbCrLf & _
-           "  CC - " & DIRECTOR_EMAIL_CC_CELL & vbCrLf & _
+           "  TO - " & DIRECTOR_EMAIL_TO_CELL & " (separate multiple addresses with ;)" & vbCrLf & _
+           "  CC - " & DIRECTOR_EMAIL_CC_CELL & " (separate multiple addresses with ;)" & vbCrLf & _
            "  SUBJECT - " & DIRECTOR_EMAIL_SUBJECT_CELL & " (leave blank for default)" & vbCrLf & _
            "  BODY - " & DIRECTOR_EMAIL_BODY_CELL & " (leave blank for default intro)" & vbCrLf & vbCrLf & _
-           "You can re-hide this sheet after editing if desired.", vbInformation
+           "Use the 'Return to START HERE' button on the sheet to go back and re-hide this tab.", vbInformation
     Exit Sub
 CleanFail:
     LogErr "SetupDirectorEmail"
     MsgBox "Unable to open '" & DIRECTOR_EMAIL_SHEET & "'.", vbExclamation
 End Sub
 
-' ----------------------------------------------------------------------------
-' Email
-' ----------------------------------------------------------------------------
+Public Sub ReturnToStartHere()
+    Dim callerName As String
+    Dim shp As Shape
+    Dim wsReturn As Worksheet
+    Dim wsStart As Worksheet
+
+    On Error GoTo CleanFail
+    callerName = CStr(Application.Caller)
+    Set wsStart = ThisWorkbook.Worksheets("START HERE")
+
+    Set wsReturn = Nothing
+    On Error Resume Next
+    Set shp = ActiveSheet.Shapes(callerName)
+    If Not shp Is Nothing Then Set wsReturn = shp.Parent
+    On Error GoTo CleanFail
+
+    If wsReturn Is Nothing Then
+        ' Fallback: if called from an email template sheet, return/hide it
+        If ActiveSheet.Name = EMAIL_CONFIG_SHEET Or ActiveSheet.Name = DIRECTOR_EMAIL_SHEET Then
+            Set wsReturn = ActiveSheet
+        End If
+    End If
+
+    wsStart.Visible = xlSheetVisible
+    wsStart.Activate
+
+    If Not wsReturn Is Nothing Then
+        If wsReturn.Name <> wsStart.Name Then wsReturn.Visible = xlSheetHidden
+    End If
+
+    LogMsg "Email template: returned to START HERE and hid sheet"
+    Exit Sub
+
+CleanFail:
+    LogErr "ReturnToStartHere"
+    On Error Resume Next
+    ThisWorkbook.Worksheets("START HERE").Visible = xlSheetVisible
+    ThisWorkbook.Worksheets("START HERE").Activate
+End Sub
 
 ' ----------------------------------------------------------------------------
 ' Helper: wait for Outlook Word editor to be available after opening inspector

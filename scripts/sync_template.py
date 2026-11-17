@@ -318,16 +318,13 @@ try:
             sh.Range("B3").HorizontalAlignment = -4131
             sh.Range("B3").VerticalAlignment = -4108
             sh.Range("B3").IndentLevel = 1
-            sh.Range("J2:K2").UnMerge()
-            sh.Range("J2:K2").Merge()
-            sh.Range("J2").Value = badge_text
-            sh.Range("J2").Font.Name = "Segoe UI"
-            sh.Range("J2").Font.Bold = True
-            sh.Range("J2").Font.Size = 9
-            sh.Range("J2").Font.Color = accent
-            sh.Range("J2").Interior.Color = accent_light
-            sh.Range("J2").HorizontalAlignment = -4108
-            sh.Range("J2").VerticalAlignment = -4108
+            # Reserve top-right area for Return button (keep cells clean)
+            try:
+                sh.Range("J2:K2").UnMerge()
+                sh.Range("J2:K2").Interior.Color = accent
+                sh.Range("J2:K2").ClearContents()
+            except Exception:
+                pass
             for edge in (7, 8, 9, 10):
                 try:
                     b = sh.Range("B2:K3").Borders(edge)
@@ -336,6 +333,29 @@ try:
                     b.Color = accent
                 except Exception:
                     pass
+        except Exception:
+            pass
+
+        # Return to START HERE / re-hide button (shape in header only; does not cover input fields)
+        try:
+            btn_cell = sh.Range("J2:K2")
+            btn = sh.Shapes.AddShape(5, btn_cell.Left + 4, btn_cell.Top + 5, btn_cell.Width - 8, 26)
+            btn.Name = "btnReturnStartHere"
+            btn.OnAction = "ReturnToStartHere"
+            btn.Fill.ForeColor.RGB = accent_light
+            btn.Line.ForeColor.RGB = 0xFFFFFF
+            btn.Line.Weight = 1
+            btn.TextFrame2.TextRange.Text = "Return to START HERE"
+            btn.TextFrame2.TextRange.Font.Name = "Segoe UI"
+            btn.TextFrame2.TextRange.Font.Bold = True
+            btn.TextFrame2.TextRange.Font.Size = 9
+            btn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = accent
+            btn.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
+            btn.TextFrame2.VerticalAnchor = 3  # middle
+            try:
+                btn.Placement = 2  # move without sizing
+            except Exception:
+                pass
         except Exception:
             pass
 

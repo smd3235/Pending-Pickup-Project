@@ -5,7 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
-- **10:26:00** — Audited/fixed hidden email template tab formatting (`scripts/sync_template.py`): corrected TO/CC/SUBJECT/BODY to single ordered side labels with consistent spacing (resolved squished CC/duplicated or odd labels), kept shape-free cell-based inputs and VBA config cells (`D5/D6/D7/D9`). Re-synced template/build artifacts and refreshed email template screenshots. Note: director/dashboard drafts auto-add today’s date when SUBJECT (`D7`) is blank; manager drafts and custom SUBJECT values are used as entered.
+- **10:41:00** — Updated hidden email template tabs: replaced top-right badge with "Return to START HERE" header button (`btnReturnStartHere` → `ReturnToStartHere` in `modDialog.bas`) to reactivate START HERE and re-hide the template tab; refined email tab layout/instructions (separated sections, semicolon TO/CC guidance) and refreshed template/build artifacts/screenshots. VBA config cells preserved (`D5/D6/D7/D9`).
 
 
 ## 2026-11-16
