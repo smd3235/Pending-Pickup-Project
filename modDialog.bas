@@ -143,31 +143,50 @@ Public Function EnsureMacroEnabledWorkbook() As Boolean
 End Function
 
 ' ----------------------------------------------------------------------------
-' Email config (manager emails from START HERE; director from hidden template tab)
+' Email config (manager emails from hidden template tab; director from hidden template tab)
 ' ----------------------------------------------------------------------------
 
-Public Function GetEmailCC() As String
+Private Function ReadTemplateConfig(ByVal sheetName As String, ByVal cellAddr As String, ByVal fallbackSheet As String, ByVal fallbackCell As String, ByVal logLabel As String) As String
     On Error Resume Next
-    GetEmailCC = Trim$(CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_CC_CELL).Value))
-    If Err.Number <> 0 Then GetEmailCC = ""
+    Dim v As String
+    v = Trim$(CStr(ThisWorkbook.Worksheets(sheetName).Range(cellAddr).Value))
+    If Err.Number <> 0 Or Len(v) = 0 Then
+        Err.Clear
+        v = Trim$(CStr(ThisWorkbook.Worksheets(fallbackSheet).Range(fallbackCell).Value))
+    End If
+    If Err.Number <> 0 Then v = ""
     Err.Clear
-    LogMsg "Email config read: Manager CC=" & GetEmailCC
+    LogMsg "Email config read: " & logLabel & "=" & Left$(Replace(v, vbCr, " "), 80)
+    ReadTemplateConfig = v
+End Function
+
+Private Function ReadTemplateBody(ByVal sheetName As String, ByVal cellAddr As String, ByVal fallbackSheet As String, ByVal fallbackCell As String, ByVal defaultBody As String, ByVal logLabel As String) As String
+    On Error Resume Next
+    Dim v As String
+    v = CStr(ThisWorkbook.Worksheets(sheetName).Range(cellAddr).Value)
+    If Err.Number <> 0 Or Len(Trim$(v)) = 0 Then
+        Err.Clear
+        v = CStr(ThisWorkbook.Worksheets(fallbackSheet).Range(fallbackCell).Value)
+    End If
+    If Err.Number <> 0 Or Len(Trim$(v)) = 0 Then v = defaultBody
+    Err.Clear
+    LogMsg "Email config read: " & logLabel & "=" & Left$(Replace(v, vbCr, " "), 80)
+    ReadTemplateBody = v
+End Function
+
+Public Function GetEmailCC() As String
+    GetEmailCC = ReadTemplateConfig(EMAIL_CONFIG_SHEET, EMAIL_CONFIG_CC_CELL, LEGACY_EMAIL_CONFIG_SHEET, LEGACY_EMAIL_CONFIG_CC_CELL, "Manager CC")
 End Function
 
 Public Function GetEmailSubject(ByVal defaultSubject As String) As String
-    On Error Resume Next
-    GetEmailSubject = Trim$(CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_SUBJECT_CELL).Value))
-    If Err.Number <> 0 Or Len(GetEmailSubject) = 0 Then GetEmailSubject = defaultSubject
-    Err.Clear
-    LogMsg "Email config read: Manager Subject=" & GetEmailSubject
+    Dim v As String
+    v = ReadTemplateConfig(EMAIL_CONFIG_SHEET, EMAIL_CONFIG_SUBJECT_CELL, LEGACY_EMAIL_CONFIG_SHEET, LEGACY_EMAIL_CONFIG_SUBJECT_CELL, "Manager Subject")
+    If Len(v) = 0 Then v = defaultSubject
+    GetEmailSubject = v
 End Function
 
 Public Function GetEmailBody(ByVal defaultBody As String) As String
-    On Error Resume Next
-    GetEmailBody = CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_BODY_CELL).Value)
-    If Err.Number <> 0 Or Len(Trim$(GetEmailBody)) = 0 Then GetEmailBody = defaultBody
-    Err.Clear
-    LogMsg "Email config read: Manager Body=" & Left$(Replace(GetEmailBody, vbCr, " "), 80)
+    GetEmailBody = ReadTemplateBody(EMAIL_CONFIG_SHEET, EMAIL_CONFIG_BODY_CELL, LEGACY_EMAIL_CONFIG_SHEET, LEGACY_EMAIL_CONFIG_BODY_CELL, defaultBody, "Manager Body")
 End Function
 
 Public Function GetDirectorEmailTo() As String
@@ -206,18 +225,19 @@ Public Sub SetupEmailCC()
     Dim ws As Worksheet
     On Error GoTo CleanFail
     Set ws = ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET)
+    ws.Visible = xlSheetVisible
     ws.Activate
     ws.Range(EMAIL_CONFIG_CC_CELL).Select
-    LogMsg "Email setup: user opened manager CC configuration on START HERE"
-    MsgBox "Edit manager email settings on the START HERE sheet:" & vbCrLf & _
+    LogMsg "Email setup: user opened Manager Email Template sheet"
+    MsgBox "Edit manager email settings on '" & EMAIL_CONFIG_SHEET & "':" & vbCrLf & _
            "  " & EMAIL_CONFIG_CC_CELL & " - CC recipients (comma-separated)" & vbCrLf & _
            "  " & EMAIL_CONFIG_SUBJECT_CELL & " - Subject override (leave blank for default)" & vbCrLf & _
            "  " & EMAIL_CONFIG_BODY_CELL & " - Intro message (leave blank for default)" & vbCrLf & vbCrLf & _
-           "Dashboard/Director email To/CC/Subject/Body are configured on the hidden '" & DIRECTOR_EMAIL_SHEET & "' sheet in the template.", vbInformation
+           "Dashboard/Director email To/CC/Subject/Body are configured on '" & DIRECTOR_EMAIL_SHEET & "'.", vbInformation
     Exit Sub
 CleanFail:
     LogErr "SetupEmailCC"
-    MsgBox "Unable to open email settings on START HERE.", vbExclamation
+    MsgBox "Unable to open '" & EMAIL_CONFIG_SHEET & "'.", vbExclamation
 End Sub
 
 Public Sub SetupDirectorEmail()

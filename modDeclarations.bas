@@ -40,12 +40,17 @@ Public Const EMAIL_SUBJECT_DIRECTOR As String = "Pending Pickup Report - Daily D
 Public Const EMAIL_REG_KEY As String = "PendingPickupReport\Email"
 
 ' ----------------------------------------------------------------------------
-' Email config cells on START HERE template sheet (manager emails)
+' Manager email template/config sheet (hidden tab in template)
 ' ----------------------------------------------------------------------------
-Public Const EMAIL_CONFIG_SHEET As String = "START HERE"
-Public Const EMAIL_CONFIG_CC_CELL As String = "D16"
-Public Const EMAIL_CONFIG_SUBJECT_CELL As String = "D17"
-Public Const EMAIL_CONFIG_BODY_CELL As String = "D18"
+Public Const EMAIL_CONFIG_SHEET As String = "Manager Email Template"
+Public Const EMAIL_CONFIG_CC_CELL As String = "D5"
+Public Const EMAIL_CONFIG_SUBJECT_CELL As String = "D6"
+Public Const EMAIL_CONFIG_BODY_CELL As String = "D7"
+' Legacy START HERE cells (fallback)
+Public Const LEGACY_EMAIL_CONFIG_SHEET As String = "START HERE"
+Public Const LEGACY_EMAIL_CONFIG_CC_CELL As String = "D16"
+Public Const LEGACY_EMAIL_CONFIG_SUBJECT_CELL As String = "D17"
+Public Const LEGACY_EMAIL_CONFIG_BODY_CELL As String = "D18"
 
 ' ----------------------------------------------------------------------------
 ' Director email template/config sheet (hidden tab in template)

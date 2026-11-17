@@ -137,16 +137,16 @@ try:
             pass
     director_btn.OnAction = "SetupDirectorEmail"
 
-    # Add email configuration cells on START HERE so users can edit manager CC/subject/body directly in the template.
+    # Update START HERE labels/info (manager config migrated to hidden Manager Email Template tab)
     config_cells = {
-        "C16": "Manager Email CC Recipients (comma-separated):",
-        "D16": "",
-        "C17": "Manager Email Subject:",
-        "D17": "Pending Pickup Report - Action Required",
-        "C18": "Manager Email Intro (text only, table is pasted automatically):",
-        "D18": "Please review the Pending Pickup report snapshot below.",
-        "C20": "Director Email Template (hidden tab):",
-        "D20": "Use 'Setup Director Email Template' to edit To/CC/Subject/Body.",
+        "C16": "Manager Email Template (hidden tab):",
+        "D16": "Use 'Setup Manager Email Settings' to edit CC/Subject/Intro.",
+        "C17": "Director Email Template (hidden tab):",
+        "D17": "Use 'Setup Director Email Template' to edit To/CC/Subject/Intro.",
+        "C18": "",
+        "D18": "",
+        "C20": "",
+        "D20": "",
     }
     for addr, val in config_cells.items():
         try:
@@ -155,60 +155,94 @@ try:
             pass
 
     # Style the label cells
-    for label_addr in ["C16", "C17", "C18", "C20"]:
+    for label_addr in ["C16", "C17"]:
         try:
             ws.Range(label_addr).Font.Bold = True
             ws.Range(label_addr).Font.Size = 10
         except Exception:
             pass
+    for label_addr in ["C18", "C20"]:
+        try:
+            ws.Range(label_addr).Font.Bold = False
+        except Exception:
+            pass
+
+    def ensure_template_sheet(sheet_name, title, subtitle, rows, hide=True):
+        sh = None
+        for w in wb.Worksheets:
+            try:
+                if w.Name == sheet_name:
+                    sh = w
+                    break
+            except Exception:
+                pass
+        if sh is None:
+            sh = wb.Worksheets.Add(After=wb.Worksheets(wb.Worksheets.Count))
+            sh.Name = sheet_name
+        try:
+            if hide:
+                sh.Visible = 0  # xlSheetHidden
+        except Exception:
+            pass
+        cells = {"B2": title, "B3": subtitle}
+        cells.update(rows)
+        for addr, val in cells.items():
+            try:
+                existing = sh.Range(addr).Value
+                if existing is None or str(existing).strip() == "" or addr in ["B2", "B3"] or addr.startswith("C"):
+                    sh.Range(addr).Value = val
+            except Exception:
+                pass
+        try:
+            sh.Range("B2").Font.Bold = True
+            sh.Range("B2").Font.Size = 14
+            sh.Range("B3").Font.Size = 10
+            for r in rows.keys():
+                if r.startswith("C"):
+                    sh.Range(r).Font.Bold = True
+            sh.Columns("C").ColumnWidth = 34
+            sh.Columns("D").ColumnWidth = 60
+        except Exception:
+            pass
+        return sh
+
+    # Ensure hidden Manager Email Template sheet exists with CC/Subject/Intro config.
+    mgr_ws = ensure_template_sheet(
+        "Manager Email Template",
+        "Manager Email Template",
+        "Edit the values in column D. This tab can remain hidden; manager email buttons read from it.",
+        {
+            "C5": "CC Recipients (comma-separated):",
+            "D5": ws.Range("D16").Value if str(ws.Range("C16").Value or "").startswith("Email CC") else "",
+            "C6": "Subject (leave blank for default):",
+            "D6": "Pending Pickup Report - Action Required",
+            "C7": "Intro message (leave blank for default):",
+            "D7": "Please review the Pending Pickup report snapshot below.",
+        },
+        hide=True,
+    )
+    try:
+        mgr_ws.Range("D7").WrapText = True
+    except Exception:
+        pass
 
     # Ensure hidden Director Email Template sheet exists with To/CC/Subject/Body config.
-    director_sheet_name = "Director Email Template"
-    director_ws = None
-    for sh in wb.Worksheets:
-        try:
-            if sh.Name == director_sheet_name:
-                director_ws = sh
-                break
-        except Exception:
-            pass
-    if director_ws is None:
-        director_ws = wb.Worksheets.Add(After=wb.Worksheets(wb.Worksheets.Count))
-        director_ws.Name = director_sheet_name
-    try:
-        director_ws.Visible = 0  # xlSheetHidden
-    except Exception:
-        pass
-
-    director_cells = {
-        "B2": "Director / Dashboard Email Template",
-        "B3": "Edit the values in column D. This tab can remain hidden; the Dashboard email button reads from it.",
-        "C5": "To (comma-separated):",
-        "D5": "",
-        "C6": "CC (comma-separated):",
-        "D6": "",
-        "C7": "Subject (leave blank for default):",
-        "D7": "Pending Pickup Report - Daily Dashboard",
-        "C8": "Intro message (leave blank for default):",
-        "D8": "Please find the Pending Pickup daily dashboard below.",
-    }
-    for addr, val in director_cells.items():
-        try:
-            existing = director_ws.Range(addr).Value
-            if existing is None or str(existing).strip() == "" or addr in ["B2", "B3", "C5", "C6", "C7", "C8"]:
-                director_ws.Range(addr).Value = val
-        except Exception:
-            pass
-    try:
-        director_ws.Range("B2").Font.Bold = True
-        director_ws.Range("B2").Font.Size = 14
-        director_ws.Range("B3").Font.Size = 10
-        for addr in ["C5", "C6", "C7", "C8"]:
-            director_ws.Range(addr).Font.Bold = True
-        director_ws.Columns("C").ColumnWidth = 34
-        director_ws.Columns("D").ColumnWidth = 60
-    except Exception:
-        pass
+    director_ws = ensure_template_sheet(
+        "Director Email Template",
+        "Director / Dashboard Email Template",
+        "Edit the values in column D. This tab can remain hidden; the Dashboard email button reads from it.",
+        {
+            "C5": "To (comma-separated):",
+            "D5": "",
+            "C6": "CC (comma-separated):",
+            "D6": "",
+            "C7": "Subject (leave blank for default):",
+            "D7": "Pending Pickup Report - Daily Dashboard",
+            "C8": "Intro message (leave blank for default):",
+            "D8": "Please find the Pending Pickup daily dashboard below.",
+        },
+        hide=True,
+    )
     try:
         director_ws.Range("D8").WrapText = True
     except Exception:
