@@ -51,10 +51,12 @@ path = os.path.abspath(path)
 
 os.makedirs(out_folder, exist_ok=True)
 
-# Always start fresh: delete every existing PNG so committed screenshots
-# reflect only the latest report run, never a stale mix of old/new sheets.
+# Always start fresh for this export set: delete existing PNGs matching this prefix
+# so committed screenshots reflect only the latest run, without removing unrelated
+# captures (e.g. template-* screenshots).
 for f in os.listdir(out_folder):
-    if f.lower().endswith(".png"):
+    fl = f.lower()
+    if fl.endswith(".png") and fl.startswith(f"{prefix.lower()}-"):
         try:
             os.remove(os.path.join(out_folder, f))
         except OSError:
@@ -100,24 +102,42 @@ def save_sheet_image(workbook, worksheet, png_path):
 
     rng = worksheet.Range(worksheet.Cells(first_row, first_col), worksheet.Cells(last_row, last_col))
 
-    # Activate sheet and set zoom to 100% so CopyPicture captures at full resolution,
-    # not zoomed out to 85% (which makes everything look squished).
+    # Activate sheet and set zoom so CopyPicture captures a stable, fully-rendered view.
     worksheet.Activate()
-    workbook.Application.ActiveWindow.Zoom = 100
-    time.sleep(0.5)
+    try:
+        workbook.Application.ActiveWindow.ScrollRow = 1
+        workbook.Application.ActiveWindow.ScrollColumn = 1
+        workbook.Application.ActiveWindow.Zoom = 100
+    except Exception:
+        pass
+    try:
+        workbook.Application.ScreenUpdating = True
+    except Exception:
+        pass
+    # Allow Excel time to render/layout (hidden sheets, charts, shapes, formatting).
+    time.sleep(1.5)
 
     # Copy the range as a picture (xlPicture preserves vector formatting better than xlBitmap).
-    # Retry up to 3 times — CopyPicture can fail intermittently over COM.
+    # Retry up to 4 times - CopyPicture can fail intermittently over COM.
     copied = False
-    for attempt in range(3):
+    for attempt in range(4):
         try:
             rng.CopyPicture(Appearance=1, Format=1)  # xlScreen=1, xlPicture=1
             copied = True
             break
         except Exception:
-            time.sleep(1.0)
+            time.sleep(1.2)
     if not copied:
-        raise RuntimeError(f"CopyPicture failed after 3 attempts for {worksheet.Name}")
+        # Fallback: bitmap can be more reliable for some rendered content.
+        for attempt in range(2):
+            try:
+                rng.CopyPicture(Appearance=1, Format=2)  # xlScreen=1, xlBitmap=2
+                copied = True
+                break
+            except Exception:
+                time.sleep(1.2)
+    if not copied:
+        raise RuntimeError(f"CopyPicture failed after retries for {worksheet.Name}")
 
     rows = last_row - first_row + 1
     cols = last_col - first_col + 1
@@ -128,7 +148,7 @@ def save_sheet_image(workbook, worksheet, png_path):
     chart = workbook.Charts.Add()
     try:
         chart.Paste()
-        time.sleep(0.5)
+        time.sleep(1.0)
         if os.path.exists(png_path):
             os.remove(png_path)
         chart.Export(png_path)
@@ -162,7 +182,7 @@ wb = None
 exported = 0
 try:
     wb = xl.Workbooks.Open(path, False, False)
-    time.sleep(2.0)
+    time.sleep(3.0)
 
     if args.list or not args.sheets:
         print(f"Sheets in {os.path.basename(path)}:")
