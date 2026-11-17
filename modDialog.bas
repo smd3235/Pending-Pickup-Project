@@ -174,6 +174,14 @@ Private Function ReadTemplateBody(ByVal sheetName As String, ByVal cellAddr As S
     ReadTemplateBody = v
 End Function
 
+Public Function GetEmailTo() As String
+    On Error Resume Next
+    GetEmailTo = Trim$(CStr(ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET).Range(EMAIL_CONFIG_TO_CELL).Value))
+    If Err.Number <> 0 Then GetEmailTo = ""
+    Err.Clear
+    LogMsg "Email config read: Manager To=" & GetEmailTo
+End Function
+
 Public Function GetEmailCC() As String
     GetEmailCC = ReadTemplateConfig(EMAIL_CONFIG_SHEET, EMAIL_CONFIG_CC_CELL, LEGACY_EMAIL_CONFIG_SHEET, LEGACY_EMAIL_CONFIG_CC_CELL, "Manager CC")
 End Function
@@ -227,13 +235,14 @@ Public Sub SetupEmailCC()
     Set ws = ThisWorkbook.Worksheets(EMAIL_CONFIG_SHEET)
     ws.Visible = xlSheetVisible
     ws.Activate
-    ws.Range(EMAIL_CONFIG_CC_CELL).Select
+    ws.Range(EMAIL_CONFIG_TO_CELL).Select
     LogMsg "Email setup: user opened Manager Email Template sheet"
     MsgBox "Edit manager email settings on '" & EMAIL_CONFIG_SHEET & "':" & vbCrLf & _
-           "  " & EMAIL_CONFIG_CC_CELL & " - CC recipients (comma-separated)" & vbCrLf & _
-           "  " & EMAIL_CONFIG_SUBJECT_CELL & " - Subject override (leave blank for default)" & vbCrLf & _
-           "  " & EMAIL_CONFIG_BODY_CELL & " - Intro message (leave blank for default)" & vbCrLf & vbCrLf & _
-           "Dashboard/Director email To/CC/Subject/Body are configured on '" & DIRECTOR_EMAIL_SHEET & "'.", vbInformation
+           "  TO - " & EMAIL_CONFIG_TO_CELL & vbCrLf & _
+           "  CC - " & EMAIL_CONFIG_CC_CELL & vbCrLf & _
+           "  SUBJECT - " & EMAIL_CONFIG_SUBJECT_CELL & " (leave blank for default)" & vbCrLf & _
+           "  BODY - " & EMAIL_CONFIG_BODY_CELL & " (leave blank for default intro)" & vbCrLf & vbCrLf & _
+           "Director/dashboard email settings are on '" & DIRECTOR_EMAIL_SHEET & "'.", vbInformation
     Exit Sub
 CleanFail:
     LogErr "SetupEmailCC"
@@ -249,10 +258,10 @@ Public Sub SetupDirectorEmail()
     ws.Range(DIRECTOR_EMAIL_TO_CELL).Select
     LogMsg "Email setup: user opened Director email template sheet"
     MsgBox "Edit dashboard/director email settings on '" & DIRECTOR_EMAIL_SHEET & "':" & vbCrLf & _
-           "  " & DIRECTOR_EMAIL_TO_CELL & " - To recipients (comma-separated)" & vbCrLf & _
-           "  " & DIRECTOR_EMAIL_CC_CELL & " - CC recipients (comma-separated)" & vbCrLf & _
-           "  " & DIRECTOR_EMAIL_SUBJECT_CELL & " - Subject override (leave blank for default)" & vbCrLf & _
-           "  " & DIRECTOR_EMAIL_BODY_CELL & " - Intro message (leave blank for default)" & vbCrLf & vbCrLf & _
+           "  TO - " & DIRECTOR_EMAIL_TO_CELL & vbCrLf & _
+           "  CC - " & DIRECTOR_EMAIL_CC_CELL & vbCrLf & _
+           "  SUBJECT - " & DIRECTOR_EMAIL_SUBJECT_CELL & " (leave blank for default)" & vbCrLf & _
+           "  BODY - " & DIRECTOR_EMAIL_BODY_CELL & " (leave blank for default intro)" & vbCrLf & vbCrLf & _
            "You can re-hide this sheet after editing if desired.", vbInformation
     Exit Sub
 CleanFail:
@@ -363,6 +372,7 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
     Set mail = outlook.CreateItem(0)
 
     With mail
+        .To = GetEmailTo()
         .Subject = GetEmailSubject(EMAIL_SUBJECT_MANAGER & " - " & managerName & " (" & rowCount & " pending)")
         .CC = GetEmailCC()
 
@@ -393,7 +403,7 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
         Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
         bodyRange.Text = vbCrLf & vbCrLf & "Please review and respond as needed." & vbCrLf & "Pending Pickup Report System"
 
-        LogMsg "Email: inspector ready for manager " & managerName & " (CC=" & .CC & ", Subject=" & .Subject & ")"
+        LogMsg "Email: inspector ready for manager " & managerName & " (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
     End With
 
     LogMsg "Email: inspector displayed for manager " & managerName

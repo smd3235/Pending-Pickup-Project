@@ -137,12 +137,12 @@ try:
             pass
     director_btn.OnAction = "SetupDirectorEmail"
 
-    # Update START HERE labels/info (manager config migrated to hidden Manager Email Template tab)
+    # Update START HERE labels/info (manager/director config in hidden template tabs)
     config_cells = {
         "C16": "Manager Email Template (hidden tab):",
-        "D16": "Use 'Setup Manager Email Settings' to edit CC/Subject/Intro.",
+        "D16": "Use 'Setup Manager Email Settings' to edit To/CC/Subject/Body.",
         "C17": "Director Email Template (hidden tab):",
-        "D17": "Use 'Setup Director Email Template' to edit To/CC/Subject/Intro.",
+        "D17": "Use 'Setup Director Email Template' to edit To/CC/Subject/Body.",
         "C18": "",
         "D18": "",
         "C20": "",
@@ -161,92 +161,197 @@ try:
             ws.Range(label_addr).Font.Size = 10
         except Exception:
             pass
-    for label_addr in ["C18", "C20"]:
-        try:
-            ws.Range(label_addr).Font.Bold = False
-        except Exception:
-            pass
 
-    def ensure_template_sheet(sheet_name, title, subtitle, rows, hide=True):
-        sh = None
-        for w in wb.Worksheets:
-            try:
-                if w.Name == sheet_name:
-                    sh = w
-                    break
-            except Exception:
-                pass
-        if sh is None:
-            sh = wb.Worksheets.Add(After=wb.Worksheets(wb.Worksheets.Count))
-            sh.Name = sheet_name
+    def format_email_template_sheet(sh, title, field_values, hide=True):
+        # field_values: dict with keys to, cc, subject, body
         try:
             if hide:
                 sh.Visible = 0  # xlSheetHidden
         except Exception:
             pass
-        cells = {"B2": title, "B3": subtitle}
-        cells.update(rows)
-        for addr, val in cells.items():
-            try:
-                existing = sh.Range(addr).Value
-                if existing is None or str(existing).strip() == "" or addr in ["B2", "B3"] or addr.startswith("C"):
-                    sh.Range(addr).Value = val
-            except Exception:
-                pass
         try:
-            sh.Range("B2").Font.Bold = True
-            sh.Range("B2").Font.Size = 14
-            sh.Range("B3").Font.Size = 10
-            for r in rows.keys():
-                if r.startswith("C"):
-                    sh.Range(r).Font.Bold = True
-            sh.Columns("C").ColumnWidth = 34
-            sh.Columns("D").ColumnWidth = 60
+            sh.Cells.Clear
+            sh.Cells.Interior.ColorIndex = 0
+            sh.Cells.Font.Name = "Segoe UI"
+            sh.Cells.Font.Color = 0x222222
+            sh.Cells.Borders.LineStyle = -4142  # xlLineStyleNone
         except Exception:
             pass
+
+        try:
+            sh.Range("B2").Value = title
+            sh.Range("B3").Value = "Fill in the fields below. Only these input areas are visible."
+            sh.Range("B2").Font.Name = "Segoe UI"
+            sh.Range("B2").Font.Bold = True
+            sh.Range("B2").Font.Size = 20
+            sh.Range("B2").Font.Color = 0x79411F  # dark blue-ish
+            sh.Range("B3").Font.Name = "Segoe UI"
+            sh.Range("B3").Font.Size = 10
+            sh.Range("B3").Font.Color = 0x666666
+        except Exception:
+            pass
+
+        fields = [
+            ("C5", "TO:", "D5"),
+            ("C6", "CC:", "D6"),
+            ("C7", "SUBJECT:", "D7"),
+        ]
+        for label_cell, label_text, input_cell in fields:
+            try:
+                lc = sh.Range(label_cell)
+                lc.Value = label_text
+                lc.Font.Bold = True
+                lc.Font.Size = 10
+                lc.Font.Color = 0x555555
+                lc.HorizontalAlignment = -4131  # xlLeft
+                lc.VerticalAlignment = -4108   # xlCenter
+            except Exception:
+                pass
+            try:
+                rg = sh.Range(input_cell)
+                rg.Interior.Color = 0xFFFFFF
+                rg.Font.Name = "Segoe UI"
+                rg.Font.Size = 11
+                rg.HorizontalAlignment = -4131
+                rg.VerticalAlignment = -4108
+                rg.WrapText = False
+                for edge in (7, 8, 9, 10):
+                    try:
+                        b = rg.Borders(edge)
+                        b.LineStyle = 1
+                        b.Weight = 2
+                        b.Color = 0xD0D7DE
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        try:
+            sh.Range("C8").Value = "BODY:"
+            sh.Range("C8").Font.Bold = True
+            sh.Range("C8").Font.Size = 10
+            sh.Range("C8").Font.Color = 0x555555
+            sh.Range("C8").HorizontalAlignment = -4131
+            sh.Range("C8").VerticalAlignment = -4108
+        except Exception:
+            pass
+        try:
+            body_rg = sh.Range("D9:K24")
+            body_rg.UnMerge()
+            body_rg.Merge()
+            body_rg.Interior.Color = 0xFFFFFF
+            body_rg.Font.Name = "Segoe UI"
+            body_rg.Font.Size = 11
+            body_rg.HorizontalAlignment = -4131
+            body_rg.VerticalAlignment = -4160  # xlTop
+            body_rg.WrapText = True
+            for edge in (7, 8, 9, 10):
+                try:
+                    b = body_rg.Borders(edge)
+                    b.LineStyle = 1
+                    b.Weight = 2
+                    b.Color = 0xD0D7DE
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Set values
+        try:
+            sh.Range("D5").Value = field_values.get("to", "")
+            sh.Range("D6").Value = field_values.get("cc", "")
+            sh.Range("D7").Value = field_values.get("subject", "")
+            sh.Range("D9").Value = field_values.get("body", "")
+        except Exception:
+            pass
+
+        # Layout sizing
+        try:
+            sh.Columns("A:B").ColumnWidth = 2
+            sh.Columns("C").ColumnWidth = 13
+            sh.Columns("D:K").ColumnWidth = 22
+            sh.Rows("1").RowHeight = 10
+            sh.Rows("2").RowHeight = 30
+            sh.Rows("3").RowHeight = 18
+            sh.Rows("4").RowHeight = 6
+            for r in ("5", "6", "7"):
+                sh.Rows(r).RowHeight = 28
+            sh.Rows("8").RowHeight = 24
+            sh.Rows("9").RowHeight = 26
+            for rr in range(10, 25):
+                sh.Rows(str(rr)).RowHeight = 22
+        except Exception:
+            pass
+
+        # Hide non-input areas for clean look
+        try:
+            sh.Rows("25:1048576").Hidden = True
+            sh.Columns("L:XFD").Hidden = True
+            sh.Columns("A").Hidden = True
+            sh.Columns("B").Hidden = True
+        except Exception:
+            pass
+
+        # Gridlines/headings off in active window context best-effort
+        try:
+            aw = wb.Application.ActiveWindow
+            if aw is not None:
+                aw.DisplayGridlines = False
+                aw.DisplayHeadings = False
+        except Exception:
+            pass
+
+    def get_or_create_sheet(name):
+        for w in wb.Worksheets:
+            try:
+                if w.Name == name:
+                    return w
+            except Exception:
+                pass
+        sh = wb.Worksheets.Add(After=wb.Worksheets(wb.Worksheets.Count))
+        sh.Name = name
         return sh
 
-    # Ensure hidden Manager Email Template sheet exists with CC/Subject/Intro config.
-    mgr_ws = ensure_template_sheet(
+    # Ensure hidden Manager Email Template sheet exists with TO/CC/SUBJECT/BODY config.
+    mgr_ws = get_or_create_sheet("Manager Email Template")
+    try:
+        # migrate old values if present
+        mgr_to = str(mgr_ws.Range("D5").Value or "").strip() if str(mgr_ws.Range("C5").Value or "").upper().startswith("TO") else ""
+        if not mgr_to:
+            mgr_to = str(mgr_ws.Range("D4").Value or "").strip()
+        mgr_cc = str(mgr_ws.Range("D6").Value or mgr_ws.Range("D5").Value or "").strip()
+        mgr_subj = str(mgr_ws.Range("D7").Value or mgr_ws.Range("D6").Value or "").strip() or "Pending Pickup Report - Action Required"
+        mgr_body = str(mgr_ws.Range("D9").Value or mgr_ws.Range("D7").Value or "").strip() or "Please review the Pending Pickup report snapshot below."
+        # if layout was old (CC at D5), avoid duplicating
+        if str(mgr_ws.Range("C5").Value or "").upper().startswith("CC"):
+            mgr_cc = str(mgr_ws.Range("D5").Value or "").strip()
+            mgr_subj = str(mgr_ws.Range("D6").Value or "").strip() or mgr_subj
+            mgr_body = str(mgr_ws.Range("D7").Value or "").strip() or mgr_body
+            mgr_to = ""
+    except Exception:
+        mgr_to, mgr_cc, mgr_subj, mgr_body = "", "", "Pending Pickup Report - Action Required", "Please review the Pending Pickup report snapshot below."
+    format_email_template_sheet(
+        mgr_ws,
         "Manager Email Template",
-        "Manager Email Template",
-        "Edit the values in column D. This tab can remain hidden; manager email buttons read from it.",
-        {
-            "C5": "CC Recipients (comma-separated):",
-            "D5": ws.Range("D16").Value if str(ws.Range("C16").Value or "").startswith("Email CC") else "",
-            "C6": "Subject (leave blank for default):",
-            "D6": "Pending Pickup Report - Action Required",
-            "C7": "Intro message (leave blank for default):",
-            "D7": "Please review the Pending Pickup report snapshot below.",
-        },
+        {"to": mgr_to, "cc": mgr_cc, "subject": mgr_subj, "body": mgr_body},
         hide=True,
     )
-    try:
-        mgr_ws.Range("D7").WrapText = True
-    except Exception:
-        pass
 
-    # Ensure hidden Director Email Template sheet exists with To/CC/Subject/Body config.
-    director_ws = ensure_template_sheet(
+    # Ensure hidden Director Email Template sheet exists with TO/CC/SUBJECT/BODY config.
+    director_ws = get_or_create_sheet("Director Email Template")
+    try:
+        d_to = str(director_ws.Range("D5").Value or "").strip() if str(director_ws.Range("C5").Value or "").upper().startswith("TO") else str(director_ws.Range("D5").Value or "").strip()
+        d_cc = str(director_ws.Range("D6").Value or "").strip()
+        d_subj = str(director_ws.Range("D7").Value or "").strip() or "Pending Pickup Report - Daily Dashboard"
+        d_body = str(director_ws.Range("D9").Value or director_ws.Range("D8").Value or "").strip() or "Please find the Pending Pickup daily dashboard below."
+    except Exception:
+        d_to, d_cc, d_subj, d_body = "", "", "Pending Pickup Report - Daily Dashboard", "Please find the Pending Pickup daily dashboard below."
+    format_email_template_sheet(
+        director_ws,
         "Director Email Template",
-        "Director / Dashboard Email Template",
-        "Edit the values in column D. This tab can remain hidden; the Dashboard email button reads from it.",
-        {
-            "C5": "To (comma-separated):",
-            "D5": "",
-            "C6": "CC (comma-separated):",
-            "D6": "",
-            "C7": "Subject (leave blank for default):",
-            "D7": "Pending Pickup Report - Daily Dashboard",
-            "C8": "Intro message (leave blank for default):",
-            "D8": "Please find the Pending Pickup daily dashboard below.",
-        },
+        {"to": d_to, "cc": d_cc, "subject": d_subj, "body": d_body},
         hide=True,
     )
-    try:
-        director_ws.Range("D8").WrapText = True
-    except Exception:
-        pass
 
     wb.Save()
     wb.Close(True)

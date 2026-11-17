@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
+- **09:25:52** — Visually reformatted hidden `Manager Email Template` and `Director Email Template` tabs in `scripts/sync_template.py`: clean gridline-free layout showing only labeled input sections **TO/CC/SUBJECT/BODY** (`D5/D6/D7` and merged `D9:K24` body area), styled input boxes, and hidden unused rows/columns. Updated `modDeclarations.bas`/`modDialog.bas` for new cell mapping and manager `To` support (`GetEmailTo`), and synced template/build artifacts.
+
 - **09:17:15** — Restored hidden Manager Email Template tab behavior: START HERE "Setup Manager Email Settings" now opens hidden `Manager Email Template` (`D5-D7` CC/Subject/Intro) instead of editing inline START HERE cells. `modDeclarations.bas`/`modDialog.bas` read manager config from the hidden tab with legacy START HERE fallback; `scripts/sync_template.py` provisions the hidden manager template tab and updates START HERE labels. Synced template/build artifacts.
 
 - **09:10:20** — Added separate Director/dashboard email template in template: `modDeclarations.bas`/`modDialog.bas` now read director `To/CC/Subject/Intro` from hidden `Director Email Template` sheet (`D5-D8`) for dashboard drafts, added `SetupDirectorEmail` and `GetDirectorEmail*` helpers, and updated `scripts/sync_template.py` to provision the hidden sheet plus START HERE “Setup Director Email Template”/manager email setup labels and config cells. Synced/rebuilt template and build artifacts.
