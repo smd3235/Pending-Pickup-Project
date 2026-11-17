@@ -223,7 +223,7 @@ Public Function CalculateAverageAge(ByVal data As Variant, ByVal rows As Collect
     Next item
 
     If cnt > 0 Then
-        CalculateAverageAge = totalDays / cnt
+        CalculateAverageAge = CLng(WorksheetFunction.Round(totalDays / cnt, 0))
     Else
         CalculateAverageAge = "N/A"
     End If

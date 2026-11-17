@@ -132,21 +132,24 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
         .VerticalAlignment = xlCenter
     End With
 
-    ws.Rows(13).RowHeight = 30
+    ws.Rows(13).RowHeight = 32
     Dim headers As Variant
-    headers = Array("Manager", "Current", "New", "30+ Days", "60+ Days", "90+ Days", "Missing Date", "Avg Age", "% 30+", "Cleared", "Still Pending")
+    headers = Array("Manager", "Current", "New", "30+ Days", "60+ Days", "90+ Days", "Missing Date", "Avg Age (Days)", "% 30+", "Cleared", "Still Pending")
     For c = 0 To UBound(headers)
         Set rg = ws.Cells(13, c + 1)
         rg.Value = headers(c)
         With rg
             .Font.Bold = True
             .Font.Name = "Segoe UI"
-            .Font.Size = 11
-            .Interior.Color = RGB(217, 234, 247)
+            .Font.Size = 10.5
+            .Font.Color = RGB(255, 255, 255)
+            .Interior.Color = RGB(31, 78, 121)
             .HorizontalAlignment = xlCenter
             .VerticalAlignment = xlCenter
             .WrapText = True
             .Borders.LineStyle = xlContinuous
+            .Borders.Color = RGB(255, 255, 255)
+            .Borders.Weight = xlThin
         End With
     Next c
 
@@ -172,7 +175,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
         ws.Cells(r, 6).Value = m90
         ws.Cells(r, 7).Value = mMiss
         If IsNumeric(mgrAvg) Then
-            ws.Cells(r, 8).Value = CDbl(mgrAvg)
+            ws.Cells(r, 8).Value = CLng(mgrAvg)
         Else
             ws.Cells(r, 8).Value = "N/A"
         End If
@@ -181,19 +184,28 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
         ws.Cells(r, 11).Value = IIf(hasPrior, stillCount, "N/A")
 
         ' Format per-row
-        ws.Rows(r).RowHeight = 24
+        ws.Rows(r).RowHeight = 23
         For c = 1 To 11
             With ws.Cells(r, c)
                 .Font.Name = "Segoe UI"
-                .Font.Size = 11
+                .Font.Size = 10.5
                 .Borders.LineStyle = xlContinuous
                 .Borders.Weight = xlHairline
+                .Borders.Color = RGB(200, 200, 200)
                 .HorizontalAlignment = xlCenter
                 .VerticalAlignment = xlCenter
-                If c = 1 Then .HorizontalAlignment = xlLeft
-                If (r - tableStart) Mod 2 = 1 Then .Interior.Color = RGB(242, 242, 242)
+                If c = 1 Then
+                    .HorizontalAlignment = xlLeft
+                    .IndentLevel = 1
+                End If
+                If (r - tableStart) Mod 2 = 1 Then
+                    .Interior.Color = RGB(242, 246, 250)
+                Else
+                    .Interior.Color = RGB(255, 255, 255)
+                End If
             End With
         Next c
+        ws.Cells(r, 8).NumberFormat = "0"
         ws.Cells(r, 9).NumberFormat = "0.0%"
         r = r + 1
     Next i
@@ -209,7 +221,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     ws.Cells(r, 6).Value = age90Count
     ws.Cells(r, 7).Value = missingDateCount
     If IsNumeric(totalAvg) Then
-        ws.Cells(r, 8).Value = CDbl(totalAvg)
+        ws.Cells(r, 8).Value = CLng(totalAvg)
     Else
         ws.Cells(r, 8).Value = "N/A"
     End If
@@ -225,21 +237,43 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
         With ws.Cells(r, c)
             .Font.Bold = True
             .Font.Name = "Segoe UI"
-            .Font.Size = 11
-            .Interior.Color = RGB(217, 234, 247)
+            .Font.Size = 10.5
+            .Font.Color = RGB(255, 255, 255)
+            .Interior.Color = RGB(31, 78, 121)
             .Borders.LineStyle = xlContinuous
+            .Borders.Color = RGB(255, 255, 255)
             .HorizontalAlignment = xlCenter
             .VerticalAlignment = xlCenter
-            If c = 1 Then .HorizontalAlignment = xlLeft
+            If c = 1 Then
+                .HorizontalAlignment = xlLeft
+                .IndentLevel = 1
+            End If
         End With
     Next c
+    ws.Cells(r, 8).NumberFormat = "0"
     ws.Cells(r, 9).NumberFormat = "0.0%"
 
+    ' Add light outer border around table
+    With ws.Range(ws.Cells(13, 1), ws.Cells(r, 11))
+        .Borders(xlEdgeLeft).LineStyle = xlContinuous
+        .Borders(xlEdgeRight).LineStyle = xlContinuous
+        .Borders(xlEdgeTop).LineStyle = xlContinuous
+        .Borders(xlEdgeBottom).LineStyle = xlContinuous
+        .Borders(xlEdgeLeft).Weight = xlMedium
+        .Borders(xlEdgeRight).Weight = xlMedium
+        .Borders(xlEdgeTop).Weight = xlMedium
+        .Borders(xlEdgeBottom).Weight = xlMedium
+        .Borders(xlEdgeLeft).Color = RGB(31, 78, 121)
+        .Borders(xlEdgeRight).Color = RGB(31, 78, 121)
+        .Borders(xlEdgeTop).Color = RGB(31, 78, 121)
+        .Borders(xlEdgeBottom).Color = RGB(31, 78, 121)
+    End With
+
     ' Chart: Pending Pickups by Manager
-    ws.Rows(r + 2).RowHeight = 21.95
+    ws.Rows(r + 2).RowHeight = 24
     Set rg = ws.Range("A" & (r + 2) & ":K" & (r + 2))
     rg.Merge
-    rg.Value = "PENDING PICKUPS BY MANAGER (CHART)"
+    rg.Value = "CURRENT PENDING PICKUPS BY MANAGER"
     With rg
         .Font.Bold = True
         .Font.Size = 11
@@ -257,21 +291,54 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     chartEndRow = r - 1           ' last manager row (exclude TOTAL)
     If chartEndRow >= chartStartRow + 1 Then
         Set chartObj = ws.ChartObjects.Add(Left:=ws.Range("A" & (r + 3)).Left, _
-            Top:=ws.Range("A" & (r + 3)).Top, Width:=ws.Range("A1:K1").Width, Height:=300)
+            Top:=ws.Range("A" & (r + 3)).Top + 4, Width:=ws.Range("A1:K1").Width, Height:=320)
         With chartObj.Chart
             .ChartType = xlColumnClustered
             .SetSourceData Source:=ws.Range("A" & chartStartRow & ":B" & chartEndRow)
             .HasTitle = True
             .ChartTitle.Text = "Current Pending Pickups by Manager"
+            .ChartTitle.Font.Name = "Segoe UI"
+            .ChartTitle.Font.Size = 14
+            .ChartTitle.Font.Bold = True
+            .ChartTitle.Font.Color = RGB(31, 78, 121)
             .HasLegend = False
+            .ChartArea.Format.Line.Visible = msoTrue
+            .ChartArea.Format.Line.ForeColor.RGB = RGB(200, 200, 200)
+            .PlotArea.Format.Fill.Visible = msoFalse
             On Error Resume Next
+            .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(68, 114, 196)
+            .SeriesCollection(1).Format.Line.Visible = msoFalse
+            .SeriesCollection(1).HasDataLabels = True
+            .SeriesCollection(1).DataLabels.Font.Name = "Segoe UI"
+            .SeriesCollection(1).DataLabels.Font.Size = 9
+            .SeriesCollection(1).DataLabels.Font.Bold = True
+            .SeriesCollection(1).DataLabels.Position = xlLabelPositionOutsideEnd
             .Axes(xlCategory).TickLabels.Orientation = 45
+            .Axes(xlCategory).TickLabels.Font.Name = "Segoe UI"
+            .Axes(xlCategory).TickLabels.Font.Size = 9
+            .Axes(xlValue).TickLabels.Font.Name = "Segoe UI"
+            .Axes(xlValue).TickLabels.Font.Size = 9
+            .Axes(xlValue).HasMajorGridlines = True
+            .Axes(xlValue).MajorGridlines.Format.Line.ForeColor.RGB = RGB(230, 230, 230)
+            .Axes(xlValue).HasTitle = True
+            .Axes(xlValue).AxisTitle.Text = "Pending Pickups"
+            .Axes(xlValue).AxisTitle.Font.Name = "Segoe UI"
+            .Axes(xlValue).AxisTitle.Font.Size = 10
+            .ChartGroups(1).GapWidth = 120
             On Error GoTo 0
         End With
     End If
 
-    ' Column widths (dashboard layout) - uniform for edge-to-edge alignment
-    ws.Columns("A:K").ColumnWidth = 13.5
+    ' Column widths (dashboard layout)
+    ws.Columns("A").ColumnWidth = 26
+    ws.Columns("B:K").ColumnWidth = 12.5
+    On Error Resume Next
+    ws.Range("A1").Select
+    If Not ActiveWindow Is Nothing Then
+        ActiveWindow.ScrollRow = 1
+        ActiveWindow.ScrollColumn = 1
+    End If
+    On Error GoTo 0
 
     LogMsg "BuildDashboard done - all cards and table created"
     Exit Sub
@@ -498,7 +565,7 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
 
     cardLabel = "AVERAGE PICKUP AGE" & vbCrLf & "Pending Pickup Age"
     If IsNumeric(avgAge) Then
-        cardValue = Format(CDbl(avgAge), "0.0")
+        cardValue = CStr(CLng(avgAge)) & " days"
     Else
         cardValue = "N/A"
     End If

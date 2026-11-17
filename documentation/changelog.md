@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
+- **08:59:16** — Set Dashboard as the default active sheet on save in `modCore.bas` so generated reports open on Dashboard. Reworked Dashboard "Pending Pickups by Manager" table/chart in `modFormatting.bas` and rounded average age to whole days in `modUtils.bas` (`CalculateAverageAge`): table header now `Avg Age (Days)` with whole-number values/formatting, improved header/row/TOTAL styling and outer borders, widened manager column, and enhanced chart styling (data labels, cleaner axes/gridlines, title/spacing/colors).
+
 - **08:48:12** — Updated manager-tab UI in `modFormatting.bas`/`modCore.bas`: set `TOTAL PER SALES REP` summary block (rows 11-15) background to match KPI band color `RGB(221,235,247)` and moved/enlarged per-manager email button (offset +24, 180x42, font 11) to improve visibility and spacing.
 
 - **08:41:26** — Improved email system in `modDialog.bas`: wired START HERE `D18` intro text into manager/dashboard drafts via `GetEmailBody` (with sensible defaults), trimmed config reads, and clarified `SetupEmailCC` guidance for CC/subject/body cells.

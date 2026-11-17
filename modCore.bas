@@ -502,6 +502,12 @@ Public Function CreatePendingPickupReport() As Boolean
     AuditLogEvent "SAVE", "Report saved to: " & savePath
     LogMsg "TRACE: AuditLogEvent SAVE done"
 
+    ' Ensure Dashboard is the default/active sheet when the report is opened
+    On Error Resume Next
+    outWb.Worksheets("Dashboard").Activate
+    If Not outWb.Worksheets("Dashboard") Is Nothing Then outWb.Worksheets("Dashboard").Range("A1").Select
+    On Error GoTo CleanFail
+
     LogMsg "TRACE: SaveAs start"
     outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbook
     LogMsg "TRACE: SaveAs done"
