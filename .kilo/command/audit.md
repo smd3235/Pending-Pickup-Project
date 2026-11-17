@@ -12,17 +12,17 @@ The peer is discovered automatically: a sibling directory with a root `*.bas` an
 
 Full audit:
 
-!`python "scripts\audit-peer.py"
+!`python "scripts\audit-peer.py"`
 
 Sections that exist on both sides only (fast):
 
-!`python "scripts\audit-peer.py" -Sections scripts,commands -SymbolLimit 40
+!`python "scripts\audit-peer.py" -Sections scripts,commands -SymbolLimit 40`
 
 What the audit compares:
 
 - files present on one side only, and files that differ (with per-file line counts)
 - VBA procedure names: shared, peer-only (port candidates), and here-only
-- PowerShell/Python function names and Markdown section headings, per matched file
+- Python function names and Markdown section headings, per matched file
 
 Then report, concisely:
 
@@ -37,4 +37,4 @@ Then report, concisely:
 Do not copy anything. Porting is a separate, approved task. When it is approved:
 copy the file, adapt its data source and paths to this project, then run the
 mandatory loop (`.\scripts\test-compile.py`, `.\scripts\sync_template.py`,
-`.\scripts\run-report.py`) and update `documentation\CHANGELOG.md`.
+`.\scripts\run-report.py`) and update `documentation\changelog.md`.

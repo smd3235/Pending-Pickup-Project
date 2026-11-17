@@ -166,9 +166,7 @@ This project's save location is `...\Pending Pickup Project\Reports`, already se
 `OutputFolder` (registry `HKCU\Software\VB and VBA Program Settings\PendingPickupReport\Settings\OutputFolder`).
 Folder memory uses `SaveSetting "PendingPickupReport", "Settings", <CurrentFolder|PriorFolder|OutputFolder>`.
 
-**Testing comparison:** with the bundled prior fixture in `Reports/`, select
-`Reports\Pending Pickup 2026-10-13.xlsx` at step 4. Expected result against the current fake export:
-~114 still pending, ~36 new, ~12 cleared.
+**Testing comparison:** select a prior generated Pending Pickup report at step 4 (not bundled in the repo). Example result against the current fake export with a matching prior fixture: ~114 still pending, ~36 new, ~12 cleared (actual counts depend on the prior report used).
 
 ---
 
