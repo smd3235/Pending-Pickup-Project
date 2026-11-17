@@ -415,13 +415,13 @@ Public Function CreatePendingPickupReport() As Boolean
         ' Add email button to the right of manager data
         Dim emailBtn As Shape
         Set emailBtn = ws.Shapes.AddShape(msoShapeRoundedRectangle, _
-            ws.Columns(managerLastCol + 1).Left + 10, _
+            ws.Columns(managerLastCol + 1).Left + 24, _
             ws.Rows(MANAGER_HEADER_ROW).Top, _
-            130, 35)
+            180, 42)
         emailBtn.Name = "btnEmail" & SafeSheetName(manager, outWb)
         emailBtn.TextFrame2.TextRange.Text = "Email " & manager
         emailBtn.TextFrame2.TextRange.Font.Bold = True
-        emailBtn.TextFrame2.TextRange.Font.Size = 10
+        emailBtn.TextFrame2.TextRange.Font.Size = 11
         emailBtn.OnAction = "EmailSelectedManagerTab"
         emailBtn.AlternativeText = ws.Name
     Next i

@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
+- **08:48:12** — Updated manager-tab UI in `modFormatting.bas`/`modCore.bas`: set `TOTAL PER SALES REP` summary block (rows 11-15) background to match KPI band color `RGB(221,235,247)` and moved/enlarged per-manager email button (offset +24, 180x42, font 11) to improve visibility and spacing.
+
 - **08:41:26** — Improved email system in `modDialog.bas`: wired START HERE `D18` intro text into manager/dashboard drafts via `GetEmailBody` (with sensible defaults), trimmed config reads, and clarified `SetupEmailCC` guidance for CC/subject/body cells.
 - **08:41:26** — Made email range capture dynamic: dashboard now copies computed bounds including embedded charts/shapes instead of fixed `A1:P25`; manager emails copy the data table region (header row to last data row/header columns) to avoid including the email button column.
 - **08:41:26** — Hardened Outlook compose flow: increased Word-editor wait to 8s, added user-facing `MsgBox` failures via `NotifyEmailFailure`, resolved clicked button targets from the owning workbook/sheet more robustly, cleared clipboard (`Application.CutCopyMode = False`) after sends, and added dashboard date/row-count context to subject/intro. `scripts/test-compile.py` passed and `scripts/sync_template.py` refreshed template/build artifacts.

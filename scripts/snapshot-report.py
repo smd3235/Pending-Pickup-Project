@@ -67,6 +67,37 @@ def save_sheet_image(workbook, worksheet, png_path):
     first_col = used.Column
     last_row = first_row + used.Rows.Count - 1
     last_col = first_col + used.Columns.Count - 1
+
+    # Include embedded charts/shapes so content below UsedRange (e.g. dashboard chart) is captured.
+    try:
+        for co in worksheet.ChartObjects():
+            br = co.BottomRightCell
+            tr = co.TopLeftCell
+            if br.Row > last_row:
+                last_row = br.Row
+            if br.Column > last_col:
+                last_col = br.Column
+            if tr.Row < first_row:
+                first_row = tr.Row
+            if tr.Column < first_col:
+                first_col = tr.Column
+    except Exception:
+        pass
+    try:
+        for shp in worksheet.Shapes:
+            br = shp.BottomRightCell
+            tr = shp.TopLeftCell
+            if br.Row > last_row:
+                last_row = br.Row
+            if br.Column > last_col:
+                last_col = br.Column
+            if tr.Row < first_row:
+                first_row = tr.Row
+            if tr.Column < first_col:
+                first_col = tr.Column
+    except Exception:
+        pass
+
     rng = worksheet.Range(worksheet.Cells(first_row, first_col), worksheet.Cells(last_row, last_col))
 
     # Activate sheet and set zoom to 100% so CopyPicture captures at full resolution,
@@ -88,8 +119,8 @@ def save_sheet_image(workbook, worksheet, png_path):
     if not copied:
         raise RuntimeError(f"CopyPicture failed after 3 attempts for {worksheet.Name}")
 
-    rows = int(used.Rows.Count)
-    cols = int(used.Columns.Count)
+    rows = last_row - first_row + 1
+    cols = last_col - first_col + 1
     # Wider chart so content isn't squished onto one page width.
     w = max(1800, cols * 110)
     h = max(900, rows * 30)

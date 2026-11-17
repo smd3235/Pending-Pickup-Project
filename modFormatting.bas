@@ -71,7 +71,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     ws.Rows("8:10").RowHeight = 33.95
     ws.Rows("11:11").RowHeight = 21.95
 
-    ' Top row cards
+    ' Top row cards (10 KPI cards across A:K with small gaps -> 20 cols, 2 per card)
     labelText = "CURRENT PERIOD" & vbCrLf & "Pending Pickups"
     valueText = CStr(currentCount)
     AddDashboardCard ws, "A4:B5", "A6:B6", RGB(221, 235, 247), labelText, valueText
@@ -90,7 +90,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
 
     labelText = "STILL PENDING" & vbCrLf & "In Both Reports"
     valueText = IIf(hasPrior, CStr(stillCount), "N/A")
-    AddDashboardCard ws, "I4:J5", "I6:J6", RGB(221, 235, 247), labelText, valueText
+    AddDashboardCard ws, "I4:K5", "I6:K6", RGB(221, 235, 247), labelText, valueText
 
     ' Bottom row cards
     labelText = "% CHANGE VS PRIOR" & vbCrLf & "From Prior Report"
@@ -115,7 +115,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
 
     labelText = "MISSING PICKUP DATE" & vbCrLf & "AUDIT: TP End Date"
     valueText = CStr(missingDateCount)
-    AddDashboardCard ws, "I8:J9", "I10:J10", RGB(255, 242, 204), labelText, valueText
+    AddDashboardCard ws, "I8:K9", "I10:K10", RGB(255, 242, 204), labelText, valueText
 
     ' Manager table section
     ws.Rows(12).RowHeight = 24
@@ -701,7 +701,7 @@ Private Sub AddManagerRepSummary(ByVal ws As Worksheet, ByVal firstDataRow As Lo
 
     summaryText = "TOTAL PER SALES REP" & vbCrLf & parts
 
-    ' Single merged block spanning rows 11-15 across full data width
+    ' Single merged block spanning rows 11-15 across full data width, matching KPI band background
     ws.Rows("11:15").RowHeight = 20
     Set blockRg = ws.Range(ws.Cells(11, 1), ws.Cells(15, lastCol))
     blockRg.UnMerge
@@ -716,18 +716,7 @@ Private Sub AddManagerRepSummary(ByVal ws As Worksheet, ByVal firstDataRow As Lo
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
         .WrapText = True
-        .Borders.LineStyle = xlContinuous
-        .Borders.Weight = xlThin
-    End With
-    With blockRg.Borders(xlEdgeTop)
-        .LineStyle = xlContinuous
-        .Weight = xlMedium
-        .Color = RGB(31, 78, 121)
-    End With
-    With blockRg.Borders(xlEdgeBottom)
-        .LineStyle = xlContinuous
-        .Weight = xlMedium
-        .Color = RGB(31, 78, 121)
+        .Borders.LineStyle = xlNone
     End With
 End Sub
 

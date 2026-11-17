@@ -528,13 +528,24 @@ End Sub
 
 Public Sub HideUnusedCells(ByVal ws As Worksheet)
     Dim lastRow As Long, lastCol As Long
-    Dim maxRow As Long, maxCol As Long
     Dim hideFromRow As Long, hideFromCol As Long
+    Dim co As ChartObject
+    Dim shp As Shape
 
     On Error Resume Next
 
     lastRow = LastUsedRow(ws)
     lastCol = LastUsedColumn(ws)
+
+    ' Include embedded charts/shapes so their rows/columns are not hidden
+    For Each co In ws.ChartObjects
+        If co.BottomRightCell.Row > lastRow Then lastRow = co.BottomRightCell.Row
+        If co.BottomRightCell.Column > lastCol Then lastCol = co.BottomRightCell.Column
+    Next co
+    For Each shp In ws.Shapes
+        If shp.BottomRightCell.Row > lastRow Then lastRow = shp.BottomRightCell.Row
+        If shp.BottomRightCell.Column > lastCol Then lastCol = shp.BottomRightCell.Column
+    Next shp
 
     ' Hide unused columns to the right of data
     hideFromCol = lastCol + 1
