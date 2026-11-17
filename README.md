@@ -115,6 +115,24 @@ Filtered pending rows only, original column order, filterable table with frozen 
 
 ## Screenshots
 
+### Template and email setup
+
+Quick review of the `START HERE` tab and the hidden email template tabs (configured via the setup buttons).
+
+**START HERE**
+
+![START HERE](documentation/screenshots/template-start-here.png)
+
+**Manager Email Template** (hidden tab)
+
+![Manager Email Template](documentation/screenshots/template-manager-email.png)
+
+**Director Email Template** (hidden tab)
+
+![Director Email Template](documentation/screenshots/template-director-email.png)
+
+### Report output (QA)
+
 QA screenshots captured from a live report run (using the bundled fake export data). These show the actual report output with real data, formatting, and styling.
 
 ### Dashboard

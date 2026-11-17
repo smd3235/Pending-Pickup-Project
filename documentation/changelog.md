@@ -5,6 +5,18 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
+- **09:59:35** — Added template screenshots for quick review: `documentation/screenshots/template-start-here.png`, `template-manager-email.png`, `template-director-email.png` (captured from `Pending Pickup Template.xlsm`); updated `README.md` to display START HERE and email template tabs.
+
+- **09:57:17** — Reorganized START HERE layout in `scripts/sync_template.py` to account for existing content: stacked the three action buttons in a reserved area (expanded row 14), moved "GOOD TO KNOW" section to rows 18–21 and version line to row 23, and moved email template info labels to rows 24–25 to prevent overlaps. Re-synced template/build artifacts.
+
+- **09:53:25** — Reorganized START HERE buttons in `scripts/sync_template.py` to prevent overlap: "Create Pending Pickup Report" and "Setup Manager Email Settings" aligned on row 1, "Setup Director Email Template" moved to row 2 with consistent sizing/spacing; moved email template info labels down to rows 18-19. Re-synced template/build artifacts.
+
+- **09:51:29** — Reworked hidden email template tabs in `scripts/sync_template.py` to use individually separated sections (no full-board overlay): header card plus distinct TO/CC/SUBJECT input boxes and a separate BODY box with side label chips, canvas gaps between sections, and clean blank inputs; preserved VBA config cells (`D5/D6/D7/D9`). Re-synced template/build artifacts.
+
+- **09:46:47** — Refined hidden email template tab layout in `scripts/sync_template.py`: each section (TO/CC/SUBJECT/BODY) now separated with spacing and side label chips, leaving clean blank input boxes on the right; body area expanded; preserved VBA config cells (`D5/D6/D7/D9`). Re-synced template/build artifacts.
+
+- **09:39:38** — Upgraded hidden Manager/Director email template tabs in `scripts/sync_template.py` with a polished shape-based layout: themed header/banner and badge, card-style board, color-coded TO/CC/SUBJECT/BODY fields, large styled body input area, and clean no-grid view with only editable inputs visible. Re-synced template/build artifacts.
+
 - **09:31:37** — Renamed macro-free base template from `Template (No Macros).xlsx` to `Pending Pickup Template (no-macros).xlsx`. Updated `scripts/sync_template.py`, `BUILD-INSTRUCTIONS.txt`, `README.md`, and documentation references; removed old tracked file, synced/rebuilt `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip`.
 
 - **09:25:52** — Visually reformatted hidden `Manager Email Template` and `Director Email Template` tabs in `scripts/sync_template.py`: clean gridline-free layout showing only labeled input sections **TO/CC/SUBJECT/BODY** (`D5/D6/D7` and merged `D9:K24` body area), styled input boxes, and hidden unused rows/columns. Updated `modDeclarations.bas`/`modDialog.bas` for new cell mapping and manager `To` support (`GetEmailTo`), and synced template/build artifacts.
