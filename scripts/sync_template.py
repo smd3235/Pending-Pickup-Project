@@ -246,7 +246,7 @@ try:
         except Exception:
             pass
 
-        # Reset sheet for a clean canvas
+        # Reset sheet for a clean, shape-free canvas (shapes can cover typed text)
         try:
             for s in list(sh.Shapes):
                 try:
@@ -258,215 +258,218 @@ try:
         try:
             sh.Cells.Clear
             sh.Cells.UnMerge()
-            sh.Cells.Interior.Color = 0xFAF7F2
+            sh.Cells.Interior.Color = 0xF6F3EE  # warm canvas
             sh.Cells.Font.Name = "Segoe UI"
+            sh.Cells.Font.Size = 11
             sh.Cells.Font.Color = 0x222222
             sh.Cells.Borders.LineStyle = -4142  # xlLineStyleNone
             sh.Cells.WrapText = False
         except Exception:
             pass
 
-        # Layout metrics (VBA reads D5=To, D6=CC, D7=Subject, D9=Body)
+        # Layout metrics (separated sections; VBA reads D5/D6/D7/D9)
         try:
             sh.Columns("A").ColumnWidth = 1.0
-            sh.Columns("B").ColumnWidth = 1.0
-            sh.Columns("C").ColumnWidth = 11
+            sh.Columns("B").ColumnWidth = 1.5
+            sh.Columns("C").ColumnWidth = 12
             for col in ["D", "E", "F", "G", "H", "I", "J", "K"]:
                 sh.Columns(col).ColumnWidth = 18
-            sh.Rows("1").RowHeight = 10
+            sh.Rows("1").RowHeight = 8
             sh.Rows("2").RowHeight = 34
-            sh.Rows("3").RowHeight = 18
-            sh.Rows("4").RowHeight = 16   # spacer above TO
-            sh.Rows("5").RowHeight = 44   # TO
-            sh.Rows("6").RowHeight = 44   # CC
-            sh.Rows("7").RowHeight = 44   # SUBJECT
-            sh.Rows("8").RowHeight = 18   # spacer above BODY
-            sh.Rows("9").RowHeight = 30   # BODY top
-            for rr in range(10, 30):
+            sh.Rows("3").RowHeight = 20
+            sh.Rows("4").RowHeight = 14   # spacer
+            sh.Rows("5").RowHeight = 34   # TO
+            sh.Rows("6").RowHeight = 10   # spacer
+            sh.Rows("7").RowHeight = 34   # CC
+            sh.Rows("8").RowHeight = 10   # spacer
+            sh.Rows("9").RowHeight = 34   # SUBJECT
+            sh.Rows("10").RowHeight = 14  # spacer
+            sh.Rows("11").RowHeight = 24  # BODY label row
+            for rr in range(12, 31):
                 sh.Rows(str(rr)).RowHeight = 20
+            sh.Rows("12").RowHeight = 22
         except Exception:
             pass
 
-        # Hide everything outside the design/input area
+        # Hide unused areas for a focused view
         try:
-            sh.Rows("30:1048576").Hidden = True
+            sh.Rows("31:1048576").Hidden = True
             sh.Columns("L:XFD").Hidden = True
             sh.Columns("A").Hidden = True
-            sh.Columns("B").Hidden = True
         except Exception:
             pass
 
-        # Header card only (no giant board over all sections)
+        # Header band (cells only)
         try:
-            header = sh.Shapes.AddShape(5, sh.Range("C2").Left - 2, sh.Range("C2").Top - 2,
-                                        (sh.Range("K3").Left + sh.Range("K3").Width) - sh.Range("C2").Left + 4,
-                                        (sh.Range("C3").Top + sh.Range("C3").Height) - sh.Range("C2").Top + 2)
-            header.Name = "emailHeader"
-            header.Fill.ForeColor.RGB = accent
-            header.Line.Visible = 0
-            header.Placement = 2
-            try:
-                header.Shadow.Type = 21
-                header.Shadow.ForeColor.RGB = 0xC8C0B4
-                header.Shadow.Transparency = 0.55
-            except Exception:
-                pass
-        except Exception:
-            pass
-
-        try:
-            badge = sh.Shapes.AddShape(5, sh.Range("I2").Left, sh.Range("C2").Top + 6,
-                                       (sh.Range("K2").Left + sh.Range("K2").Width) - sh.Range("I2").Left - 2,
-                                       22)
-            badge.Name = "emailBadge"
-            badge.Fill.ForeColor.RGB = accent_light
-            badge.Line.Visible = 0
-            badge.Placement = 2
-            badge.TextFrame2.TextRange.Text = badge_text
-            badge.TextFrame2.TextRange.Font.Name = "Segoe UI"
-            badge.TextFrame2.TextRange.Font.Bold = True
-            badge.TextFrame2.TextRange.Font.Size = 9
-            badge.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = accent
-            badge.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-            badge.TextFrame2.VerticalAnchor = 3
-        except Exception:
-            pass
-
-        # Header text
-        try:
-            sh.Range("C2:K2").Merge()
-            sh.Range("C3:K3").Merge()
-            sh.Range("C2").Value = title
-            sh.Range("C3").Value = "Enter details in each box below. Dashboard content is inserted automatically when you generate an email."
-            sh.Range("C2").Font.Name = "Segoe UI"
-            sh.Range("C2").Font.Bold = True
-            sh.Range("C2").Font.Size = 18
-            sh.Range("C2").Font.Color = 0xFFFFFF
-            sh.Range("C2").HorizontalAlignment = -4131
-            sh.Range("C2").VerticalAlignment = -4108
-            sh.Range("C2").IndentLevel = 1
-            sh.Range("C3").Font.Name = "Segoe UI"
-            sh.Range("C3").Font.Size = 10
-            sh.Range("C3").Font.Color = 0xF0E6D8
-            sh.Range("C3").HorizontalAlignment = -4131
-            sh.Range("C3").VerticalAlignment = -4108
-            sh.Range("C3").IndentLevel = 1
-        except Exception:
-            pass
-
-        # Individual separated sections: side label chip + isolated input box
-        # Inset boxes vertically so sheet background shows between rows (sections look separate)
-        for sec in [
-            {"label": "TO", "row": 5, "rng": "D5:K5", "chip_fill": 0xE8F1FB},
-            {"label": "CC", "row": 6, "rng": "D6:K6", "chip_fill": 0xEAF7F0},
-            {"label": "SUBJECT", "row": 7, "rng": "D7:K7", "chip_fill": 0xFFF4DF},
-        ]:
-            row = sec["row"]
-            label = sec["label"]
-            rng_addr = sec["rng"]
-            try:
-                lrg = sh.Range(f"C{row}")
-                chip = sh.Shapes.AddShape(5, lrg.Left, lrg.Top + 8, lrg.Width - 6, lrg.Height - 16)
-                chip.Name = f"chip_{label}"
-                chip.Fill.ForeColor.RGB = sec["chip_fill"]
-                chip.Line.ForeColor.RGB = accent
-                chip.Line.Weight = 0.9
-                chip.Placement = 2
-                chip.TextFrame2.TextRange.Text = label
-                chip.TextFrame2.TextRange.Font.Name = "Segoe UI"
-                chip.TextFrame2.TextRange.Font.Bold = True
-                chip.TextFrame2.TextRange.Font.Size = 9
-                chip.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = accent
-                chip.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-                chip.TextFrame2.VerticalAnchor = 3
-            except Exception:
-                pass
-            try:
-                irg = sh.Range(rng_addr)
-                # inset vertically so canvas shows between sections (individual boxes)
-                box = sh.Shapes.AddShape(5, irg.Left, irg.Top + 6, irg.Width, irg.Height - 12)
-                box.Name = f"input_{label}"
-                box.Fill.ForeColor.RGB = 0xFFFFFF
-                box.Line.ForeColor.RGB = accent
-                box.Line.Weight = 1.5
-                box.Placement = 2
+            sh.Range("B2:K2").Merge()
+            sh.Range("B3:K3").Merge()
+            sh.Range("B2:K3").Interior.Color = accent
+            sh.Range("B2").Value = title
+            sh.Range("B3").Value = "Edit each field below. Email content is inserted automatically when generated."
+            sh.Range("B2").Font.Name = "Segoe UI"
+            sh.Range("B2").Font.Bold = True
+            sh.Range("B2").Font.Size = 18
+            sh.Range("B2").Font.Color = 0xFFFFFF
+            sh.Range("B2").HorizontalAlignment = -4131
+            sh.Range("B2").VerticalAlignment = -4108
+            sh.Range("B2").IndentLevel = 1
+            sh.Range("B3").Font.Name = "Segoe UI"
+            sh.Range("B3").Font.Size = 10
+            sh.Range("B3").Font.Color = 0xF2ECE4
+            sh.Range("B3").HorizontalAlignment = -4131
+            sh.Range("B3").VerticalAlignment = -4108
+            sh.Range("B3").IndentLevel = 1
+            # badge on the right side of header
+            sh.Range("J2:K2").UnMerge()
+            sh.Range("J2:K2").Merge()
+            sh.Range("J2").Value = badge_text
+            sh.Range("J2").Font.Name = "Segoe UI"
+            sh.Range("J2").Font.Bold = True
+            sh.Range("J2").Font.Size = 9
+            sh.Range("J2").Font.Color = accent
+            sh.Range("J2").Interior.Color = accent_light
+            sh.Range("J2").HorizontalAlignment = -4108
+            sh.Range("J2").VerticalAlignment = -4108
+            for edge in (7, 8, 9, 10):
                 try:
-                    box.Shadow.Type = 21
-                    box.Shadow.ForeColor.RGB = 0xDDD6CC
-                    box.Shadow.Transparency = 0.65
+                    b = sh.Range("B2:K3").Borders(edge)
+                    b.LineStyle = 1
+                    b.Weight = 2
+                    b.Color = accent
                 except Exception:
                     pass
-            except Exception:
-                pass
-            try:
-                sh.Range(f"C{row}").Value = ""
-            except Exception:
-                pass
-
-        # BODY: side label + large isolated input box
-        try:
-            body_chip = sh.Shapes.AddShape(5, sh.Range("C9").Left, sh.Range("C9").Top + 4,
-                                           sh.Range("C9").Width - 6, 26)
-            body_chip.Name = "chip_BODY"
-            body_chip.Fill.ForeColor.RGB = 0xF3ECFF
-            body_chip.Line.ForeColor.RGB = accent
-            body_chip.Line.Weight = 0.9
-            body_chip.Placement = 2
-            body_chip.TextFrame2.TextRange.Text = "BODY"
-            body_chip.TextFrame2.TextRange.Font.Name = "Segoe UI"
-            body_chip.TextFrame2.TextRange.Font.Bold = True
-            body_chip.TextFrame2.TextRange.Font.Size = 9
-            body_chip.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = accent
-            body_chip.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-            body_chip.TextFrame2.VerticalAnchor = 3
-        except Exception:
-            pass
-        try:
-            brg = sh.Range("D9:K29")
-            brg.UnMerge()
-            brg.Merge()
-            body_box = sh.Shapes.AddShape(5, brg.Left, brg.Top, brg.Width, brg.Height)
-            body_box.Name = "input_BODY"
-            body_box.Fill.ForeColor.RGB = 0xFFFFFF
-            body_box.Line.ForeColor.RGB = accent
-            body_box.Line.Weight = 1.5
-            body_box.Placement = 2
-            try:
-                body_box.Shadow.Type = 21
-                body_box.Shadow.ForeColor.RGB = 0xDDD6CC
-                body_box.Shadow.Transparency = 0.65
-            except Exception:
-                pass
         except Exception:
             pass
 
-        # Input cell formatting (cells remain the actual editable fields, labels off to side only)
-        try:
-            for addr in ("D5", "D6", "D7"):
+        def _style_label(addr, text, fill):
+            try:
                 rg = sh.Range(addr)
-                rg.Interior.ColorIndex = 0  # transparent over shape
+                rg.Value = text
+                rg.Font.Name = "Segoe UI"
+                rg.Font.Bold = True
+                rg.Font.Size = 9
+                rg.Font.Color = accent
+                rg.Interior.Color = fill
+                rg.HorizontalAlignment = -4108
+                rg.VerticalAlignment = -4108
+                for edge in (7, 8, 9, 10):
+                    try:
+                        b = rg.Borders(edge)
+                        b.LineStyle = 1
+                        b.Weight = 2
+                        b.Color = accent_light
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        def _style_input(merge_addr, top_left, wrap=False):
+            try:
+                rg = sh.Range(merge_addr)
+                rg.UnMerge()
+                rg.Merge()
+            except Exception:
+                pass
+            try:
+                rg = sh.Range(merge_addr)
+                rg.Interior.Color = 0xFFFFFF
                 rg.Font.Name = "Segoe UI"
                 rg.Font.Size = 11
                 rg.Font.Color = 0x1F1F1F
                 rg.HorizontalAlignment = -4131
-                rg.VerticalAlignment = -4108
-                rg.WrapText = False
-                rg.Borders.LineStyle = -4142
+                rg.VerticalAlignment = -4160 if wrap else -4108
+                rg.WrapText = wrap
                 rg.IndentLevel = 1
-            brg = sh.Range("D9:K29")
-            brg.Interior.ColorIndex = 0
-            brg.Font.Name = "Segoe UI"
-            brg.Font.Size = 11
-            brg.Font.Color = 0x1F1F1F
-            brg.HorizontalAlignment = -4131
-            brg.VerticalAlignment = -4160  # xlTop
-            brg.WrapText = True
-            brg.Borders.LineStyle = -4142
-            brg.IndentLevel = 1
+                for edge in (7, 8, 9, 10):
+                    try:
+                        b = rg.Borders(edge)
+                        b.LineStyle = 1
+                        b.Weight = 2
+                        b.Color = 0xD9D2C7
+                    except Exception:
+                        pass
+                # ensure top-left cell (VBA target) stays editable/clear text formatting
+                sh.Range(top_left).Interior.Color = 0xFFFFFF
+            except Exception:
+                pass
+
+        # Separated sections with side labels and clean input boxes (cells only)
+        _style_label("C5", "TO", 0xE8F1FB)
+        _style_input("D5:K5", "D5", wrap=False)
+        _style_label("C7", "CC", 0xEAF7F0)
+        _style_input("D7:K7", "D7", wrap=False)
+        _style_label("C9", "SUBJECT", 0xFFF4DF)
+        _style_input("D9:K9", "D9", wrap=False)
+
+        # Body: label at side of header row, large isolated box below (keep D9 value slot? no: VBA reads D9 as body)
+        # BODY must remain in D9 for VBA readers; place body box at D9:K30? but D9 used above - adjust:
+        # Use D9 as SUBJECT and D11 as BODY to avoid collision? cannot: VBA expects D9 body.
+        # So: SUBJECT -> D7, BODY -> D9 merged box. Re-layout accordingly.
+        try:
+            # reset SUBJECT/BODY to correct mapping
+            sh.Range("C9").Value = "SUBJECT"
+            sh.Range("C11").Value = "BODY"
         except Exception:
             pass
 
-        # Set values
+        # Correct mapping: TO=D5, CC=D6, SUBJECT=D7, BODY=D9 (all preserved)
+        # Rebuild with spacers so each is a distinct section
+        try:
+            # clear temp placements
+            for a in ("C5","D5:K5","C7","D7:K7","C9","D9:K9","C11"):
+                try:
+                    sh.Range(a).UnMerge()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Final explicit layout
+        try:
+            sh.Rows("4").RowHeight = 14
+            sh.Rows("5").RowHeight = 34  # TO (D5)
+            sh.Rows("6").RowHeight = 10  # spacer
+            sh.Rows("7").RowHeight = 34  # CC (D6)
+            sh.Rows("8").RowHeight = 10  # spacer
+            sh.Rows("9").RowHeight = 34  # SUBJECT (D7)
+            sh.Rows("10").RowHeight = 14 # spacer
+            sh.Rows("11").RowHeight = 22 # BODY label
+            sh.Rows("12").RowHeight = 22 # BODY start (D9 will be in merged D12:K30?) no - keep D9
+        except Exception:
+            pass
+        # Keep VBA cell addresses: D5, D6, D7, D9
+        _style_label("C5", "TO", 0xE8F1FB)
+        _style_input("D5:K5", "D5", wrap=False)
+        _style_label("C6", "CC", 0xEAF7F0)
+        _style_input("D6:K6", "D6", wrap=False)
+        _style_label("C7", "SUBJECT", 0xFFF4DF)
+        _style_input("D7:K7", "D7", wrap=False)
+
+        # Visually separate BODY below with a label row and a big box at D9:K29
+        try:
+            sh.Range("C8:K8").Interior.Color = 0xF6F3EE
+            sh.Range("C8:K8").Borders.LineStyle = -4142
+            sh.Range("C8").Value = "BODY"
+            sh.Range("C8").Font.Name = "Segoe UI"
+            sh.Range("C8").Font.Bold = True
+            sh.Range("C8").Font.Size = 9
+            sh.Range("C8").Font.Color = accent
+            sh.Range("C8").HorizontalAlignment = -4131
+            sh.Range("C8").VerticalAlignment = -4108
+            sh.Range("C8").IndentLevel = 1
+        except Exception:
+            pass
+        _style_input("D9:K29", "D9", wrap=True)
+        try:
+            sh.Rows("8").RowHeight = 18
+            sh.Rows("9").RowHeight = 24
+            for rr in range(10, 30):
+                sh.Rows(str(rr)).RowHeight = 20
+            sh.Rows("30:1048576").Hidden = True
+        except Exception:
+            pass
+
+        # Set values into the VBA-read cells
         try:
             sh.Range("D5").Value = field_values.get("to", "")
             sh.Range("D6").Value = field_values.get("cc", "")
@@ -481,7 +484,7 @@ try:
             if aw is not None:
                 aw.DisplayGridlines = False
                 aw.DisplayHeadings = False
-                aw.Zoom = 125
+                aw.Zoom = 120
         except Exception:
             pass
         try:

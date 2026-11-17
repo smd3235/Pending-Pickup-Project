@@ -5,7 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
-- **10:03:00** — Refined START HERE layout and copy: full-width "Create Pending Pickup Report" button with 50/50 Manager/Director email setup buttons below; updated HOW IT WORKS and GOOD TO KNOW text to reflect current workflow (comparison option, dashboard/manager/raw outputs, and hidden email template tabs). Template and email screenshots added to README for quick review.
+- **10:22:00** — Refined START HERE layout/copy and email template tabs: full-width "Create Pending Pickup Report" button with 50/50 Manager/Director email setup buttons below; updated HOW IT WORKS/GOOD TO KNOW; converted hidden Manager/Director email templates to shape-free, cell-formatted layouts (separated TO/CC/SUBJECT/BODY sections, accent header, bordered inputs) so typed text is never obscured, preserving VBA config cells (`D5/D6/D7/D9`). Template and email screenshots added/updated in README.
 
 
 ## 2026-11-16
