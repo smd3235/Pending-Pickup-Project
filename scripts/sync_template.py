@@ -385,7 +385,26 @@ try:
         except Exception:
             pass
 
-        # Reset sheet for a clean, shape-free canvas (no overlay shapes/text obstruction)
+        # Derived palette
+        def _blend(hex_color, white_mix=0.82):
+            # simple lighten toward white in BGR int
+            r = (hex_color >> 0) & 0xFF
+            g = (hex_color >> 8) & 0xFF
+            b = (hex_color >> 16) & 0xFF
+            nr = int(r + (255 - r) * white_mix)
+            ng = int(g + (255 - g) * white_mix)
+            nb = int(b + (255 - b) * white_mix)
+            return nr | (ng << 8) | (nb << 16)
+
+        CANVAS = 0xF3F1EC
+        PANEL = 0xFFFFFF
+        PANEL_BORDER = 0xD7D1C6
+        MUTED = 0x5A5348
+        LABEL_TEXT = accent
+        LABEL_BG = accent_light if accent_light else _blend(accent, 0.86)
+        HINT_BG = _blend(accent, 0.93)
+
+        # Reset sheet for a clean, shape-free canvas
         try:
             for s in list(sh.Shapes):
                 try:
@@ -398,7 +417,7 @@ try:
             sh.Cells.ClearContents()
             sh.Cells.ClearFormats()
             sh.Cells.UnMerge()
-            sh.Cells.Interior.Color = 0xF4F1EB  # warm canvas
+            sh.Cells.Interior.Color = CANVAS
             sh.Cells.Font.Name = "Segoe UI"
             sh.Cells.Font.Size = 11
             sh.Cells.Font.Color = 0x1F1F1F
@@ -408,62 +427,57 @@ try:
         except Exception:
             pass
 
-        # Layout (preserve VBA-read cells): header 2-3, instructions 4, TO 5, gap 6, CC 7, gap 8, SUBJECT 9, gap 10, BODY 11:31
+        # Layout (preserve VBA-read cells): header 2-3, badge/instructions 4, section TO 5, gap 6, CC 7, gap 8, SUBJECT 9, gap 10, BODY 11:31
         try:
             sh.Columns("A").ColumnWidth = 1.0
-            sh.Columns("B").ColumnWidth = 1.4
-            sh.Columns("C").ColumnWidth = 12.5
+            sh.Columns("B").ColumnWidth = 1.6
+            sh.Columns("C").ColumnWidth = 13.5
             for col in ["D", "E", "F", "G", "H", "I", "J", "K"]:
-                sh.Columns(col).ColumnWidth = 18.5
+                sh.Columns(col).ColumnWidth = 19.5
             sh.Rows("1").RowHeight = 6
-            sh.Rows("2").RowHeight = 38
-            sh.Rows("3").RowHeight = 18
-            sh.Rows("4").RowHeight = 18   # instructions
-            sh.Rows("5").RowHeight = 36   # TO (D5)
-            sh.Rows("6").RowHeight = 10   # spacer
-            sh.Rows("7").RowHeight = 36   # CC (D7)
-            sh.Rows("8").RowHeight = 10   # spacer
-            sh.Rows("9").RowHeight = 36   # SUBJECT (D9)
-            sh.Rows("10").RowHeight = 14  # spacer before BODY
-            sh.Rows("11").RowHeight = 26  # BODY top (merged D11:K31)
-            for rr in range(12, 32):
-                sh.Rows(str(rr)).RowHeight = 20
+            sh.Rows("2").RowHeight = 40   # title
+            sh.Rows("3").RowHeight = 22   # subtitle
+            sh.Rows("4").RowHeight = 20   # badge + hints
+            sh.Rows("5").RowHeight = 34   # TO (D5)
+            sh.Rows("6").RowHeight = 8    # spacer
+            sh.Rows("7").RowHeight = 34   # CC (D7)
+            sh.Rows("8").RowHeight = 8    # spacer
+            sh.Rows("9").RowHeight = 34   # SUBJECT (D9)
+            sh.Rows("10").RowHeight = 12  # spacer before BODY
+            sh.Rows("11").RowHeight = 28  # BODY label row top
+            for rr in range(12, 33):
+                sh.Rows(str(rr)).RowHeight = 19.5
+            sh.Rows("33").RowHeight = 8
         except Exception:
             pass
 
         try:
-            sh.Rows("32:1048576").Hidden = True
+            sh.Rows("34:1048576").Hidden = True
             sh.Columns("L:XFD").Hidden = True
             sh.Columns("A").Hidden = True
         except Exception:
             pass
 
-        # Header band
+        # Hero/header band
         try:
             sh.Range("B2:K2").Merge()
             sh.Range("B3:K3").Merge()
             sh.Range("B2:K3").Interior.Color = accent
             sh.Range("B2").Value = title
-            sh.Range("B3").Value = "Enter email details below. Report content is added automatically when you generate the email."
+            sh.Range("B3").Value = "Configure recipients and message content. The report is pasted at {{REPORT}} when you send."
             sh.Range("B2").Font.Name = "Segoe UI Semibold"
             sh.Range("B2").Font.Bold = True
-            sh.Range("B2").Font.Size = 19
+            sh.Range("B2").Font.Size = 20
             sh.Range("B2").Font.Color = 0xFFFFFF
             sh.Range("B2").HorizontalAlignment = -4131
             sh.Range("B2").VerticalAlignment = -4108
             sh.Range("B2").IndentLevel = 1
             sh.Range("B3").Font.Name = "Segoe UI"
             sh.Range("B3").Font.Size = 10
-            sh.Range("B3").Font.Color = 0xF6F0E7
+            sh.Range("B3").Font.Color = 0xF7F2EA
             sh.Range("B3").HorizontalAlignment = -4131
             sh.Range("B3").VerticalAlignment = -4108
             sh.Range("B3").IndentLevel = 1
-            try:
-                sh.Range("J2:K2").UnMerge()
-                sh.Range("J2:K2").Interior.Color = accent
-                sh.Range("J2:K2").ClearContents()
-            except Exception:
-                pass
             for edge in (7, 8, 9, 10):
                 try:
                     b = sh.Range("B2:K3").Borders(edge)
@@ -475,16 +489,23 @@ try:
         except Exception:
             pass
 
-        # Return to START HERE / re-hide button
+        # Return to START HERE button (anchored in header right)
         try:
             btn_cell = sh.Range("J2:K2")
-            btn = sh.Shapes.AddShape(5, btn_cell.Left + 4, btn_cell.Top + 5, btn_cell.Width - 8, 26)
+            # ensure clean header right area
+            try:
+                sh.Range("J2:K2").UnMerge()
+                sh.Range("J2:K2").Interior.Color = accent
+                sh.Range("J2:K2").ClearContents()
+            except Exception:
+                pass
+            btn = sh.Shapes.AddShape(5, btn_cell.Left + 4, btn_cell.Top + 6, btn_cell.Width - 8, 26)
             btn.Name = "btnReturnStartHere"
             btn.OnAction = "ReturnToStartHere"
             btn.Fill.ForeColor.RGB = accent_light
             btn.Line.ForeColor.RGB = 0xFFFFFF
-            btn.Line.Weight = 1
-            btn.TextFrame2.TextRange.Text = "Return to START HERE"
+            btn.Line.Weight = 1.25
+            btn.TextFrame2.TextRange.Text = "↩  Return to START HERE"
             btn.TextFrame2.TextRange.Font.Name = "Segoe UI"
             btn.TextFrame2.TextRange.Font.Bold = True
             btn.TextFrame2.TextRange.Font.Size = 9
@@ -498,117 +519,152 @@ try:
         except Exception:
             pass
 
-        # Instructions row
+        # Info strip: badge + quick tips
         try:
-            sh.Range("B4:K4").Merge()
-            sh.Range("B4").Value = "TO/CC: separate addresses with semicolons (;)  •  BODY: keep {{REPORT}} for pasted report (text above = intro, below = closing); use Alt+Enter for a new line."
-            sh.Range("B4").Font.Name = "Segoe UI"
+            sh.Range("B4:C4").Merge()
+            sh.Range("D4:K4").Merge()
+            sh.Range("B4").Value = f"  {badge_text}  "
+            sh.Range("B4").Font.Name = "Segoe UI Semibold"
+            sh.Range("B4").Font.Bold = True
             sh.Range("B4").Font.Size = 9
-            sh.Range("B4").Font.Italic = True
-            sh.Range("B4").Font.Color = 0x5A5348
-            sh.Range("B4").Interior.Color = 0xEDE8DF
-            sh.Range("B4").HorizontalAlignment = -4131
+            sh.Range("B4").Font.Color = accent
+            sh.Range("B4").Interior.Color = HINT_BG
+            sh.Range("B4").HorizontalAlignment = -4108
             sh.Range("B4").VerticalAlignment = -4108
-            sh.Range("B4").IndentLevel = 1
-            for edge in (8, 9):
-                try:
-                    b = sh.Range("B4:K4").Borders(edge)
-                    b.LineStyle = 1
-                    b.Weight = 2
-                    b.Color = 0xDDD6CA
-                except Exception:
-                    pass
+            sh.Range("D4").Value = "TO/CC: use semicolons (;)  •  BODY: keep {{REPORT}} (text above = intro, below = closing)  •  New line: Alt+Enter"
+            sh.Range("D4").Font.Name = "Segoe UI"
+            sh.Range("D4").Font.Size = 9
+            sh.Range("D4").Font.Italic = True
+            sh.Range("D4").Font.Color = MUTED
+            sh.Range("D4").Interior.Color = 0xEAE7DF
+            sh.Range("D4").HorizontalAlignment = -4131
+            sh.Range("D4").VerticalAlignment = -4108
+            sh.Range("D4").IndentLevel = 1
+            for rg_addr in ("B4:C4", "D4:K4"):
+                for edge in (7, 8, 9, 10):
+                    try:
+                        b = sh.Range(rg_addr).Borders(edge)
+                        b.LineStyle = 1
+                        b.Weight = 2
+                        b.Color = PANEL_BORDER
+                    except Exception:
+                        pass
         except Exception:
             pass
 
-        def _style_label(addr, text, fill):
+        def _style_field(row, label, input_addr, merge_addr, hint, label_fill, wrap=False):
             try:
-                rg = sh.Range(addr)
-                rg.UnMerge()
-                rg.Value = text
-                rg.Font.Name = "Segoe UI"
-                rg.Font.Bold = True
-                rg.Font.Size = 9
-                rg.Font.Color = accent
-                rg.Interior.Color = fill
-                rg.HorizontalAlignment = -4108
-                rg.VerticalAlignment = -4108
+                # label cell
+                lr = sh.Range(f"C{row}")
+                lr.UnMerge()
+                lr.Value = label
+                lr.Font.Name = "Segoe UI Semibold"
+                lr.Font.Bold = True
+                lr.Font.Size = 9
+                lr.Font.Color = LABEL_TEXT
+                lr.Interior.Color = label_fill
+                lr.HorizontalAlignment = -4108
+                lr.VerticalAlignment = -4108
                 for edge in (7, 8, 9, 10):
-                    try:
-                        b = rg.Borders(edge)
-                        b.LineStyle = 1
-                        b.Weight = 2
-                        b.Color = accent
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-        def _style_input(merge_addr, top_left, wrap=False):
-            try:
-                rg = sh.Range(merge_addr)
-                rg.UnMerge()
-                rg.Merge()
+                    b = lr.Borders(edge)
+                    b.LineStyle = 1
+                    b.Weight = 2
+                    b.Color = accent
             except Exception:
                 pass
             try:
-                rg = sh.Range(merge_addr)
-                rg.Interior.Color = 0xFFFFFF
-                rg.Font.Name = "Segoe UI"
-                rg.Font.Size = 11
-                rg.Font.Color = 0x1F1F1F
-                rg.HorizontalAlignment = -4131
-                rg.VerticalAlignment = -4160 if wrap else -4108
-                rg.WrapText = wrap
-                rg.IndentLevel = 1
+                ir = sh.Range(merge_addr)
+                ir.UnMerge()
+                ir.Merge()
+                ir.Interior.Color = PANEL
+                ir.Font.Name = "Segoe UI"
+                ir.Font.Size = 11
+                ir.Font.Color = 0x1F1F1F
+                ir.HorizontalAlignment = -4131
+                ir.VerticalAlignment = -4160 if wrap else -4108
+                ir.WrapText = wrap
+                ir.IndentLevel = 1
                 for edge in (7, 8, 9, 10):
-                    try:
-                        b = rg.Borders(edge)
-                        b.LineStyle = 1
-                        b.Weight = 2
-                        b.Color = 0xCFC6BA
-                    except Exception:
-                        pass
-                tl = sh.Range(top_left)
-                tl.Interior.Color = 0xFFFFFF
+                    b = ir.Borders(edge)
+                    b.LineStyle = 1
+                    b.Weight = 2
+                    b.Color = PANEL_BORDER
+                tl = sh.Range(input_addr)
+                tl.Interior.Color = PANEL
                 tl.WrapText = wrap
             except Exception:
                 pass
 
-        # Canvas spacers
-        for r in (6, 8, 10):
+        # Spacer rows
+        for r in (6, 8, 10, 33):
             try:
-                sh.Range(f"B{r}:K{r}").Interior.Color = 0xF4F1EB
+                sh.Range(f"B{r}:K{r}").Interior.Color = CANVAS
                 sh.Range(f"B{r}:K{r}").Borders.LineStyle = -4142
                 sh.Range(f"B{r}:K{r}").ClearContents()
             except Exception:
                 pass
 
-        # Sections (ordered, one per field). Fixed VBA cells: D5,D7,D9,D11
-        _style_label("C5", "TO", 0xE8F1FB)
-        _style_input("D5:K5", "D5", wrap=False)
+        # Fields (fixed VBA cells)
+        _style_field(5, "TO", "D5", "D5:K5", "", 0xE8F1FB, wrap=False)
+        _style_field(7, "CC", "D7", "D7:K7", "", 0xEAF7F0, wrap=False)
+        _style_field(9, "SUBJECT", "D9", "D9:K9", "", 0xFFF4DF, wrap=False)
 
-        _style_label("C7", "CC", 0xEAF7F0)
-        _style_input("D7:K7", "D7", wrap=False)
+        # BODY section: label block + large input area
+        try:
+            sh.Range("C11:C31").UnMerge()
+            sh.Range("C11:C31").Merge()
+            bl = sh.Range("C11")
+            bl.Value = "BODY"
+            bl.Font.Name = "Segoe UI Semibold"
+            bl.Font.Bold = True
+            bl.Font.Size = 9
+            bl.Font.Color = LABEL_TEXT
+            bl.Interior.Color = 0xF3ECFF
+            bl.HorizontalAlignment = -4108
+            bl.VerticalAlignment = -4160
+            bl.Orientation = 0
+            for edge in (7, 8, 9, 10):
+                b = sh.Range("C11:C31").Borders(edge)
+                b.LineStyle = 1
+                b.Weight = 2
+                b.Color = accent
+        except Exception:
+            pass
+        try:
+            br = sh.Range("D11:K31")
+            br.UnMerge()
+            br.Merge()
+            br.Interior.Color = PANEL
+            br.Font.Name = "Segoe UI"
+            br.Font.Size = 11
+            br.Font.Color = 0x1F1F1F
+            br.HorizontalAlignment = -4131
+            br.VerticalAlignment = -4160
+            br.WrapText = True
+            br.IndentLevel = 1
+            for edge in (7, 8, 9, 10):
+                b = br.Borders(edge)
+                b.LineStyle = 1
+                b.Weight = 2
+                b.Color = PANEL_BORDER
+            sh.Range("D11").WrapText = True
+        except Exception:
+            pass
 
-        _style_label("C9", "SUBJECT", 0xFFF4DF)
-        _style_input("D9:K9", "D9", wrap=False)
-
-        _style_label("C11", "BODY", 0xF3ECFF)
-        _style_input("D11:K31", "D11", wrap=True)
+        # Right-margin note card for body guidance
+        # (kept inside canvas by using a subtle hint above body instead of extra columns)
+        try:
+            # light inner header tint for body label top
+            sh.Range("C11").Interior.Color = 0xEBDDFF
+        except Exception:
+            pass
 
         # Clear stray/old content outside defined areas
         try:
-            for rr in list(range(1, 2)) + list(range(12, 32)):
-                cell = sh.Range(f"C{rr}")
-                if rr >= 12:
-                    cell.ClearContents()
-                    cell.Interior.Color = 0xF4F1EB
-                    cell.Borders.LineStyle = -4142
-            for addr in ("C6", "D6", "C8", "D8", "C10", "D10"):
+            for addr in ("C6", "D6", "C8", "D8", "C10", "D10", "B5", "B7", "B9", "B11"):
                 try:
                     sh.Range(addr).ClearContents()
-                    sh.Range(addr).Interior.Color = 0xF4F1EB
+                    sh.Range(addr).Interior.Color = CANVAS
                     sh.Range(addr).Borders.LineStyle = -4142
                 except Exception:
                     pass
