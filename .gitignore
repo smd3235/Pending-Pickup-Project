@@ -11,6 +11,10 @@ Reports/*
 log/*
 !log/.gitkeep
 
+# Python cache
+__pycache__/
+*.pyc
+
 # Local test / scratch artifacts
 _dbg*
 _compile*
