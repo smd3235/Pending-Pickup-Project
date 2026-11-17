@@ -179,7 +179,7 @@ write_log(run_log, f"Source: {source_path}")
 write_log(run_log, f"Completion marker: {completion_marker}")
 write_log(run_log, f"Python PID: {os.getpid()}")
 
-ensure_template_email_sync(template, project_root, write_log)
+ensure_template_email_sync(template, project_root, append_run_log)
 
 # Write auto-mode files so VBA skips file picker dialogs during automated runs.
 auto_source_file = os.path.join(log_dir, "auto-source.txt")

@@ -297,7 +297,18 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
             Top:=ws.Range("A" & (r + 3)).Top + 4, Width:=ws.Range("A1:K1").Width, Height:=320)
         With chartObj.Chart
             .ChartType = xlColumnClustered
-            .SetSourceData Source:=ws.Range("A" & chartStartRow & ":B" & chartEndRow)
+            .SetSourceData Source:=ws.Range("A" & chartStartRow & ":B" & chartEndRow), PlotBy:=xlColumns
+            On Error Resume Next
+            Do While .SeriesCollection.Count > 1
+                .SeriesCollection(.SeriesCollection.Count).Delete
+            Loop
+            If .SeriesCollection.Count = 0 Then .SeriesCollection.NewSeries
+            With .SeriesCollection(1)
+                .Name = "=""Current Pending"""
+                .XValues = ws.Range("A" & (chartStartRow + 1) & ":A" & chartEndRow)
+                .Values = ws.Range("B" & (chartStartRow + 1) & ":B" & chartEndRow)
+            End With
+            On Error GoTo CleanFail
             .HasTitle = True
             .ChartTitle.Text = "Current Pending Pickups by Manager"
             .ChartTitle.Font.Name = "Segoe UI"
@@ -309,26 +320,31 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
             .ChartArea.Format.Line.ForeColor.RGB = RGB(200, 200, 200)
             .PlotArea.Format.Fill.Visible = msoFalse
             On Error Resume Next
+            .Axes(xlCategory, xlPrimary).HasTitle = False
+            .Axes(xlValue, xlPrimary).HasTitle = False
             .SeriesCollection(1).Format.Fill.ForeColor.RGB = RGB(68, 114, 196)
             .SeriesCollection(1).Format.Line.Visible = msoFalse
             .SeriesCollection(1).HasDataLabels = True
             .SeriesCollection(1).DataLabels.Font.Name = "Segoe UI"
             .SeriesCollection(1).DataLabels.Font.Size = 9
             .SeriesCollection(1).DataLabels.Font.Bold = True
+            .SeriesCollection(1).DataLabels.Font.Color = RGB(31, 78, 121)
             .SeriesCollection(1).DataLabels.Position = xlLabelPositionOutsideEnd
+            .SeriesCollection(1).DataLabels.ShowSeriesName = False
+            .SeriesCollection(1).DataLabels.ShowCategoryName = False
+            .SeriesCollection(1).DataLabels.ShowLegendKey = False
             .Axes(xlCategory).TickLabels.Orientation = 45
             .Axes(xlCategory).TickLabels.Font.Name = "Segoe UI"
             .Axes(xlCategory).TickLabels.Font.Size = 9
             .Axes(xlValue).TickLabels.Font.Name = "Segoe UI"
             .Axes(xlValue).TickLabels.Font.Size = 9
-            .Axes(xlValue).HasMajorGridlines = True
-            .Axes(xlValue).MajorGridlines.Format.Line.ForeColor.RGB = RGB(230, 230, 230)
-            .Axes(xlValue).HasTitle = True
-            .Axes(xlValue).AxisTitle.Text = "Pending Pickups"
-            .Axes(xlValue).AxisTitle.Font.Name = "Segoe UI"
-            .Axes(xlValue).AxisTitle.Font.Size = 10
+            .Axes(xlValue).MajorGridlines.Format.Line.ForeColor.RGB = RGB(220, 220, 220)
+            .Axes(xlValue).MajorGridlines.Format.Line.Weight = 0.75
+            .Axes(xlValue).MinimumScaleIsAuto = True
+            .Axes(xlValue).MaximumScaleIsAuto = True
+            .Axes(xlCategory).MajorTickMark = xlTickMarkNone
             .ChartGroups(1).GapWidth = 120
-            On Error GoTo 0
+            On Error GoTo CleanFail
         End With
     End If
 
