@@ -3,7 +3,7 @@
 Use this package when a downloaded .xlsm is blocked by Windows or organizational macro security (Mark-of-the-Web), e.g. "Microsoft has blocked macros from running because the source of this file is untrusted."
 
 CONTENTS
-- Template (No Macros).xlsx  (macro-free base workbook)
+- Pending Pickup Template (no-macros).xlsx  (macro-free base workbook)
 - modAudit.bas, modCore.bas, modDeclarations.bas, modDialog.bas, modFormatting.bas, modLogging.bas, modUtils.bas  (VBA source modules)
 - BUILD-INSTRUCTIONS.txt (this file)
 
@@ -16,7 +16,7 @@ STEPS
    - Or PowerShell (run in the extracted folder):  Get-ChildItem | Unblock-File
    - If "Unblock" is not shown, the file may not be blocked or policy may restrict it.
 
-3. Open "Template (No Macros).xlsx" in desktop Excel.
+3. Open "Pending Pickup Template (no-macros).xlsx" in desktop Excel.
 
 4. Press Alt+F11 to open the VBA Editor.
    - File -> Import File... and import ALL module files (.bas). Select all seven: modAudit.bas, modCore.bas, modDeclarations.bas, modDialog.bas, modFormatting.bas, modLogging.bas, modUtils.bas.

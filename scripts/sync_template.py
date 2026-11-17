@@ -17,7 +17,7 @@ parser.add_argument("--template", default=None)
 parser.add_argument("--bas-dir", default=None, help="Directory containing .bas modules (default: project root)")
 parser.add_argument("--bas", action="append", default=[], help="Specific .bas file to sync (repeatable)")
 parser.add_argument("--button", default="btnCreatePendingPickupReport")
-parser.add_argument("--skip-package", action="store_true", help="Skip rebuilding Template (No Macros).xlsx and Project-Local-Build.zip")
+parser.add_argument("--skip-package", action="store_true", help="Skip rebuilding Pending Pickup Template (no-macros).xlsx and Project-Local-Build.zip")
 args = parser.parse_args()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -362,7 +362,7 @@ finally:
     excel.Quit()
 
 if not args.skip_package:
-    no_macro_path = os.path.join(project_root, "Template (No Macros).xlsx")
+    no_macro_path = os.path.join(project_root, "Pending Pickup Template (no-macros).xlsx")
     instructions_path = os.path.join(project_root, "BUILD-INSTRUCTIONS.txt")
     zip_path = os.path.join(project_root, "Project-Local-Build.zip")
 

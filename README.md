@@ -22,7 +22,7 @@ Downloaded `.xlsm` files may be blocked by Windows or organizational macro secur
 
 1. Download **`Project-Local-Build.zip`** from this repo (GitHub: open the file → **Download raw file**, or use the raw link) and extract to a **local, writable** folder (e.g. `C:\Project\PendingPickup\`).
 2. **Unblock** extracted files if needed (right-click → Properties → check **Unblock** → Apply, or `Get-ChildItem | Unblock-File`), per org policy.
-3. Open **`Template (No Macros).xlsx`** in desktop Excel.
+3. Open **`Pending Pickup Template (no-macros).xlsx`** in desktop Excel.
 4. Press **Alt+F11** → **File → Import File…** and import **all** module files (`.bas`): `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`. Replace existing modules if prompted. **Do not import only one.**
 5. Confirm button(s) are assigned to the correct macro(s): **CREATE PENDING PICKUP REPORT** → `CreatePendingPickupReport`; **Setup Email CC Recipients** → `SetupEmailCC` (if present).
 6. **File → Save As** (or Save a Copy) → **Excel Macro-Enabled Workbook (\*.xlsm)** in a local/trusted folder (turn AutoSave off if needed; VBA cannot be saved in `.xlsx`).
@@ -32,7 +32,7 @@ See **`BUILD-INSTRUCTIONS.txt`** in the ZIP/repo for the full step-by-step notes
 
 ### Maintainers
 
-After editing VBA source, sync modules into the template (also rebuilds `Template (No Macros).xlsx` and `Project-Local-Build.zip` automatically):
+After editing VBA source, sync modules into the template (also rebuilds `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` automatically):
 
 ```powershell
 python .\scripts\sync_template.py
@@ -65,7 +65,7 @@ python .\scripts\snapshot-report.py
 | Path | Purpose |
 |------|---------|
 | `Pending Pickup Template.xlsm` | Master workbook users run (embedded VBA + START HERE button + company logo) |
-| `Template (No Macros).xlsx` | Macro-free base workbook for local rebuild on locked-down machines |
+| `Pending Pickup Template (no-macros).xlsx` | Macro-free base workbook for local rebuild on locked-down machines |
 | `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas` | VBA source modules (source of truth for rebuild/import) |
 | `Pending_Pickup_Macro.bas` | Legacy monolithic VBA export (reference) |
 | `BUILD-INSTRUCTIONS.txt` | Step-by-step local rebuild instructions (no Python/tools) |
@@ -179,7 +179,7 @@ Filtered pending rows with frozen header and date formats.
 
 End users receive only `Pending Pickup Template.xlsm`. It is self-contained (macro, button, company logo embedded).
 
-For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, use **`Project-Local-Build.zip`** (`Template (No Macros).xlsx` + all VBA module files + `BUILD-INSTRUCTIONS.txt`) to rebuild a local `.xlsm` without Python or extra tools. You may also share a prebuilt `.xlsm`, but it can still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback.
+For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, use **`Project-Local-Build.zip`** (`Pending Pickup Template (no-macros).xlsx` + all VBA module files + `BUILD-INSTRUCTIONS.txt`) to rebuild a local `.xlsm` without Python or extra tools. You may also share a prebuilt `.xlsm`, but it can still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback.
 
 The monolithic export, PowerShell scripts, documentation, screenshots, and fake data are maintainer-only (except where explicitly included in the build ZIP for local rebuild). Keep the ZIP and module files updated whenever the template/VBA changes. Run from a local writable folder if the tool writes outputs/logs next to the workbook, and follow org macro/Trusted Location policy. Do not include sensitive/PHI data in the repo.
 
