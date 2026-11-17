@@ -21,7 +21,7 @@ Every month the report pulls **every patient in the country** from the All Open 
 Downloaded `.xlsm` files may be blocked by Windows or organizational macro security (Mark-of-the-Web: “Microsoft has blocked macros…”). Use the **local build package** instead:
 
 1. Download **`Project-Local-Build.zip`** from this repo (GitHub: open the file → **Download raw file**, or use the raw link) and extract to a **local, writable** folder (e.g. `C:\Project\PendingPickup\`).
-2. **Unblock** extracted files if needed (right-click → Properties → check **Unblock** → Apply, or `Get-ChildItem | Unblock-File`), per org policy.
+2. **Unblock** extracted files if needed (right-click → Properties → check **Unblock** → Apply), per org policy.
 3. Open **`Pending Pickup Template (no-macros).xlsx`** in desktop Excel.
 4. Press **Alt+F11** → **File → Import File…** and import **all** module files (`.bas`): `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`. Replace existing modules if prompted. **Do not import only one.**
 5. Confirm button(s) are assigned to the correct macro(s): **CREATE PENDING PICKUP REPORT** → `CreatePendingPickupReport`; **Setup Email CC Recipients** → `SetupEmailCC` (if present).
@@ -34,7 +34,7 @@ See **`BUILD-INSTRUCTIONS.txt`** in the ZIP/repo for the full step-by-step notes
 
 After editing VBA source, sync modules into the template (also rebuilds `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` automatically):
 
-```powershell
+```text
 python .\scripts\sync_template.py
 ```
 
@@ -42,7 +42,7 @@ Use `--skip-package` only for rare maintenance cases where you must skip rebuild
 
 To refresh QA screenshots after a successful report run:
 
-```powershell
+```text
 python .\scripts\snapshot-report.py
 ```
 
@@ -161,7 +161,7 @@ Filtered pending rows with frozen header and date formats.
 ![Raw Data](documentation/screenshots/report-raw-data.png)
 
 > Screenshots are QA captures from test/fake data, not live production records. Regenerate anytime against a real report run:
-> ```powershell
+> ```text
 > python .\scripts\snapshot-report.py -Path "Reports\Pending Pickup yyyy-mm-dd.xlsx"
 > ```
 
@@ -199,7 +199,7 @@ End users receive only `Pending Pickup Template.xlsm`. It is self-contained (mac
 
 For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, use **`Project-Local-Build.zip`** (`Pending Pickup Template (no-macros).xlsx` + all VBA module files + `BUILD-INSTRUCTIONS.txt`) to rebuild a local `.xlsm` without Python or extra tools. You may also share a prebuilt `.xlsm`, but it can still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback.
 
-The monolithic export, PowerShell scripts, documentation, screenshots, and fake data are maintainer-only (except where explicitly included in the build ZIP for local rebuild). Keep the ZIP and module files updated whenever the template/VBA changes. Run from a local writable folder if the tool writes outputs/logs next to the workbook, and follow org macro/Trusted Location policy. Do not include sensitive/PHI data in the repo.
+The monolithic export, documentation, screenshots, and fake data are maintainer-only (except where explicitly included in the build ZIP for local rebuild). Keep the ZIP and module files updated whenever the template/VBA changes. Run from a local writable folder if the tool writes outputs/logs next to the workbook, and follow org macro/Trusted Location policy. Do not include sensitive/PHI data in the repo.
 
 ---
 

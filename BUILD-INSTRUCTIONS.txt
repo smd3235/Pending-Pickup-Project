@@ -13,7 +13,6 @@ STEPS
 
 2. If files are blocked, Unblock them per your organization policy:
    - Right-click each file (or the extracted files) -> Properties -> check "Unblock" -> Apply.
-   - Or PowerShell (run in the extracted folder):  Get-ChildItem | Unblock-File
    - If "Unblock" is not shown, the file may not be blocked or policy may restrict it.
 
 3. Open "Pending Pickup Template (no-macros).xlsx" in desktop Excel.

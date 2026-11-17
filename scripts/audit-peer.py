@@ -1,7 +1,7 @@
 # audit-peer.py
 # Compares the shared, portable parts of this project against a sibling project and
 # reports what each side has that the other does not: files, VBA procedures,
-# PowerShell/Python functions, and Markdown sections.
+# Python function names, and Markdown sections.
 #
 # It never changes either project. It only reads.
 #

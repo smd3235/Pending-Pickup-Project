@@ -121,7 +121,7 @@ This report is run **every month**, pulling **every patient in the country** fro
 **End users (normal):** Open `Pending Pickup Template.xlsm`, click **CREATE PENDING PICKUP REPORT** on `START HERE`, and follow the prompts.
 
 **End users (locked-down work PC / blocked macros):** If a downloaded `.xlsm` is blocked by Windows or organizational macro security/Mark-of-the-Web, use `Project-Local-Build.zip` (`Pending Pickup Template (no-macros).xlsx` + all VBA module `.bas` files + `BUILD-INSTRUCTIONS.txt`) to build a local `.xlsm` without Python or extra tools:
-1. Download/extract ZIP to a local writable folder and **Unblock** files if required (Properties → Unblock, or `Unblock-File`) per org policy.
+1. Download/extract ZIP to a local writable folder and **Unblock** files if required (Properties → Unblock) per org policy.
 2. Open `Pending Pickup Template (no-macros).xlsx` in desktop Excel.
 3. **Alt+F11 → File → Import File…** and import **all** module files (`modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`). Replace if prompted.
 4. Confirm button assignments (`CreatePendingPickupReport`, `SetupEmailCC` if present).
@@ -131,7 +131,7 @@ A prebuilt `.xlsm` may still be blocked when downloaded; the macro-free base + m
 
 **Maintainers: after editing VBA, re-sync the template.** The `.xlsm` does not auto-update from source modules; it carries its own compiled copy. Run:
 
-```powershell
+```text
 python .\scripts\sync_template.py
 ```
 
@@ -139,7 +139,7 @@ python .\scripts\sync_template.py
 
 **QA:** after a successful `scripts\run-report.py` run, refresh committed screenshots with:
 
-```powershell
+```text
 python .\scripts\snapshot-report.py
 ```
 
