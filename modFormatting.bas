@@ -35,6 +35,9 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     ' Uniform column widths for edge-to-edge alignment across KPI cards, table, and chart (A:K)
     ws.Columns("A:K").ColumnWidth = 13.5
 
+    ' Match manager-tab band background for a consistent report look
+    ws.Cells.Interior.Color = RGB(221, 235, 247)
+
     ' Title block A1:K2
     Set rg = ws.Range("A1:K2")
     rg.Merge
