@@ -129,13 +129,21 @@ This report is run **every month**, pulling **every patient in the country** fro
 
 A prebuilt `.xlsm` may still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback.
 
-**Maintainers: after editing VBA, re-sync the template.** The `.xlsm` does not auto-update from source modules; it carries its own compiled copy. Run:
+**Maintainers: after editing VBA or template content, re-sync.** The `.xlsm` does not auto-update derived artifacts from source/modules; it carries its own embedded copy. Run:
 
 ```text
 python .\scripts\sync_template.py
 ```
 
-`sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, saves the template, then **automatically rebuilds** `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` (macro-free base + all VBA source modules `.bas`/`.cls`/`.frm` + `BUILD-INSTRUCTIONS.txt`) for locked-down work PCs. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`). Use `--skip-package` only for rare maintenance cases.
+`sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, provisions email template tabs/config, saves the template, then **automatically rebuilds** `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` (macro-free base + all VBA source modules `.bas`/`.cls`/`.frm` + `BUILD-INSTRUCTIONS.txt`) for locked-down work PCs. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`). Use `--skip-package` only for rare maintenance cases.
+
+**Auto-sync watcher (recommended when editing the `.xlsm`):** to automatically detect saved changes (including Manager/Director email fields TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11`) and keep the no-macro `.xlsx`/ZIP matched, run:
+
+```text
+python .\scripts\watch-template-sync.py
+```
+
+The watcher polls for stable saves to `Pending Pickup Template.xlsm`, compares email fields against `Pending Pickup Template (no-macros).xlsx`, and runs `sync_template.py` when they differ (or on any change with `--always-sync-on-change`). Logs: `log/template-watch.log`. Stop with Ctrl+C. Close Excel before a sync runs if COM access conflicts; rerun sync manually if needed.
 
 **QA:** after a successful `scripts\run-report.py` run, refresh committed screenshots with:
 

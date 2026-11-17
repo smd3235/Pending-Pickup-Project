@@ -38,6 +38,14 @@ After editing VBA source, sync modules into the template (also rebuilds `Pending
 python .\scripts\sync_template.py
 ```
 
+To keep the macro-enabled test template and no-macro/live artifacts aligned automatically (e.g. after editing email template sections in the `.xlsm`), run the watcher in a separate terminal:
+
+```text
+python .\scripts\watch-template-sync.py
+```
+
+It detects stable saves to `Pending Pickup Template.xlsm`, compares Manager/Director email fields (TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11`) against the no-macro file, and runs `sync_template.py` when they differ. Logs to `log/template-watch.log`. Use `--always-sync-on-change` to sync on any saved template change.
+
 Use `--skip-package` only for rare maintenance cases where you must skip rebuilding the local build package.
 
 To refresh QA screenshots after a successful report run:
