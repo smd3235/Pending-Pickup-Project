@@ -81,7 +81,7 @@ This report is run **every month**, pulling **every patient in the country** fro
 | File | Role |
 | --- | --- |
 | `Pending Pickup Template.xlsm` | Master workbook. Contains `START HERE`, empty `Raw Data`, `_Config`, and the embedded VBA project. This is what users run. |
-| `Template (No Macros).xlsx` | Macro-free base workbook for local rebuild on locked-down machines (no VBA project). |
+| `Pending Pickup Template (no-macros).xlsx` | Macro-free base workbook for local rebuild on locked-down machines (no VBA project). |
 | `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas` | VBA source modules (source of truth for rebuild/import). |
 | `Pending_Pickup_Macro.bas` | Legacy monolithic VBA export (reference). |
 | `BUILD-INSTRUCTIONS.txt` | Step-by-step local rebuild instructions (no Python/tools). |
@@ -93,7 +93,7 @@ This report is run **every month**, pulling **every patient in the country** fro
 | `Reports/` | Output folder for finished reports. The macro's remembered `OutputFolder` is pre-set to this path. Also holds `Pending Pickup 2026-10-13.xlsx`, a **prior-month fixture** for testing comparison. |
 | `documentation/changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
 
-> **Distribution:** end users receive only `Pending Pickup Template.xlsm`. For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, provide **`Project-Local-Build.zip`** (`Template (No Macros).xlsx` + all VBA module files + `BUILD-INSTRUCTIONS.txt`) so users can rebuild a local `.xlsm` without Python or extra tools. You may also include a prebuilt `.xlsm`, but it can still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback. Maintainer scripts, monolithic export, documentation, screenshots, and fake data remain maintainer-only unless intentionally included for rebuild. Keep the ZIP and module files updated whenever the template/VBA changes. Run from a local writable folder if outputs/logs are written next to the workbook, and follow org macro/Trusted Location policy. Do not include sensitive/PHI data in the repo.
+> **Distribution:** end users receive only `Pending Pickup Template.xlsm`. For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, provide **`Project-Local-Build.zip`** (`Pending Pickup Template (no-macros).xlsx` + all VBA module files + `BUILD-INSTRUCTIONS.txt`) so users can rebuild a local `.xlsm` without Python or extra tools. You may also include a prebuilt `.xlsm`, but it can still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback. Maintainer scripts, monolithic export, documentation, screenshots, and fake data remain maintainer-only unless intentionally included for rebuild. Keep the ZIP and module files updated whenever the template/VBA changes. Run from a local writable folder if outputs/logs are written next to the workbook, and follow org macro/Trusted Location policy. Do not include sensitive/PHI data in the repo.
 
 ### Template workbook sheets
 
@@ -120,9 +120,9 @@ This report is run **every month**, pulling **every patient in the country** fro
 
 **End users (normal):** Open `Pending Pickup Template.xlsm`, click **CREATE PENDING PICKUP REPORT** on `START HERE`, and follow the prompts.
 
-**End users (locked-down work PC / blocked macros):** If a downloaded `.xlsm` is blocked by Windows or organizational macro security/Mark-of-the-Web, use `Project-Local-Build.zip` (`Template (No Macros).xlsx` + all VBA module `.bas` files + `BUILD-INSTRUCTIONS.txt`) to build a local `.xlsm` without Python or extra tools:
+**End users (locked-down work PC / blocked macros):** If a downloaded `.xlsm` is blocked by Windows or organizational macro security/Mark-of-the-Web, use `Project-Local-Build.zip` (`Pending Pickup Template (no-macros).xlsx` + all VBA module `.bas` files + `BUILD-INSTRUCTIONS.txt`) to build a local `.xlsm` without Python or extra tools:
 1. Download/extract ZIP to a local writable folder and **Unblock** files if required (Properties → Unblock, or `Unblock-File`) per org policy.
-2. Open `Template (No Macros).xlsx` in desktop Excel.
+2. Open `Pending Pickup Template (no-macros).xlsx` in desktop Excel.
 3. **Alt+F11 → File → Import File…** and import **all** module files (`modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`). Replace if prompted.
 4. Confirm button assignments (`CreatePendingPickupReport`, `SetupEmailCC` if present).
 5. **Save As → Excel Macro-Enabled Workbook (*.xlsm)** in a local/trusted folder, close/reopen, enable macros, and run.
@@ -135,7 +135,7 @@ A prebuilt `.xlsm` may still be blocked when downloaded; the macro-free base + m
 python .\scripts\sync_template.py
 ```
 
-`sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, saves the template, then **automatically rebuilds** `Template (No Macros).xlsx` and `Project-Local-Build.zip` (macro-free base + all VBA source modules `.bas`/`.cls`/`.frm` + `BUILD-INSTRUCTIONS.txt`) for locked-down work PCs. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`). Use `--skip-package` only for rare maintenance cases.
+`sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, saves the template, then **automatically rebuilds** `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` (macro-free base + all VBA source modules `.bas`/`.cls`/`.frm` + `BUILD-INSTRUCTIONS.txt`) for locked-down work PCs. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`). Use `--skip-package` only for rare maintenance cases.
 
 **QA:** after a successful `scripts\run-report.py` run, refresh committed screenshots with:
 
@@ -145,7 +145,7 @@ python .\scripts\snapshot-report.py
 
 This exports every sheet of the newest report in `Reports/` as PNGs into `documentation/screenshots/`.
 
-**Build package maintenance:** because `sync_template.py` regenerates the package on each sync, commit the updated `Template (No Macros).xlsx`, module files, and `Project-Local-Build.zip` (and `BUILD-INSTRUCTIONS.txt` if steps change) with every template/VBA change. Do not include sensitive/PHI data in the repo.
+**Build package maintenance:** because `sync_template.py` regenerates the package on each sync, commit the updated `Pending Pickup Template (no-macros).xlsx`, module files, and `Project-Local-Build.zip` (and `BUILD-INSTRUCTIONS.txt` if steps change) with every template/VBA change. Do not include sensitive/PHI data in the repo.
 
 ---
 
@@ -365,4 +365,4 @@ See [`documentation/changelog.md`](changelog.md) for the dated (`YYYY-MM-DD HH:M
 current baseline; the older per-version history that used to live in the module header has been retired
 in favor of the changelog file.
 
-> **Build package:** For work PCs where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, use `Project-Local-Build.zip` (`Template (No Macros).xlsx` + all VBA `.bas` modules + `BUILD-INSTRUCTIONS.txt`). Keep the ZIP and modules updated whenever template/VBA changes. No sensitive/PHI data in the repo.
+> **Build package:** For work PCs where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, use `Project-Local-Build.zip` (`Pending Pickup Template (no-macros).xlsx` + all VBA `.bas` modules + `BUILD-INSTRUCTIONS.txt`). Keep the ZIP and modules updated whenever template/VBA changes. No sensitive/PHI data in the repo.

@@ -90,7 +90,7 @@ Update all references: `modDeclarations.bas` (remove/replace constants), `modLog
 - `Pending_Pickup_Macro.bas` contains the same hardcoded paths; if it is kept as a reference/build source, update it to match the portable implementation to avoid reintroducing embedded paths.
 
 ### 6) Template/build/package hygiene
-- After VBA changes: `python scripts/sync_template.py` (rebuilds modules, `Template (No Macros).xlsx`, `Project-Local-Build.zip`) and `python scripts/test-compile.py`.
+- After VBA changes: `python scripts/sync_template.py` (rebuilds modules, `Pending Pickup Template (no-macros).xlsx`, `Project-Local-Build.zip`) and `python scripts/test-compile.py`.
 - Verify `START HERE` button assignments and absence of external links/paths in the template.
 - Distribute/run from a **local writable folder** (not blocked network/temp download location) per org policy.
 

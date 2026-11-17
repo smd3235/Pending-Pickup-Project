@@ -92,7 +92,7 @@ Defined in `modDeclarations.bas` and read by `modDialog.bas`:
 - `modDeclarations.bas` — `EMAIL_*`, legacy manager fallback, and `DIRECTOR_EMAIL_*` constants
 - `modLogging.bas` — `LogMsg` / `LogErr`
 - `scripts/sync_template.py` — template button/config/sheet provisioning and build package rebuild
-- `Pending Pickup Template.xlsm` / `Template (No Macros).xlsx` / `Project-Local-Build.zip` — template/build artifacts
+- `Pending Pickup Template.xlsm` / `Pending Pickup Template (no-macros).xlsx` / `Project-Local-Build.zip` — template/build artifacts
 - `scripts/test-compile.py`, `scripts/run-report.py` — validation
 - `documentation/EMAIL_FEATURE_PORTING_GUIDE.md` — different (PM Requests) pattern; not authoritative for this project
 - `documentation/PORTABILITY_AND_WORK_PC_PATHS.md` — separate portability issue, not email-specific
