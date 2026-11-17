@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
+- **11:44:00** — `scripts/run-report.py` now checks Manager/Director email template fields (TO/CC/SUBJECT/BODY) and runs `sync_template.py` before report runs when macro/no-macro templates differ; updated docs to reflect run-time auto-sync plus optional save-time watcher.
+
 - **11:36:00** — Added `scripts/watch-template-sync.py` to automatically detect stable saves to `Pending Pickup Template.xlsm`, compare Manager/Director email template fields (TO/CC/SUBJECT/BODY) against `Pending Pickup Template (no-macros).xlsx`, and run `sync_template.py` to keep macro-enabled and no-macro/ZIP artifacts aligned. Documented watcher usage in `README.md` and `documentation/README.md`.
 
 - **11:31:00** — Email template tabs: added spacing between TO/CC/SUBJECT/BODY sections (TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11:D31`) with matching VBA/config mappings and layout migration; synced templates/build artifacts and refreshed screenshots.

@@ -137,13 +137,15 @@ python .\scripts\sync_template.py
 
 `sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, provisions email template tabs/config, saves the template, then **automatically rebuilds** `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` (macro-free base + all VBA source modules `.bas`/`.cls`/`.frm` + `BUILD-INSTRUCTIONS.txt`) for locked-down work PCs. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`). Use `--skip-package` only for rare maintenance cases.
 
-**Auto-sync watcher (recommended when editing the `.xlsm`):** to automatically detect saved changes (including Manager/Director email fields TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11`) and keep the no-macro `.xlsx`/ZIP matched, run:
+**Auto-sync during report runs:** `python .\scripts\run-report.py` checks Manager/Director email template fields (TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11`) in `Pending Pickup Template.xlsm` vs `Pending Pickup Template (no-macros).xlsx` and runs `sync_template.py` before launching Excel when they differ, keeping macro-enabled and no-macro/ZIP artifacts aligned.
+
+**Auto-sync watcher (recommended when editing/saving the `.xlsm`):** to automatically detect saved changes and keep the no-macro `.xlsx`/ZIP matched without running a report, run:
 
 ```text
 python .\scripts\watch-template-sync.py
 ```
 
-The watcher polls for stable saves to `Pending Pickup Template.xlsm`, compares email fields against `Pending Pickup Template (no-macros).xlsx`, and runs `sync_template.py` when they differ (or on any change with `--always-sync-on-change`). Logs: `log/template-watch.log`. Stop with Ctrl+C. Close Excel before a sync runs if COM access conflicts; rerun sync manually if needed.
+The watcher polls for stable saves to `Pending Pickup Template.xlsm`, compares those email fields against `Pending Pickup Template (no-macros).xlsx`, and runs `sync_template.py` when they differ (or on any change with `--always-sync-on-change`). Logs: `log/template-watch.log`. Stop with Ctrl+C. Close Excel before a sync runs if COM access conflicts; rerun sync manually if needed.
 
 **QA:** after a successful `scripts\run-report.py` run, refresh committed screenshots with:
 

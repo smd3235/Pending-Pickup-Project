@@ -17,6 +17,7 @@ import threading
 import time
 from datetime import datetime
 
+import openpyxl
 import win32com.client
 
 user32 = ctypes.windll.user32
@@ -86,11 +87,99 @@ def append_run_log(msg):
     write_log(run_log, msg)
 
 
+EMAIL_SYNC_SHEETS = ["Manager Email Template", "Director Email Template"]
+EMAIL_SYNC_CELLS = ["D5", "D7", "D9", "D11"]  # TO, CC, SUBJECT, BODY
+
+
+def read_email_sync_config(path):
+    try:
+        wb = openpyxl.load_workbook(
+            path,
+            keep_vba=path.lower().endswith(".xlsm"),
+            data_only=False,
+            read_only=False,
+        )
+        out = {}
+        for name in EMAIL_SYNC_SHEETS:
+            ws = wb[name]
+            vals = {}
+            for c in EMAIL_SYNC_CELLS:
+                v = ws[c].value
+                vals[c] = None if v is None else str(v).replace("\r\n", "\n").replace("\r", "\n")
+            out[name] = vals
+        try:
+            wb.close()
+        except Exception:
+            pass
+        return out, None
+    except Exception as e:
+        return None, str(e)
+
+
+def ensure_template_email_sync(template_path, project_root_path, log_fn):
+    """Keep macro-enabled and no-macro artifacts aligned before report runs."""
+    no_macro_path = os.path.join(project_root_path, "Pending Pickup Template (no-macros).xlsx")
+    sync_script = os.path.join(project_root_path, "scripts", "sync_template.py")
+    if not os.path.exists(template_path):
+        log_fn(f"Email/template sync skipped: template not found ({template_path})")
+        return
+    if not os.path.exists(sync_script):
+        log_fn(f"Email/template sync skipped: sync script not found ({sync_script})")
+        return
+
+    xlsm_sig, err1 = read_email_sync_config(template_path)
+    if err1:
+        log_fn(f"Email/template sync skipped: could not read .xlsm ({err1})")
+        return
+    xlsx_sig, err2 = read_email_sync_config(no_macro_path)
+
+    need_sync = False
+    reason = "email config matches no-macro"
+    if err2:
+        need_sync = True
+        reason = f"no-macro unreadable/missing ({err2})"
+    elif xlsm_sig != xlsx_sig:
+        need_sync = True
+        diffs = []
+        for sh in EMAIL_SYNC_SHEETS:
+            for c in EMAIL_SYNC_CELLS:
+                if (xlsm_sig.get(sh) or {}).get(c) != (xlsx_sig.get(sh) or {}).get(c):
+                    diffs.append(f"{sh}!{c}")
+        reason = "email/template fields differ: " + ", ".join(diffs[:8]) + ("..." if len(diffs) > 8 else "")
+
+    if not need_sync:
+        log_fn(f"Email/template sync check: {reason}")
+        return
+
+    log_fn(f"Running sync_template.py before report ({reason})...")
+    try:
+        r = subprocess.run(
+            [sys.executable, sync_script],
+            cwd=project_root_path,
+            capture_output=True,
+            text=True,
+        )
+        if r.returncode == 0:
+            log_fn("sync_template.py completed successfully before report run.")
+            out = (r.stdout or "").strip().splitlines()
+            for ln in out[-10:]:
+                log_fn("  " + ln)
+        else:
+            log_fn(f"sync_template.py failed before report run (exit {r.returncode}). Continuing with current template.")
+            out = ((r.stdout or "") + ("\n" + (r.stderr or ""))).strip().splitlines()
+            for ln in out[-15:]:
+                log_fn("  " + ln)
+    except Exception as e:
+        log_fn(f"Could not run sync_template.py before report ({e}). Continuing with current template.")
+
+
 write_log(run_log, "=== Pending Pickup report run started ===")
 write_log(run_log, f"Template: {template}")
 write_log(run_log, f"Source: {source_path}")
 write_log(run_log, f"Completion marker: {completion_marker}")
 write_log(run_log, f"Python PID: {os.getpid()}")
+
+ensure_template_email_sync(template, project_root, write_log)
 
 # Write auto-mode files so VBA skips file picker dialogs during automated runs.
 auto_source_file = os.path.join(log_dir, "auto-source.txt")
