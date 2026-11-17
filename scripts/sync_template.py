@@ -239,7 +239,7 @@ try:
 
     def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE"):
         # field_values: dict with keys to, cc, subject, body
-        # NOTE: VBA reads D5 (To), D6 (CC), D7 (Subject), D9 (Body) - keep those cells.
+        # NOTE: VBA readers expect D5 (To), D6 (CC), D7 (Subject), D9 (Body) - keep these cells.
         try:
             if hide:
                 sh.Visible = 0  # xlSheetHidden
@@ -267,7 +267,7 @@ try:
         except Exception:
             pass
 
-        # Layout metrics (separated sections; VBA reads D5/D6/D7/D9)
+        # Layout: header (2-3), spacer (4), TO (5), CC (6), SUBJECT (7), spacer (8), BODY (9:29)
         try:
             sh.Columns("A").ColumnWidth = 1.0
             sh.Columns("B").ColumnWidth = 1.5
@@ -277,23 +277,20 @@ try:
             sh.Rows("1").RowHeight = 8
             sh.Rows("2").RowHeight = 34
             sh.Rows("3").RowHeight = 20
-            sh.Rows("4").RowHeight = 14   # spacer
+            sh.Rows("4").RowHeight = 12   # spacer
             sh.Rows("5").RowHeight = 34   # TO
-            sh.Rows("6").RowHeight = 10   # spacer
-            sh.Rows("7").RowHeight = 34   # CC
-            sh.Rows("8").RowHeight = 10   # spacer
-            sh.Rows("9").RowHeight = 34   # SUBJECT
-            sh.Rows("10").RowHeight = 14  # spacer
-            sh.Rows("11").RowHeight = 24  # BODY label row
-            for rr in range(12, 31):
+            sh.Rows("6").RowHeight = 34   # CC
+            sh.Rows("7").RowHeight = 34   # SUBJECT
+            sh.Rows("8").RowHeight = 12   # spacer before BODY
+            sh.Rows("9").RowHeight = 24   # BODY top (merged D9:K29)
+            for rr in range(10, 30):
                 sh.Rows(str(rr)).RowHeight = 20
-            sh.Rows("12").RowHeight = 22
         except Exception:
             pass
 
         # Hide unused areas for a focused view
         try:
-            sh.Rows("31:1048576").Hidden = True
+            sh.Rows("30:1048576").Hidden = True
             sh.Columns("L:XFD").Hidden = True
             sh.Columns("A").Hidden = True
         except Exception:
@@ -319,7 +316,6 @@ try:
             sh.Range("B3").HorizontalAlignment = -4131
             sh.Range("B3").VerticalAlignment = -4108
             sh.Range("B3").IndentLevel = 1
-            # badge on the right side of header
             sh.Range("J2:K2").UnMerge()
             sh.Range("J2:K2").Merge()
             sh.Range("J2").Value = badge_text
@@ -388,86 +384,33 @@ try:
                         b.Color = 0xD9D2C7
                     except Exception:
                         pass
-                # ensure top-left cell (VBA target) stays editable/clear text formatting
-                sh.Range(top_left).Interior.Color = 0xFFFFFF
+                # keep VBA target cell formatting consistent
+                tl = sh.Range(top_left)
+                tl.Interior.Color = 0xFFFFFF
+                tl.WrapText = wrap
             except Exception:
                 pass
 
-        # Separated sections with side labels and clean input boxes (cells only)
+        # Separated, ordered sections (one label + one input each)
         _style_label("C5", "TO", 0xE8F1FB)
         _style_input("D5:K5", "D5", wrap=False)
-        _style_label("C7", "CC", 0xEAF7F0)
-        _style_input("D7:K7", "D7", wrap=False)
-        _style_label("C9", "SUBJECT", 0xFFF4DF)
-        _style_input("D9:K9", "D9", wrap=False)
 
-        # Body: label at side of header row, large isolated box below (keep D9 value slot? no: VBA reads D9 as body)
-        # BODY must remain in D9 for VBA readers; place body box at D9:K30? but D9 used above - adjust:
-        # Use D9 as SUBJECT and D11 as BODY to avoid collision? cannot: VBA expects D9 body.
-        # So: SUBJECT -> D7, BODY -> D9 merged box. Re-layout accordingly.
-        try:
-            # reset SUBJECT/BODY to correct mapping
-            sh.Range("C9").Value = "SUBJECT"
-            sh.Range("C11").Value = "BODY"
-        except Exception:
-            pass
-
-        # Correct mapping: TO=D5, CC=D6, SUBJECT=D7, BODY=D9 (all preserved)
-        # Rebuild with spacers so each is a distinct section
-        try:
-            # clear temp placements
-            for a in ("C5","D5:K5","C7","D7:K7","C9","D9:K9","C11"):
-                try:
-                    sh.Range(a).UnMerge()
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-        # Final explicit layout
-        try:
-            sh.Rows("4").RowHeight = 14
-            sh.Rows("5").RowHeight = 34  # TO (D5)
-            sh.Rows("6").RowHeight = 10  # spacer
-            sh.Rows("7").RowHeight = 34  # CC (D6)
-            sh.Rows("8").RowHeight = 10  # spacer
-            sh.Rows("9").RowHeight = 34  # SUBJECT (D7)
-            sh.Rows("10").RowHeight = 14 # spacer
-            sh.Rows("11").RowHeight = 22 # BODY label
-            sh.Rows("12").RowHeight = 22 # BODY start (D9 will be in merged D12:K30?) no - keep D9
-        except Exception:
-            pass
-        # Keep VBA cell addresses: D5, D6, D7, D9
-        _style_label("C5", "TO", 0xE8F1FB)
-        _style_input("D5:K5", "D5", wrap=False)
         _style_label("C6", "CC", 0xEAF7F0)
         _style_input("D6:K6", "D6", wrap=False)
+
         _style_label("C7", "SUBJECT", 0xFFF4DF)
         _style_input("D7:K7", "D7", wrap=False)
 
-        # Visually separate BODY below with a label row and a big box at D9:K29
+        # Spacer row before BODY (visual separation, no label duplication)
         try:
             sh.Range("C8:K8").Interior.Color = 0xF6F3EE
             sh.Range("C8:K8").Borders.LineStyle = -4142
-            sh.Range("C8").Value = "BODY"
-            sh.Range("C8").Font.Name = "Segoe UI"
-            sh.Range("C8").Font.Bold = True
-            sh.Range("C8").Font.Size = 9
-            sh.Range("C8").Font.Color = accent
-            sh.Range("C8").HorizontalAlignment = -4131
-            sh.Range("C8").VerticalAlignment = -4108
-            sh.Range("C8").IndentLevel = 1
+            sh.Range("C8").ClearContents()
         except Exception:
             pass
+
+        _style_label("C9", "BODY", 0xF3ECFF)
         _style_input("D9:K29", "D9", wrap=True)
-        try:
-            sh.Rows("8").RowHeight = 18
-            sh.Rows("9").RowHeight = 24
-            for rr in range(10, 30):
-                sh.Rows(str(rr)).RowHeight = 20
-            sh.Rows("30:1048576").Hidden = True
-        except Exception:
-            pass
 
         # Set values into the VBA-read cells
         try:

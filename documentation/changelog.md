@@ -5,7 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-17
 
-- **10:22:00** — Refined START HERE layout/copy and email template tabs: full-width "Create Pending Pickup Report" button with 50/50 Manager/Director email setup buttons below; updated HOW IT WORKS/GOOD TO KNOW; converted hidden Manager/Director email templates to shape-free, cell-formatted layouts (separated TO/CC/SUBJECT/BODY sections, accent header, bordered inputs) so typed text is never obscured, preserving VBA config cells (`D5/D6/D7/D9`). Template and email screenshots added/updated in README.
+- **10:26:00** — Audited/fixed hidden email template tab formatting (`scripts/sync_template.py`): corrected TO/CC/SUBJECT/BODY to single ordered side labels with consistent spacing (resolved squished CC/duplicated or odd labels), kept shape-free cell-based inputs and VBA config cells (`D5/D6/D7/D9`). Re-synced template/build artifacts and refreshed email template screenshots. Note: director/dashboard drafts auto-add today’s date when SUBJECT (`D7`) is blank; manager drafts and custom SUBJECT values are used as entered.
 
 
 ## 2026-11-16
