@@ -246,7 +246,7 @@ try:
         except Exception:
             pass
 
-        # Reset sheet for a clean, shape-free canvas (shapes can cover typed text)
+        # Reset sheet for a clean, shape-free canvas (no overlay shapes/text obstruction)
         try:
             for s in list(sh.Shapes):
                 try:
@@ -256,63 +256,65 @@ try:
         except Exception:
             pass
         try:
-            sh.Cells.Clear
+            sh.Cells.ClearContents()
+            sh.Cells.ClearFormats()
             sh.Cells.UnMerge()
-            sh.Cells.Interior.Color = 0xF6F3EE  # warm canvas
+            sh.Cells.Interior.Color = 0xF4F1EB  # warm canvas
             sh.Cells.Font.Name = "Segoe UI"
             sh.Cells.Font.Size = 11
-            sh.Cells.Font.Color = 0x222222
+            sh.Cells.Font.Color = 0x1F1F1F
             sh.Cells.Borders.LineStyle = -4142  # xlLineStyleNone
             sh.Cells.WrapText = False
+            sh.Cells.RowHeight = 18
         except Exception:
             pass
 
-        # Layout: header (2-3), spacer (4), TO (5), CC (6), SUBJECT (7), spacer (8), BODY (9:29)
+        # Layout (preserve VBA-read cells): header 2-3, instructions 4, TO 5, gap 6 spacer row? no-can't shift.
+        # Keep fixed cells D5/D6/D7/D9; use spacer rows 4 and 8 and visual card separation.
         try:
             sh.Columns("A").ColumnWidth = 1.0
-            sh.Columns("B").ColumnWidth = 1.5
-            sh.Columns("C").ColumnWidth = 12
+            sh.Columns("B").ColumnWidth = 1.4
+            sh.Columns("C").ColumnWidth = 12.5
             for col in ["D", "E", "F", "G", "H", "I", "J", "K"]:
-                sh.Columns(col).ColumnWidth = 18
-            sh.Rows("1").RowHeight = 8
-            sh.Rows("2").RowHeight = 34
-            sh.Rows("3").RowHeight = 20
-            sh.Rows("4").RowHeight = 12   # spacer
-            sh.Rows("5").RowHeight = 34   # TO
-            sh.Rows("6").RowHeight = 34   # CC
-            sh.Rows("7").RowHeight = 34   # SUBJECT
-            sh.Rows("8").RowHeight = 12   # spacer before BODY
-            sh.Rows("9").RowHeight = 24   # BODY top (merged D9:K29)
-            for rr in range(10, 30):
+                sh.Columns(col).ColumnWidth = 18.5
+            sh.Rows("1").RowHeight = 6
+            sh.Rows("2").RowHeight = 38
+            sh.Rows("3").RowHeight = 18
+            sh.Rows("4").RowHeight = 18   # instructions
+            sh.Rows("5").RowHeight = 38   # TO (D5)
+            sh.Rows("6").RowHeight = 38   # CC (D6)
+            sh.Rows("7").RowHeight = 38   # SUBJECT (D7)
+            sh.Rows("8").RowHeight = 16   # spacer before BODY
+            sh.Rows("9").RowHeight = 26   # BODY top (merged D9:K30)
+            for rr in range(10, 31):
                 sh.Rows(str(rr)).RowHeight = 20
         except Exception:
             pass
 
-        # Hide unused areas for a focused view
         try:
-            sh.Rows("30:1048576").Hidden = True
+            sh.Rows("31:1048576").Hidden = True
             sh.Columns("L:XFD").Hidden = True
             sh.Columns("A").Hidden = True
         except Exception:
             pass
 
-        # Header band (cells only)
+        # Header band
         try:
             sh.Range("B2:K2").Merge()
             sh.Range("B3:K3").Merge()
             sh.Range("B2:K3").Interior.Color = accent
             sh.Range("B2").Value = title
-            sh.Range("B3").Value = "Edit each field below. Email content is inserted automatically when generated."
-            sh.Range("B2").Font.Name = "Segoe UI"
+            sh.Range("B3").Value = "Enter email details below. Report content is added automatically when you generate the email."
+            sh.Range("B2").Font.Name = "Segoe UI Semibold"
             sh.Range("B2").Font.Bold = True
-            sh.Range("B2").Font.Size = 18
+            sh.Range("B2").Font.Size = 19
             sh.Range("B2").Font.Color = 0xFFFFFF
             sh.Range("B2").HorizontalAlignment = -4131
             sh.Range("B2").VerticalAlignment = -4108
             sh.Range("B2").IndentLevel = 1
             sh.Range("B3").Font.Name = "Segoe UI"
             sh.Range("B3").Font.Size = 10
-            sh.Range("B3").Font.Color = 0xF2ECE4
+            sh.Range("B3").Font.Color = 0xF6F0E7
             sh.Range("B3").HorizontalAlignment = -4131
             sh.Range("B3").VerticalAlignment = -4108
             sh.Range("B3").IndentLevel = 1
@@ -337,9 +339,33 @@ try:
         except Exception:
             pass
 
+        # Instructions row
+        try:
+            sh.Range("B4:K4").Merge()
+            sh.Range("B4").Value = "TO / CC: enter email addresses separated by semicolons (;)  •  SUBJECT/BODY: leave blank to use defaults where available."
+            sh.Range("B4").Font.Name = "Segoe UI"
+            sh.Range("B4").Font.Size = 9
+            sh.Range("B4").Font.Italic = True
+            sh.Range("B4").Font.Color = 0x5A5348
+            sh.Range("B4").Interior.Color = 0xEDE8DF
+            sh.Range("B4").HorizontalAlignment = -4131
+            sh.Range("B4").VerticalAlignment = -4108
+            sh.Range("B4").IndentLevel = 1
+            for edge in (8, 9):  # bottom/top subtle
+                try:
+                    b = sh.Range("B4:K4").Borders(edge)
+                    b.LineStyle = 1
+                    b.Weight = 2
+                    b.Color = 0xDDD6CA
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         def _style_label(addr, text, fill):
             try:
                 rg = sh.Range(addr)
+                rg.UnMerge()
                 rg.Value = text
                 rg.Font.Name = "Segoe UI"
                 rg.Font.Bold = True
@@ -353,7 +379,7 @@ try:
                         b = rg.Borders(edge)
                         b.LineStyle = 1
                         b.Weight = 2
-                        b.Color = accent_light
+                        b.Color = accent
                     except Exception:
                         pass
             except Exception:
@@ -376,22 +402,30 @@ try:
                 rg.VerticalAlignment = -4160 if wrap else -4108
                 rg.WrapText = wrap
                 rg.IndentLevel = 1
+                # card-like border
                 for edge in (7, 8, 9, 10):
                     try:
                         b = rg.Borders(edge)
                         b.LineStyle = 1
                         b.Weight = 2
-                        b.Color = 0xD9D2C7
+                        b.Color = 0xCFC6BA
                     except Exception:
                         pass
-                # keep VBA target cell formatting consistent
                 tl = sh.Range(top_left)
                 tl.Interior.Color = 0xFFFFFF
                 tl.WrapText = wrap
             except Exception:
                 pass
 
-        # Separated, ordered sections (one label + one input each)
+        # Canvas spacers
+        try:
+            sh.Range("B8:K8").Interior.Color = 0xF4F1EB
+            sh.Range("B8:K8").Borders.LineStyle = -4142
+            sh.Range("B8:K8").ClearContents()
+        except Exception:
+            pass
+
+        # Sections (ordered, one per field). Fixed VBA cells: D5,D6,D7,D9
         _style_label("C5", "TO", 0xE8F1FB)
         _style_input("D5:K5", "D5", wrap=False)
 
@@ -401,16 +435,28 @@ try:
         _style_label("C7", "SUBJECT", 0xFFF4DF)
         _style_input("D7:K7", "D7", wrap=False)
 
-        # Spacer row before BODY (visual separation, no label duplication)
+        _style_label("C9", "BODY", 0xF3ECFF)
+        _style_input("D9:K30", "D9", wrap=True)
+
+        # Clear any stray/old content outside defined areas (keep header/instructions/fields)
         try:
-            sh.Range("C8:K8").Interior.Color = 0xF6F3EE
-            sh.Range("C8:K8").Borders.LineStyle = -4142
-            sh.Range("C8").ClearContents()
+            for rr in list(range(1, 2)) + list(range(10, 31)):
+                # row 1 and below-body label column cleanup
+                cell = sh.Range(f"C{rr}")
+                if rr >= 10:
+                    cell.ClearContents()
+                    cell.Interior.Color = 0xF4F1EB
+                    cell.Borders.LineStyle = -4142
+            # clear legacy cells/spacers
+            for addr in ("D8", "E8", "F8", "G8", "H8", "I8", "J8", "K8", "C8"):
+                try:
+                    sh.Range(addr).ClearContents()
+                    sh.Range(addr).Interior.Color = 0xF4F1EB
+                    sh.Range(addr).Borders.LineStyle = -4142
+                except Exception:
+                    pass
         except Exception:
             pass
-
-        _style_label("C9", "BODY", 0xF3ECFF)
-        _style_input("D9:K29", "D9", wrap=True)
 
         # Set values into the VBA-read cells
         try:
@@ -418,6 +464,7 @@ try:
             sh.Range("D6").Value = field_values.get("cc", "")
             sh.Range("D7").Value = field_values.get("subject", "")
             sh.Range("D9").Value = field_values.get("body", "")
+            sh.Range("D8").ClearContents()
         except Exception:
             pass
 
