@@ -69,173 +69,312 @@ try:
     for bas in bas_files:
         vbp.VBComponents.Import(bas)
 
-    # Ensure START HERE action buttons exist and are aligned cleanly.
+    # ------------------------------------------------------------------
+    # START HERE layout overhaul: hero, actions, steps, notes
+    # ------------------------------------------------------------------
     ws = wb.Worksheets("START HERE")
-    cta = ws.Range("B14")
 
-    # Reserve vertical space for a 3-button stack so text below doesn't overlap
+    ACCENT = 0x79411F      # deep blue (BGR)
+    ACCENT_2 = 0x3E6B35    # deep green (BGR)
+    CANVAS = 0xF4F1EB      # warm canvas
+    CARD = 0xFFFFFF
+    CARD_BORDER = 0xDDD6CA
+    TEXT = 0x1F1F1F
+    MUTED = 0x5A5348
+
     try:
-        ws.Rows("14").RowHeight = 165
-        ws.Rows("15").RowHeight = 8
-        ws.Rows("16").RowHeight = 8
-        ws.Rows("17").RowHeight = 8
+        ws.Activate()
     except Exception:
         pass
 
-    row1_top = cta.Top + 6
-    row2_top = row1_top + 52
-    row3_top = row2_top + 52
-    btn_left = cta.Left + 12
-    btn_w = 360
-    btn_h = 44
-
-    btn = None
-    for s in ws.Shapes:
-        if s.Name == button_name:
-            btn = s
-            break
-    if btn is None:
-        btn = ws.Shapes.AddShape(5, btn_left, row1_top, btn_w, btn_h)
-        btn.Name = button_name
-        btn.Fill.ForeColor.RGB = 7949855
-        btn.Line.ForeColor.RGB = 4116214
-        btn.TextFrame2.TextRange.Font.Bold = True
-        btn.TextFrame2.TextRange.Font.Size = 14
-        btn.TextFrame2.TextRange.Font.Name = "Segoe UI"
-        btn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 16777215
-    btn.OnAction = "CreatePendingPickupReport"
+    # Column/row scaffold
     try:
-        btn.Left = btn_left
-        btn.Top = row1_top
-        btn.Width = btn_w
-        btn.Height = btn_h
-        btn.TextFrame2.TextRange.Text = "CREATE PENDING PICKUP REPORT"
+        ws.Columns("A").ColumnWidth = 1.2
+        ws.Columns("B").ColumnWidth = 2.0
+        ws.Columns("C").ColumnWidth = 26.0
+        ws.Columns("D").ColumnWidth = 26.0
+        ws.Columns("E").ColumnWidth = 26.0
+        ws.Columns("F").ColumnWidth = 12.0
+        ws.Columns("G").ColumnWidth = 2.0
+        ws.Rows("1").RowHeight = 6
+        ws.Rows("2").RowHeight = 44   # hero title
+        ws.Rows("3").RowHeight = 22   # hero subtitle
+        ws.Rows("4").RowHeight = 10
+        ws.Rows("5").RowHeight = 24   # actions label
+        ws.Rows("6").RowHeight = 82   # main CTA band
+        ws.Rows("7").RowHeight = 8
+        ws.Rows("8").RowHeight = 22   # section labels
+        ws.Rows("9").RowHeight = 98   # email setup cards/buttons
+        ws.Rows("10").RowHeight = 12
+        ws.Rows("11").RowHeight = 24  # how it works
+        for r in range(12, 18):
+            ws.Rows(str(r)).RowHeight = 20
+        ws.Rows("18").RowHeight = 10
+        ws.Rows("19").RowHeight = 24  # good to know
+        ws.Rows("20").RowHeight = 20
+        ws.Rows("21").RowHeight = 20
+        ws.Rows("22").RowHeight = 20
+        ws.Rows("23").RowHeight = 20
+        ws.Rows("24").RowHeight = 14
+        ws.Rows("25").RowHeight = 18  # footer
     except Exception:
         pass
 
-    # Setup Manager Email button
-    setup_btn = None
-    for s in ws.Shapes:
-        if s.Name == "btnSetupEmailCC":
-            setup_btn = s
-            break
-    if setup_btn is None:
-        setup_btn = ws.Shapes.AddShape(5, btn_left, row2_top, 280, btn_h)
-        setup_btn.Name = "btnSetupEmailCC"
-        setup_btn.Fill.ForeColor.RGB = 7949855
-        setup_btn.Line.ForeColor.RGB = 4116214
-        setup_btn.TextFrame2.TextRange.Font.Bold = True
-        setup_btn.TextFrame2.TextRange.Font.Size = 11
-        setup_btn.TextFrame2.TextRange.Font.Name = "Segoe UI"
-        setup_btn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 16777215
-    setup_btn.OnAction = "SetupEmailCC"
+    # Reset visible content/format region for a clean canvas
     try:
-        setup_btn.Left = btn_left
-        setup_btn.Top = row2_top
-        setup_btn.Width = 280
-        setup_btn.Height = btn_h
-        setup_btn.TextFrame2.TextRange.Text = "Setup Manager Email Settings"
+        rng = ws.Range("B1:F30")
+        rng.ClearContents()
+        rng.UnMerge()
+        rng.Interior.ColorIndex = -4142  # xlColorIndexNone
+        rng.Borders.LineStyle = -4142
+        ws.Cells.Font.Name = "Segoe UI"
     except Exception:
         pass
 
-    # Setup Director Email button
-    director_btn = None
-    for s in ws.Shapes:
-        if s.Name == "btnSetupDirectorEmail":
-            director_btn = s
-            break
-    if director_btn is None:
-        director_btn = ws.Shapes.AddShape(5, btn_left, row3_top, 280, btn_h)
-        director_btn.Name = "btnSetupDirectorEmail"
-        director_btn.Fill.ForeColor.RGB = 7949855
-        director_btn.Line.ForeColor.RGB = 4116214
-        director_btn.TextFrame2.TextRange.Font.Bold = True
-        director_btn.TextFrame2.TextRange.Font.Size = 11
-        director_btn.TextFrame2.TextRange.Font.Name = "Segoe UI"
-        director_btn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 16777215
-    director_btn.OnAction = "SetupDirectorEmail"
     try:
-        director_btn.Left = btn_left
-        director_btn.Top = row3_top
-        director_btn.Width = 280
-        director_btn.Height = btn_h
-        director_btn.TextFrame2.TextRange.Text = "Setup Director Email Template"
+        ws.Range("A1:G30").Interior.Color = CANVAS
     except Exception:
         pass
 
-    # Reorganize START HERE text so buttons do not overlap content
-    start_here_text = {
-        "B16": "",
-        "B17": "",
-        "B18": "",
-        "B19": "",
-        "B20": "",
-        "B21": "",
-        "B22": "",
-        "B23": "",
-        "B18": "GOOD TO KNOW",
-        "B19": "•  Only rows with Treatment Status 'Pending Pickup' are included.",
-        "B20": "•  Pickup Age is days since AUDIT: TP End Date — older means higher priority.",
-        "B21": "•  A missing AUDIT: TP End Date shows as 'MISSING DATE'.",
-        "B23": "v1.0  •  Pending Pickup Report Builder",
-    }
-    # apply in stable order (clear/move)
-    ordered_updates = [
-        ("B16", ""), ("B17", ""),
-        ("B18", "GOOD TO KNOW"),
-        ("B19", "•  Only rows with Treatment Status 'Pending Pickup' are included."),
-        ("B20", "•  Pickup Age is days since AUDIT: TP End Date — older means higher priority."),
-        ("B21", "•  A missing AUDIT: TP End Date shows as 'MISSING DATE'."),
-        ("B22", ""),
-        ("B23", "v1.0  •  Pending Pickup Report Builder"),
+    def _merge(addr, value=None):
+        try:
+            rg = ws.Range(addr)
+            rg.UnMerge()
+            rg.Merge()
+            if value is not None:
+                rg.Value = value
+            return rg
+        except Exception:
+            try:
+                return ws.Range(addr.split(":")[0])
+            except Exception:
+                return None
+
+    def _set_font(addr, size=11, bold=False, color=TEXT, name="Segoe UI"):
+        try:
+            rg = ws.Range(addr)
+            rg.Font.Name = name
+            rg.Font.Size = size
+            rg.Font.Bold = bold
+            rg.Font.Color = color
+        except Exception:
+            pass
+
+    def _box(addr, fill=CARD, border=CARD_BORDER, weight=2):
+        try:
+            rg = ws.Range(addr)
+            rg.Interior.Color = fill
+            for edge in (7, 8, 9, 10):
+                b = rg.Borders(edge)
+                b.LineStyle = 1
+                b.Weight = weight
+                b.Color = border
+        except Exception:
+            pass
+
+    # Hero
+    hero = _merge("B2:F3", "Pending Pickup Report Builder")
+    if hero is not None:
+        try:
+            hero.Interior.Color = ACCENT
+            hero.HorizontalAlignment = -4131
+            hero.VerticalAlignment = -4108
+            hero.IndentLevel = 1
+        except Exception:
+            pass
+    _set_font("B2:F2", size=24, bold=True, color=0xFFFFFF, name="Segoe UI Semibold")
+    try:
+        _merge("B3:F3", "Generate the monthly Pending Pickup workbook and prepare manager/director email drafts.")
+        ws.Range("B3").Font.Name = "Segoe UI"
+        ws.Range("B3").Font.Size = 11
+        ws.Range("B3").Font.Color = 0xF6F0E7
+        ws.Range("B3").IndentLevel = 1
+        ws.Range("B3").VerticalAlignment = -4160
+    except Exception:
+        pass
+    try:
+        for edge in (7, 8, 9, 10):
+            b = ws.Range("B2:F3").Borders(edge)
+            b.LineStyle = 1
+            b.Weight = 2
+            b.Color = ACCENT
+    except Exception:
+        pass
+
+    # Actions label and primary CTA card
+    try:
+        _merge("B5:F5", "ACTIONS")
+        _set_font("B5", size=10, bold=True, color=MUTED)
+        ws.Range("B5").IndentLevel = 1
+    except Exception:
+        pass
+    _box("B6:F6", fill=CARD, border=CARD_BORDER, weight=2)
+    try:
+        _merge("B6:F6", "Create a new Pending Pickup report from the current export.\nYou will choose the source file, optional prior report for comparison, and save location.")
+        ws.Range("B6").Font.Name = "Segoe UI"
+        ws.Range("B6").Font.Size = 11
+        ws.Range("B6").Font.Color = MUTED
+        ws.Range("B6").HorizontalAlignment = -4131
+        ws.Range("B6").VerticalAlignment = -4160
+        ws.Range("B6").IndentLevel = 1
+        ws.Range("B6").WrapText = True
+    except Exception:
+        pass
+
+    # Email setup cards (background panels)
+    try:
+        _merge("B8:C8", "EMAIL SETUP")
+        _set_font("B8", size=10, bold=True, color=MUTED)
+        ws.Range("B8").IndentLevel = 1
+        _merge("D8:F8", "HOW IT WORKS")
+        _set_font("D8", size=10, bold=True, color=MUTED)
+        ws.Range("D8").IndentLevel = 1
+    except Exception:
+        pass
+
+    _box("B9:C9", fill=CARD, border=CARD_BORDER, weight=2)
+    _box("D9:F16", fill=CARD, border=CARD_BORDER, weight=2)
+    try:
+        _merge("B9:C9", "Configure email templates used when sending from generated reports.\n\nManager: per-manager tab emails (To/CC/Subject/Body).\nDirector: monthly dashboard email.")
+        ws.Range("B9").WrapText = True
+        ws.Range("B9").VerticalAlignment = -4160
+        ws.Range("B9").HorizontalAlignment = -4131
+        ws.Range("B9").IndentLevel = 1
+        ws.Range("B9").Font.Size = 10
+        ws.Range("B9").Font.Color = MUTED
+    except Exception:
+        pass
+
+    # Remove/replace old START HERE shapes to avoid stale overlays
+    try:
+        for s in list(ws.Shapes):
+            nm = str(getattr(s, "Name", ""))
+            if nm in {button_name, "btnSetupEmailCC", "btnSetupDirectorEmail"} or nm.lower().startswith("btncreate") or nm.lower().startswith("btnsetup"):
+                try:
+                    s.Delete()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    def _make_button(name, macro, left, top, width, height, text, fill, line, font_size=11, bold=True):
+        b = ws.Shapes.AddShape(5, left, top, width, height)  # msoShapeRoundedRectangle
+        b.Name = name
+        b.OnAction = macro
+        b.Fill.ForeColor.RGB = fill
+        b.Line.ForeColor.RGB = line
+        b.Line.Weight = 1.25
+        try:
+            b.TextFrame2.TextRange.Text = text
+            b.TextFrame2.TextRange.Font.Name = "Segoe UI"
+            b.TextFrame2.TextRange.Font.Bold = bold
+            b.TextFrame2.TextRange.Font.Size = font_size
+            b.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0xFFFFFF
+            b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
+            b.TextFrame2.VerticalAnchor = 3  # middle
+        except Exception:
+            pass
+        try:
+            b.Placement = 3  # free floating
+        except Exception:
+            pass
+        return b
+
+    # Primary action button (anchored to CTA card area)
+    try:
+        anchor = ws.Range("B6")
+        _make_button(
+            button_name, "CreatePendingPickupReport",
+            anchor.Left + 16, anchor.Top + 10,
+            520, 58,
+            "CREATE PENDING PICKUP REPORT",
+            ACCENT, 0x4A2F14, font_size=16, bold=True,
+        )
+    except Exception:
+        pass
+
+    # Email setup buttons (two-column inside email card)
+    try:
+        card = ws.Range("B9")
+        left = card.Left + 14
+        top = card.Top + 58
+        w = (card.Width - 42) / 2.0
+        h = 32
+        _make_button("btnSetupEmailCC", "SetupEmailCC", left, top, w, h, "Setup Manager Email", 0x5A86B8, 0x355A86, font_size=10)
+        _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", left + w + 14, top, w, h, "Setup Director Email", ACCENT_2, 0x294A23, font_size=10)
+    except Exception:
+        pass
+
+    # How it works steps
+    steps = [
+        ("1", "Click CREATE PENDING PICKUP REPORT."),
+        ("2", "Select the current All Open Treatment Plans export."),
+        ("3", "Optionally select last month’s report for comparison."),
+        ("4", "Choose a save location (reports are saved in Reports/ by default)."),
+        ("5", "Use Email buttons on generated tabs to create Outlook drafts."),
     ]
-    for addr, val in ordered_updates:
-        try:
-            ws.Range(addr).Value = val
-        except Exception:
-            pass
     try:
-        ws.Rows("18").RowHeight = 24
-        ws.Rows("19").RowHeight = 20.1
-        ws.Rows("20").RowHeight = 20.1
-        ws.Rows("21").RowHeight = 20.1
-        ws.Rows("22").RowHeight = 8
-        ws.Rows("23").RowHeight = 18
-        ws.Range("B18").Font.Bold = True
-        ws.Range("B18").Font.Size = 11
+        row = 10
+        for num, text in steps:
+            addr_n = f"D{row}"
+            addr_t = f"E{row}:F{row}"
+            ws.Range(addr_n).Value = num
+            _merge(addr_t, text)
+            ws.Range(addr_n).Font.Bold = True
+            ws.Range(addr_n).Font.Color = ACCENT
+            ws.Range(addr_n).HorizontalAlignment = -4108
+            ws.Range(addr_n).VerticalAlignment = -4108
+            ws.Range(f"E{row}").Font.Size = 10
+            ws.Range(f"E{row}").Font.Color = TEXT
+            ws.Range(f"E{row}").VerticalAlignment = -4108
+            ws.Range(f"E{row}").IndentLevel = 0
+            row += 1
+        ws.Range("D16:F16").ClearContents()
     except Exception:
         pass
 
-    # Update START HERE labels/info (manager/director config in hidden template tabs)
-    config_cells = {
-        "C16": "",
-        "D16": "",
-        "C17": "",
-        "D17": "",
-        "C18": "",
-        "D18": "",
-        "C19": "",
-        "D19": "",
-        "C24": "Manager Email Template (hidden tab):",
-        "D24": "Use 'Setup Manager Email Settings' to edit To/CC/Subject/Body.",
-        "C25": "Director Email Template (hidden tab):",
-        "D25": "Use 'Setup Director Email Template' to edit To/CC/Subject/Body.",
-        "C20": "",
-        "D20": "",
-    }
-    for addr, val in config_cells.items():
+    # Good to know panel
+    try:
+        _merge("B19:F19", "GOOD TO KNOW")
+        _set_font("B19", size=10, bold=True, color=MUTED)
+        ws.Range("B19").IndentLevel = 1
+    except Exception:
+        pass
+    _box("B20:F23", fill=0xEAF1F8, border=0xC9D8E8, weight=2)
+    notes = [
+        ("B20", "•  Only rows with Treatment Status 'Pending Pickup' are included."),
+        ("B21", "•  Pickup Age is days since AUDIT: TP End Date — older means higher priority."),
+        ("B22", "•  A missing AUDIT: TP End Date is shown as 'MISSING DATE'."),
+        ("B23", "•  Edit manager/director email defaults in hidden template tabs via Setup Email buttons."),
+    ]
+    for addr, val in notes:
         try:
-            ws.Range(addr).Value = val
+            _merge(f"{addr}:F{addr[1:]}", val)
+            ws.Range(addr).Font.Size = 10
+            ws.Range(addr).Font.Color = TEXT
+            ws.Range(addr).VerticalAlignment = -4108
+            ws.Range(addr).IndentLevel = 1
         except Exception:
             pass
 
-    # Style the label cells
-    for label_addr in ["C24", "C25"]:
-        try:
-            ws.Range(label_addr).Font.Bold = True
-            ws.Range(label_addr).Font.Size = 10
-        except Exception:
-            pass
+    # Footer
+    try:
+        _merge("B25:F25", "v1.0  •  Pending Pickup Report Builder")
+        _set_font("B25", size=9, bold=False, color=MUTED)
+        ws.Range("B25").HorizontalAlignment = -4152  # right
+    except Exception:
+        pass
+
+    # View cleanup
+    try:
+        aw = wb.Application.ActiveWindow
+        if aw is not None:
+            aw.DisplayGridlines = False
+            aw.DisplayHeadings = False
+            aw.Zoom = 115
+        ws.Range("B2").Select()
+    except Exception:
+        pass
 
     def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE"):
         # field_values: dict with keys to, cc, subject, body
