@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-18
 
+- **13:35:00** — Fixed broken START HERE page layout in `scripts/sync_template.py`: `_make_button` helper was defined after its call sites (all inside `try/except`, so button creation silently failed and no buttons appeared). Moved `_make_button` definition before all button creation calls, rewrote layout with proper cell-anchored cards (hero band, CTA card with large CREATE button, email setup card with side-by-side manager/director buttons, numbered how-it-works steps, good-to-know panel), consistent spacing and typography. Regenerated `template-start-here.png` screenshot.
+
 - **13:30:00** — Regenerated all QA screenshots after START HERE redesign and manager-tab unfreeze: `template-start-here.png` now reflects the new hero/CTA/email-layout design, and all 13 report screenshots (Dashboard, 10 manager tabs, Raw Data, Audit Log) were regenerated via `scripts/snapshot-report.py` to match current output.
 - **13:20:00** — Unfroze manager tab panes in `vba/modFormatting.bas` (`FormatManagerSheet`): changed `ActiveWindow.SplitRow` from `MANAGER_HEADER_ROW` (16) to `0` and set `ActiveWindow.FreezePanes = False` so the entire manager tab scrolls together instead of pinning the KPI cards at the top. KPI cards still render at the top of each tab but no longer block scrolling of the data table below.
 

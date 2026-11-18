@@ -96,44 +96,44 @@ try:
         ws.Columns("C").ColumnWidth = 26.0
         ws.Columns("D").ColumnWidth = 26.0
         ws.Columns("E").ColumnWidth = 26.0
-        ws.Columns("F").ColumnWidth = 12.0
+        ws.Columns("F").ColumnWidth = 2.0
         ws.Columns("G").ColumnWidth = 2.0
         ws.Rows("1").RowHeight = 4
-        ws.Rows("2").RowHeight = 46    # hero title band
-        ws.Rows("3").RowHeight = 20    # hero subtitle
-        ws.Rows("4").RowHeight = 10
-        ws.Rows("5").RowHeight = 18    # subtitle
-        ws.Rows("6").RowHeight = 14
-        ws.Rows("7").RowHeight = 20    # section label
-        ws.Rows("8").RowHeight = 78    # CTA card (description)
-        ws.Rows("9").RowHeight = 10
-        ws.Rows("10").RowHeight = 56   # primary button row
-        ws.Rows("11").RowHeight = 22
-        ws.Rows("12").RowHeight = 20   # section label
-        ws.Rows("13").RowHeight = 70   # email card
-        ws.Rows("14").RowHeight = 10
-        ws.Rows("15").RowHeight = 42   # email buttons row
-        ws.Rows("16").RowHeight = 22
-        ws.Rows("17").RowHeight = 20   # section label
-        ws.Rows("18").RowHeight = 18   # step 1
-        ws.Rows("19").RowHeight = 18   # step 2
-        ws.Rows("20").RowHeight = 18   # step 3
-        ws.Rows("21").RowHeight = 18   # step 4
-        ws.Rows("22").RowHeight = 18   # step 5
-        ws.Rows("23").RowHeight = 14
-        ws.Rows("24").RowHeight = 20   # section label
-        ws.Rows("25").RowHeight = 18   # note 1
-        ws.Rows("26").RowHeight = 18   # note 2
-        ws.Rows("27").RowHeight = 18   # note 3
-        ws.Rows("28").RowHeight = 18   # note 4
-        ws.Rows("29").RowHeight = 14
-        ws.Rows("30").RowHeight = 18   # footer
+        ws.Rows("2").RowHeight = 48    # hero title band
+        ws.Rows("3").RowHeight = 22    # hero subtitle
+        ws.Rows("4").RowHeight = 12
+        ws.Rows("5").RowHeight = 20    # subtitle
+        ws.Rows("6").RowHeight = 16
+        ws.Rows("7").RowHeight = 22    # section label
+        ws.Rows("8").RowHeight = 80    # CTA card (description)
+        ws.Rows("9").RowHeight = 12
+        ws.Rows("10").RowHeight = 60   # primary button row
+        ws.Rows("11").RowHeight = 24
+        ws.Rows("12").RowHeight = 22   # section label
+        ws.Rows("13").RowHeight = 72   # email card
+        ws.Rows("14").RowHeight = 12
+        ws.Rows("15").RowHeight = 46   # email buttons row
+        ws.Rows("16").RowHeight = 24
+        ws.Rows("17").RowHeight = 22   # section label
+        ws.Rows("18").RowHeight = 20   # step 1
+        ws.Rows("19").RowHeight = 20   # step 2
+        ws.Rows("20").RowHeight = 20   # step 3
+        ws.Rows("21").RowHeight = 20   # step 4
+        ws.Rows("22").RowHeight = 20   # step 5
+        ws.Rows("23").RowHeight = 16
+        ws.Rows("24").RowHeight = 22   # section label
+        ws.Rows("25").RowHeight = 20   # note 1
+        ws.Rows("26").RowHeight = 20   # note 2
+        ws.Rows("27").RowHeight = 20   # note 3
+        ws.Rows("28").RowHeight = 20   # note 4
+        ws.Rows("29").RowHeight = 16
+        ws.Rows("30").RowHeight = 20   # footer
     except Exception:
         pass
 
     # Reset visible content/format region for a clean canvas
     try:
-        rng = ws.Range("B1:E30")
+        rng = ws.Range("B1:G30")
         rng.ClearContents()
         rng.UnMerge()
         rng.Interior.ColorIndex = -4142  # xlColorIndexNone
@@ -183,6 +183,38 @@ try:
         except Exception:
             pass
 
+    def _make_button(name, macro, left, top, width, height, text, fill, line, font_size=11, bold=True):
+        try:
+            b = ws.Shapes.AddShape(5, left, top, width, height)  # msoShapeRoundedRectangle
+            b.Name = name
+            b.OnAction = macro
+            b.Fill.ForeColor.RGB = fill
+            b.Line.ForeColor.RGB = line
+            b.Line.Weight = 1.25
+            b.Shadow.Type = 0  # no shadow
+            try:
+                b.TextFrame2.TextRange.Text = text
+                b.TextFrame2.TextRange.Font.Name = "Segoe UI"
+                b.TextFrame2.TextRange.Font.Bold = bold
+                b.TextFrame2.TextRange.Font.Size = font_size
+                b.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0xFFFFFF
+                b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
+                b.TextFrame2.VerticalAnchor = 3  # middle
+                b.TextFrame2.MarginLeft = 4
+                b.TextFrame2.MarginRight = 4
+                b.TextFrame2.MarginTop = 2
+                b.TextFrame2.MarginBottom = 2
+            except Exception:
+                pass
+            try:
+                b.Placement = 3  # free floating
+                b.LockAspectRatio = False
+            except Exception:
+                pass
+        except Exception:
+            pass
+        return None
+
     # ---------- HERO BAND ----------
     try:
         _merge("B2:E3", "Pending Pickup Report Builder")
@@ -219,7 +251,7 @@ try:
 
     # ---------- SECTION: CREATE REPORT ----------
     try:
-        _merge("B7:E7", "STEP 1  •  CREATE REPORT")
+        _merge("B7:E7", "STEP 1  \u2022  CREATE REPORT")
         _set_font("B7:E7", size=10, bold=True, color=MUTED)
         ws.Range("B7").IndentLevel = 1
     except Exception:
@@ -228,7 +260,7 @@ try:
     # CTA card — description
     try:
         _box("B8:E9", fill=CARD, border=CARD_BORDER, weight=1)
-        _merge("B8:E9", "Create a new Pending Pickup report from the current All Open Treatment Plans export." + "\n" + "You will choose the source file, optionally select last month\u2019s report for comparison, and pick a save location.")
+        _merge("B8:E9", "Create a new Pending Pickup report from the current All Open Treatment Plans export.\nYou will choose the source file, optionally select last month\u2019s report for comparison, and pick a save location.")
         ws.Range("B8:E9").Font.Size = 10.5
         ws.Range("B8:E9").Font.Color = TEXT
         ws.Range("B8:E9").HorizontalAlignment = -4131
@@ -253,7 +285,7 @@ try:
 
     # ---------- SECTION: EMAIL SETUP ----------
     try:
-        _merge("B12:E12", "STEP 2  •  EMAIL TEMPLATES")
+        _merge("B12:E12", "STEP 2  \u2022  EMAIL TEMPLATES")
         _set_font("B12:E12", size=10, bold=True, color=MUTED)
         ws.Range("B12").IndentLevel = 1
     except Exception:
@@ -262,7 +294,7 @@ try:
     # Email setup card — description
     try:
         _box("B13:E13", fill=CARD, border=CARD_BORDER, weight=1)
-        _merge("B13:E13", "Configure the email templates used when creating drafts from generated reports." + "\n" + "Manager: per-manager tab emails  \u2022  Director: monthly dashboard email.")
+        _merge("B13:E13", "Configure the email templates used when creating drafts from generated reports.\nManager: per-manager tab emails  \u2022  Director: monthly dashboard email.")
         ws.Range("B13:E13").Font.Size = 10
         ws.Range("B13:E13").Font.Color = TEXT
         ws.Range("B13:E13").HorizontalAlignment = -4131
@@ -278,7 +310,7 @@ try:
         left = card.Left + 14
         top = card.Top + 70
         w = (card.Width - 42) / 2.0
-        h = 34
+        h = 36
         _make_button("btnSetupEmailCC", "SetupEmailCC", left, top, w, h, "Setup Manager Email", 0x5A86B8, 0x355A86, font_size=10)
         _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", left + w + 14, top, w, h, "Setup Director Email", ACCENT_2, 0x1E5620, font_size=10)
     except Exception:
@@ -286,7 +318,7 @@ try:
 
     # ---------- SECTION: HOW IT WORKS ----------
     try:
-        _merge("B17:E17", "STEP 3  •  HOW IT WORKS")
+        _merge("B17:E17", "STEP 3  \u2022  HOW IT WORKS")
         _set_font("B17:E17", size=10, bold=True, color=MUTED)
         ws.Range("B17").IndentLevel = 1
     except Exception:
@@ -295,7 +327,7 @@ try:
     steps = [
         ("1", "Click CREATE PENDING PICKUP REPORT."),
         ("2", "Select the current All Open Treatment Plans export."),
-        ("3", "Optionally select last month’s report for comparison."),
+        ("3", "Optionally select last month\u2019s report for comparison."),
         ("4", "Choose a save location (reports are saved in Reports/ by default)."),
         ("5", "Use the Email buttons on generated tabs to create Outlook drafts."),
     ]
@@ -329,10 +361,10 @@ try:
 
     _box("B25:E28", fill=LIGHT, border=CARD_BORDER, weight=1)
     notes = [
-        ("B25", "•  Only rows with Treatment Status ‘Pending Pickup’ are included."),
-        ("B26", "•  Pickup Age is days since AUDIT: TP End Date — older means higher priority."),
-        ("B27", "•  A missing AUDIT: TP End Date is shown as ‘MISSING DATE’."),
-        ("B28", "•  Edit email defaults in hidden template tabs via Setup Email buttons."),
+        ("B25", "\u2022  Only rows with Treatment Status \u2018Pending Pickup\u2019 are included."),
+        ("B26", "\u2022  Pickup Age is days since AUDIT: TP End Date \u2014 older means higher priority."),
+        ("B27", "\u2022  A missing AUDIT: TP End Date is shown as \u2018MISSING DATE\u2019."),
+        ("B28", "\u2022  Edit email defaults in hidden template tabs via Setup Email buttons."),
     ]
     for addr, val in notes:
         try:
@@ -346,7 +378,7 @@ try:
 
     # ---------- FOOTER ----------
     try:
-        _merge("B30:E30", "v1.0  •  Pending Pickup Report Builder")
+        _merge("B30:E30", "v1.0  \u2022  Pending Pickup Report Builder")
         _set_font("B30:E30", size=9, bold=False, color=MUTED)
         ws.Range("B30").HorizontalAlignment = -4152  # right
         ws.Range("B30").IndentLevel = 1
@@ -364,29 +396,6 @@ try:
                     pass
     except Exception:
         pass
-
-    def _make_button(name, macro, left, top, width, height, text, fill, line, font_size=11, bold=True):
-        b = ws.Shapes.AddShape(5, left, top, width, height)  # msoShapeRoundedRectangle
-        b.Name = name
-        b.OnAction = macro
-        b.Fill.ForeColor.RGB = fill
-        b.Line.ForeColor.RGB = line
-        b.Line.Weight = 1.25
-        try:
-            b.TextFrame2.TextRange.Text = text
-            b.TextFrame2.TextRange.Font.Name = "Segoe UI"
-            b.TextFrame2.TextRange.Font.Bold = bold
-            b.TextFrame2.TextRange.Font.Size = font_size
-            b.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0xFFFFFF
-            b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
-            b.TextFrame2.VerticalAnchor = 3  # middle
-        except Exception:
-            pass
-        try:
-            b.Placement = 3  # free floating
-        except Exception:
-            pass
-        return b
     # View cleanup
     try:
         aw = wb.Application.ActiveWindow
