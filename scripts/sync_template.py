@@ -343,7 +343,8 @@ try:
     try:
         _merge("B17:E17", "STEP 3  \u2022  HOW IT WORKS")
         _set_font("B17:E17", size=10, bold=True, color=MUTED)
-        ws.Range("B17").IndentLevel = 1
+        ws.Range("B17:E17").HorizontalAlignment = -4131  # left
+        ws.Range("B17").IndentLevel = 0
     except Exception:
         pass
 
@@ -362,7 +363,7 @@ try:
             _merge("B" + str(row) + ":E" + str(row), num + "  " + text)
             ws.Range("B" + str(row)).Font.Bold = True
             ws.Range("B" + str(row)).Font.Color = ACCENT
-            ws.Range("B" + str(row)).HorizontalAlignment = -4108
+            ws.Range("B" + str(row)).HorizontalAlignment = -4131  # left
             ws.Range("B" + str(row)).VerticalAlignment = -4108
             ws.Range("B" + str(row)).IndentLevel = 0
             row += 1
