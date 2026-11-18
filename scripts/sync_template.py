@@ -1048,9 +1048,9 @@ try:
         _tmp_zip = _tmpl + ".tmp2.zip"
         _x_to_y = {
             "5092700": "120650",       # AOTILogo original Y
-            "2422525": str(208 * 12700),  # primary button row 10
-            "320675": str(340 * 12700),   # email button 1 row 14
-            "1246188": str(340 * 12700),  # email button 2 row 14
+            "2422525": str(230 * 12700),  # primary button row 10-11, 24pt gap below card
+            "320675": str(352 * 12700),   # email button 1 row 14-15, 14pt gap below card
+            "1246188": str(352 * 12700),  # email button 2 row 14-15, 14pt gap below card
         }
         with zipfile.ZipFile(_tmpl, 'r') as zin:
             _names = zin.namelist()
