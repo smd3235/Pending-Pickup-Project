@@ -197,6 +197,7 @@ try:
                 b.TextFrame2.TextRange.Font.Name = "Segoe UI"
                 b.TextFrame2.TextRange.Font.Bold = bold
                 b.TextFrame2.TextRange.Font.Size = font_size
+                b.TextFrame2.TextRange.Font.Color = 0xFFFFFF
                 b.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0xFFFFFF
                 b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
                 b.TextFrame2.VerticalAnchor = 3  # middle
@@ -205,7 +206,16 @@ try:
                 b.TextFrame2.MarginTop = 2
                 b.TextFrame2.MarginBottom = 2
             except Exception:
-                pass
+                try:
+                    b.TextFrame.TextRange.Text = text
+                    b.TextFrame.TextRange.Font.Name = "Segoe UI"
+                    b.TextFrame.TextRange.Font.Bold = bold
+                    b.TextFrame.TextRange.Font.Size = font_size
+                    b.TextFrame.TextRange.Font.Color = 0xFFFFFF
+                    b.TextFrame.HorizontalAlignment = 2  # center
+                    b.TextFrame.VerticalAlignment = 3  # middle
+                except Exception:
+                    pass
             try:
                 b.Placement = 3  # free floating
                 b.LockAspectRatio = False
@@ -347,18 +357,14 @@ try:
     try:
         row = 18
         for num, text in steps:
-            addr_n = "D" + str(row)
-            addr_t = "E" + str(row) + ":E" + str(row)
-            ws.Range(addr_n).Value = num
-            _merge(addr_t, text)
-            ws.Range(addr_n).Font.Bold = True
-            ws.Range(addr_n).Font.Color = ACCENT
-            ws.Range(addr_n).HorizontalAlignment = -4108
-            ws.Range(addr_n).VerticalAlignment = -4108
-            ws.Range("E" + str(row)).Font.Size = 10
-            ws.Range("E" + str(row)).Font.Color = TEXT
-            ws.Range("E" + str(row)).VerticalAlignment = -4108
-            ws.Range("E" + str(row)).IndentLevel = 0
+            # Merge D:E for each step row so number and text stay aligned
+            # directly below each other, never drifting to the right.
+            _merge("D" + str(row) + ":E" + str(row), num + "  " + text)
+            ws.Range("D" + str(row)).Font.Bold = True
+            ws.Range("D" + str(row)).Font.Color = ACCENT
+            ws.Range("D" + str(row)).HorizontalAlignment = -4108
+            ws.Range("D" + str(row)).VerticalAlignment = -4108
+            ws.Range("D" + str(row)).IndentLevel = 0
             row += 1
         ws.Range("D23:E23").ClearContents()
     except Exception:
