@@ -201,7 +201,7 @@ def find_latest_report(explicit=None):
         return p if p.exists() else None
     if not REPORTS_DIR.exists():
         return None
-    cands = [p for p in REPORTS_DIR.iterdir() if p.is_file() and p.suffix.lower() == ".xlsx" and not p.name.startswith("~$")]
+    cands = [p for p in REPORTS_DIR.iterdir() if p.is_file() and p.suffix.lower() in (".xlsx", ".xlsm") and not p.name.startswith("~$")]
     if not cands:
         return None
     return max(cands, key=lambda p: p.stat().st_mtime)

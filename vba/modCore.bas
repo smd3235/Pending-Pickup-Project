@@ -508,8 +508,27 @@ Public Function CreatePendingPickupReport() As Boolean
     If Not outWb.Worksheets("Dashboard") Is Nothing Then outWb.Worksheets("Dashboard").Range("A1").Select
     On Error GoTo CleanFail
 
+    ' Import VBA modules into the output workbook so manager/director email
+    ' buttons (and other macros) work in the generated .xlsm report.
+    Dim vbaDir As String, basFile As String
+    vbaDir = ThisWorkbook.Path & "\vba\"
+    basFile = Dir$(vbaDir & "*.bas", vbNormal)
+    Do While Len(basFile) > 0
+        ' Skip non-.bas matches (Dir$ can return .gitkeep etc. via 8.3 names)
+        If LCase$(Right$(basFile, 4)) = ".bas" Then
+            On Error Resume Next
+            outWb.VBProject.VBComponents.Import vbaDir & basFile
+            LogMsg "VBA import: " & basFile
+            On Error GoTo CleanFail
+        End If
+        basFile = Dir$
+    Loop
+    If basFile = "" Then
+        LogMsg "VBA import: no .bas files found in " & vbaDir
+    End If
+
     LogMsg "TRACE: SaveAs start"
-    outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbook
+    outWb.SaveAs Filename:=savePath, FileFormat:=xlOpenXMLWorkbookMacroEnabled
     LogMsg "TRACE: SaveAs done"
     LogMsg "Save done"
     Dim runDuration As Double

@@ -117,7 +117,7 @@ Public Function BuildOutputPath(ByVal masterWb As Workbook) As String
     If Len(Dir$(reportsDir, vbDirectory)) = 0 Then MkDir reportsDir
 
     stamp = Format(Now, "yyyy-mm-dd_HHMMSS")
-    outName = "Pending Pickup " & stamp & ".xlsx"
+    outName = "Pending Pickup " & stamp & ".xlsm"
     outPath = reportsDir & "\" & outName
 
     BuildOutputPath = outPath

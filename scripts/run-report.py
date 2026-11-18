@@ -74,7 +74,7 @@ completion_marker = os.path.join(log_dir, "pending-pickup-complete.txt")
 before = set()
 if os.path.isdir(reports_dir):
     before = {f.name for f in os.scandir(reports_dir)
-              if f.name.lower().endswith(".xlsx") and not f.name.startswith("~$")}
+              if f.name.lower().endswith((".xlsx", ".xlsm")) and not f.name.startswith("~$")}
 
 if os.path.exists(completion_marker):
     os.remove(completion_marker)
@@ -340,7 +340,7 @@ def watchdog_thread():
         try:
             new_files = [
                 f.name for f in os.scandir(reports_dir)
-                if f.name.lower().endswith(".xlsx") and f.name not in before and not f.name.startswith("~$")
+                if f.name.lower().endswith((".xlsx", ".xlsm")) and f.name not in before and not f.name.startswith("~$")
             ]
         except OSError:
             new_files = []
@@ -506,7 +506,7 @@ try:
             break
         try:
             new_files = [f.name for f in os.scandir(reports_dir)
-                         if f.name.lower().endswith(".xlsx") and f.name not in before and not f.name.startswith("~$")]
+                         if f.name.lower().endswith((".xlsx", ".xlsm")) and f.name not in before and not f.name.startswith("~$")]
             if new_files:
                 append_run_log(f"Report found during wait: {', '.join(sorted(new_files))}")
                 run_completed = True
@@ -618,7 +618,7 @@ finally:
     # Log any new report files created during this run.
     try:
         after = {f.name for f in os.scandir(reports_dir)
-                 if f.name.lower().endswith(".xlsx") and not f.name.startswith("~$")}
+              if f.name.lower().endswith((".xlsx", ".xlsm")) and not f.name.startswith("~$")}
         new_files = after - before
         if new_files:
             append_run_log(f"New report file(s): {', '.join(sorted(new_files))}")

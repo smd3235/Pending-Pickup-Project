@@ -34,14 +34,14 @@ if not path:
     candidates = []
     if os.path.isdir(reports_dir):
         for f in os.listdir(reports_dir):
-            if f.lower().endswith(".xlsx"):
+            if f.lower().endswith((".xlsx", ".xlsm")):
                 candidates.append(os.path.join(reports_dir, f))
     if candidates:
         candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
         path = candidates[0]
         print(f"Using newest report: {path}")
     else:
-        print("No workbook given and Reports\\ holds no .xlsx. Pass --path.", file=sys.stderr)
+        print("No workbook given and Reports\\ holds no .xlsx/.xlsm. Pass --path.", file=sys.stderr)
         sys.exit(2)
 
 if not os.path.exists(path):
