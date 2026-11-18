@@ -14,7 +14,7 @@ import win32com.client
 
 parser = argparse.ArgumentParser(description="Sync VBA macro modules into the template and rebuild local build package")
 parser.add_argument("--template", default=None)
-parser.add_argument("--bas-dir", default=None, help="Directory containing .bas modules (default: project root)")
+parser.add_argument("--bas-dir", default=None, help="Directory containing .bas modules (default: vba/)")
 parser.add_argument("--bas", action="append", default=[], help="Specific .bas file to sync (repeatable)")
 parser.add_argument("--button", default="btnCreatePendingPickupReport")
 parser.add_argument("--skip-package", action="store_true", help="Skip rebuilding Pending Pickup Template (no-macros).xlsx and Project-Local-Build.zip")
@@ -24,7 +24,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 
 template = args.template or os.path.join(project_root, "Pending Pickup Template.xlsm")
-bas_dir = args.bas_dir or project_root
+bas_dir = args.bas_dir or os.path.join(project_root, "vba")
 button_name = args.button
 
 # Collect .bas files to sync: explicit --bas first, then all .bas in bas_dir
@@ -812,10 +812,10 @@ if not args.skip_package:
     instructions_path = os.path.join(project_root, "BUILD-INSTRUCTIONS.txt")
     zip_path = os.path.join(project_root, "Project-Local-Build.zip")
 
-    # Collect all VBA source modules in project root (.bas, .cls, .frm)
+    # Collect all VBA source modules in vba/ (.bas, .cls, .frm)
     module_files = []
     for ext in ("*.bas", "*.cls", "*.frm"):
-        module_files.extend(glob.glob(os.path.join(project_root, ext)))
+        module_files.extend(glob.glob(os.path.join(project_root, "vba", ext)))
     module_files = sorted(set(module_files))
     if not module_files:
         print("No VBA module files (.bas/.cls/.frm) found for build package", file=sys.stderr)

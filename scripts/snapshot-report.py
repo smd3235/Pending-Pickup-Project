@@ -7,6 +7,7 @@
 import argparse
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -51,16 +52,41 @@ path = os.path.abspath(path)
 
 os.makedirs(out_folder, exist_ok=True)
 
-# Always start fresh for this export set: delete existing PNGs matching this prefix
-# so committed screenshots reflect only the latest run, without removing unrelated
-# captures (e.g. template-* screenshots).
-for f in os.listdir(out_folder):
-    fl = f.lower()
-    if fl.endswith(".png") and fl.startswith(f"{prefix.lower()}-"):
+# Export screenshots for the selected sheets. Existing screenshots for this
+# prefix are replaced only after a successful non-empty export (validated below),
+# so a failed/empty export does not leave stale-corrupted finals without error.
+
+
+def _export_chart_to_png(chart, png_path, label):
+    tmp_png = png_path + ".tmp"
+    last_err = None
+    for attempt in range(3):
+        last_err = None
         try:
-            os.remove(os.path.join(out_folder, f))
-        except OSError:
+            if os.path.exists(tmp_png):
+                os.remove(tmp_png)
+        except Exception:
             pass
+        try:
+            chart.Export(tmp_png)
+        except Exception as e:
+            last_err = e
+            time.sleep(1.0)
+            continue
+        try:
+            if os.path.exists(tmp_png) and os.path.getsize(tmp_png) > 0:
+                os.replace(tmp_png, png_path)
+                return
+            last_err = RuntimeError(f"Export produced empty file for {label}")
+        except Exception as e:
+            last_err = e
+        time.sleep(1.0)
+    try:
+        if os.path.exists(tmp_png):
+            os.remove(tmp_png)
+    except Exception:
+        pass
+    raise last_err or RuntimeError(f"Export failed for {label}")
 
 
 def save_sheet_image(workbook, worksheet, png_path):
@@ -151,32 +177,70 @@ def save_sheet_image(workbook, worksheet, png_path):
     if not copied:
         raise RuntimeError(f"CopyPicture failed after retries for {worksheet.Name}")
 
-    rows = last_row - first_row + 1
-    cols = last_col - first_col + 1
-    # Wider chart so content isn't squished onto one page width.
-    w = max(1800, cols * 110)
-    h = max(900, rows * 30)
-
     chart = workbook.Charts.Add()
     try:
-        chart.Paste()
+        pasted = False
+        last_err = None
+        for attempt in range(3):
+            try:
+                chart.Paste()
+                pasted = True
+                break
+            except Exception as e:
+                last_err = e
+                time.sleep(0.8)
+        if not pasted:
+            raise RuntimeError(f"Paste failed for {worksheet.Name}: {last_err}")
+
         time.sleep(1.0)
-        if os.path.exists(png_path):
-            os.remove(png_path)
-        chart.Export(png_path)
+
+        # Export to a temp .png file, validate non-empty, then replace target.
+        base, ext = os.path.splitext(png_path)
+        tmp_png = base + ".__tmp__" + (ext or ".png")
+        last_err = None
+        for attempt in range(3):
+            last_err = None
+            try:
+                if os.path.exists(tmp_png):
+                    os.remove(tmp_png)
+            except Exception:
+                pass
+            try:
+                chart.Export(tmp_png)
+            except Exception as e:
+                last_err = e
+                time.sleep(1.0)
+                continue
+            try:
+                if os.path.exists(tmp_png) and os.path.getsize(tmp_png) > 0:
+                    os.replace(tmp_png, png_path)
+                    return
+                last_err = RuntimeError(f"Export produced empty file for {worksheet.Name}")
+            except Exception as e:
+                last_err = e
+            time.sleep(1.0)
+
+        try:
+            if os.path.exists(tmp_png):
+                os.remove(tmp_png)
+        except Exception:
+            pass
+        raise last_err or RuntimeError(f"Export failed for {worksheet.Name}")
     finally:
-        chart.Delete()
+        try:
+            chart.Delete()
+        except Exception:
+            pass
 
 
 # Kill any lingering Excel processes before starting (unless --no-kill is set,
 # e.g. when called from run-report.py which still has Excel running).
-import subprocess
 if not args.no_kill:
     try:
-        subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True)
+        subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True, timeout=10)
     except Exception:
         pass
-    time.sleep(3.0)
+    time.sleep(2.0)
 
 xl = win32com.client.Dispatch("Excel.Application")
 xl.Visible = True
@@ -230,7 +294,7 @@ finally:
         wb.Close(False)
     xl.Quit()
     try:
-        subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True)
+        subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True, timeout=10)
     except Exception:
         pass
 

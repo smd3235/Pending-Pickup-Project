@@ -74,26 +74,26 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     ws.Rows("8:10").RowHeight = 33.95
     ws.Rows("11:11").RowHeight = 21.95
 
-    ' Top row cards (10 KPI cards across A:K with small gaps -> 20 cols, 2 per card)
+    ' Top row cards (10 KPI cards across A:K)
     labelText = "CURRENT PERIOD" & vbCrLf & "Pending Pickups"
     valueText = CStr(currentCount)
-    AddDashboardCard ws, "A4:B5", "A6:B6", RGB(221, 235, 247), labelText, valueText
+    AddDashboardCard ws, "A4:B5", "A6:B6", RGB(31, 78, 121), labelText, valueText
 
     labelText = "PRIOR PERIOD" & vbCrLf & "Pending Pickups"
     valueText = IIf(hasPrior, CStr(priorCount), "N/A")
-    AddDashboardCard ws, "C4:D5", "C6:D6", RGB(209, 226, 242), labelText, valueText
+    AddDashboardCard ws, "C4:D5", "C6:D6", RGB(45, 110, 165), labelText, valueText
 
     labelText = "NEW SINCE PRIOR" & vbCrLf & "Since Prior Report"
     valueText = IIf(hasPrior, CStr(newCount), "N/A")
-    AddDashboardCard ws, "E4:F5", "E6:F6", RGB(226, 239, 218), labelText, valueText
+    AddDashboardCard ws, "E4:F5", "E6:F6", RGB(46, 125, 50), labelText, valueText
 
     labelText = "CLEARED SINCE PRIOR" & vbCrLf & "Since Prior Report"
     valueText = IIf(hasPrior, CStr(clearedCount), "N/A")
-    AddDashboardCard ws, "G4:H5", "G6:H6", RGB(209, 233, 217), labelText, valueText
+    AddDashboardCard ws, "G4:H5", "G6:H6", RGB(104, 159, 56), labelText, valueText
 
     labelText = "STILL PENDING" & vbCrLf & "In Both Reports"
     valueText = IIf(hasPrior, CStr(stillCount), "N/A")
-    AddDashboardCard ws, "I4:K5", "I6:K6", RGB(221, 235, 247), labelText, valueText
+    AddDashboardCard ws, "I4:K5", "I6:K6", RGB(127, 127, 127), labelText, valueText
 
     ' Bottom row cards
     labelText = "% CHANGE VS PRIOR" & vbCrLf & "From Prior Report"
@@ -102,23 +102,23 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     Else
         valueText = "N/A"
     End If
-    AddDashboardCard ws, "A8:B9", "A10:B10", RGB(234, 209, 220), labelText, valueText
+    AddDashboardCard ws, "A8:B9", "A10:B10", RGB(155, 89, 182), labelText, valueText
 
     labelText = "AGING 30+ DAYS" & vbCrLf & "Older Pending Pickups"
     valueText = CStr(age30Count)
-    AddDashboardCard ws, "C8:D9", "C10:D10", RGB(244, 204, 204), labelText, valueText
+    AddDashboardCard ws, "C8:D9", "C10:D10", RGB(192, 57, 43), labelText, valueText
 
     labelText = "AGING 60+ DAYS" & vbCrLf & "Older Pending Pickups"
     valueText = CStr(age60Count)
-    AddDashboardCard ws, "E8:F9", "E10:F10", RGB(234, 153, 153), labelText, valueText
+    AddDashboardCard ws, "E8:F9", "E10:F10", RGB(166, 32, 42), labelText, valueText
 
     labelText = "AGING 90+ DAYS" & vbCrLf & "Older Pending Pickups"
     valueText = CStr(age90Count)
-    AddDashboardCard ws, "G8:H9", "G10:H10", RGB(224, 102, 102), labelText, valueText
+    AddDashboardCard ws, "G8:H9", "G10:H10", RGB(112, 20, 30), labelText, valueText
 
     labelText = "MISSING PICKUP DATE" & vbCrLf & "AUDIT: TP End Date"
     valueText = CStr(missingDateCount)
-    AddDashboardCard ws, "I8:K9", "I10:K10", RGB(255, 242, 204), labelText, valueText
+    AddDashboardCard ws, "I8:K9", "I10:K10", RGB(191, 144, 0), labelText, valueText
 
     ' Manager table section
     ws.Rows(12).RowHeight = 24
@@ -394,7 +394,7 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
         cardRg.UnMerge
         On Error GoTo CleanFail
         cardRg.Clear
-        cardRg.Interior.Color = RGB(221, 235, 247)
+        cardRg.Interior.Color = RGB(240, 240, 240)
         cardRg.Borders.LineStyle = xlLineStyleNone
 
         gapX = 2
@@ -426,7 +426,7 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
             .Text = labelText & vbCrLf & valueText
             .Font.Name = "Segoe UI"
             .Font.Bold = msoTrue
-            .Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
+            .Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
             .ParagraphFormat.Alignment = msoAlignCenter
             On Error Resume Next
             .Paragraphs(1).Font.Size = 11
@@ -456,6 +456,7 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
             .Font.Bold = True
             .Font.Name = "Segoe UI"
             .Font.Size = 10
+            .Font.Color = RGB(255, 255, 255)
             .HorizontalAlignment = xlCenter
             .VerticalAlignment = xlCenter
             .WrapText = True
@@ -467,6 +468,7 @@ Public Sub AddDashboardCard(ByVal ws As Worksheet, ByVal labelRange As String, B
             .Font.Bold = True
             .Font.Name = "Segoe UI"
             .Font.Size = 22
+            .Font.Color = RGB(255, 255, 255)
             .HorizontalAlignment = xlCenter
             .VerticalAlignment = xlCenter
             .WrapText = True
@@ -576,11 +578,11 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     ' Row 1: summary (keep Total Pending and New Since Prior as #1 and #2)
     cardLabel = "TOTAL PENDING PICKUPS" & vbCrLf & "Current"
     cardValue = CStr(managerRowsCol.Count)
-    AddDashboardCard ws, "A4:B6", "A4:B6", RGB(221, 235, 247), cardLabel, cardValue, True
+    AddDashboardCard ws, "A4:B6", "A4:B6", RGB(31, 78, 121), cardLabel, cardValue, True
 
     cardLabel = "NEW SINCE PRIOR" & vbCrLf & "Since Prior Report"
     cardValue = IIf(hasPrior, "0", "N/A")
-    AddDashboardCard ws, "C4:D6", "C4:D6", RGB(226, 239, 218), cardLabel, cardValue, True
+    AddDashboardCard ws, "C4:D6", "C4:D6", RGB(46, 125, 50), cardLabel, cardValue, True
 
     cardLabel = "AVERAGE PICKUP AGE" & vbCrLf & "Pending Pickup Age"
     If IsNumeric(avgAge) Then
@@ -588,28 +590,28 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
     Else
         cardValue = "N/A"
     End If
-    AddDashboardCard ws, "E4:F6", "E4:F6", RGB(209, 226, 242), cardLabel, cardValue, True
+    AddDashboardCard ws, "E4:F6", "E4:F6", RGB(127, 127, 127), cardLabel, cardValue, True
 
     cardLabel = "% OVER 30 DAYS" & vbCrLf & "Of Pending Pickups"
     cardValue = Format(pct30, "0.0%")
-    AddDashboardCard ws, "G4:H6", "G4:H6", RGB(234, 209, 220), cardLabel, cardValue, True
+    AddDashboardCard ws, "G4:H6", "G4:H6", RGB(155, 89, 182), cardLabel, cardValue, True
 
     ' Row 2: aging and data-quality metrics grouped together
     cardLabel = "AGING 30+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m30)
-    AddDashboardCard ws, "A8:B10", "A8:B10", RGB(244, 204, 204), cardLabel, cardValue, True
+    AddDashboardCard ws, "A8:B10", "A8:B10", RGB(192, 57, 43), cardLabel, cardValue, True
 
     cardLabel = "AGING 60+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m60)
-    AddDashboardCard ws, "C8:D10", "C8:D10", RGB(234, 153, 153), cardLabel, cardValue, True
+    AddDashboardCard ws, "C8:D10", "C8:D10", RGB(166, 32, 42), cardLabel, cardValue, True
 
     cardLabel = "AGING 90+ DAYS" & vbCrLf & "Older Pending Pickups"
     cardValue = CStr(m90)
-    AddDashboardCard ws, "E8:F10", "E8:F10", RGB(224, 102, 102), cardLabel, cardValue, True
+    AddDashboardCard ws, "E8:F10", "E8:F10", RGB(112, 20, 30), cardLabel, cardValue, True
 
     cardLabel = "MISSING PICKUP DATE" & vbCrLf & "AUDIT: TP End Date"
     cardValue = CStr(mMiss)
-    AddDashboardCard ws, "G8:H10", "G8:H10", RGB(255, 242, 204), cardLabel, cardValue, True
+    AddDashboardCard ws, "G8:H10", "G8:H10", RGB(191, 144, 0), cardLabel, cardValue, True
 
     ' --- Total Per Sales Rep summary (rows 11-15) ---
     AddManagerRepSummary ws, firstRow, lastRow, managerRepCol, managerLastCol

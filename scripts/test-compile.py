@@ -170,11 +170,23 @@ try:
 except Exception as e:
     log(f"Quit failed: {e}")
 try:
-    watch_proc.kill()
+    watch_proc.terminate()
+    try:
+        watch_proc.wait(timeout=5)
+    except Exception:
+        try:
+            watch_proc.kill()
+            watch_proc.wait(timeout=2)
+        except Exception:
+            pass
 except Exception:
     pass
 try:
     os.remove(test_copy)
+except OSError:
+    pass
+try:
+    os.remove(marker)
 except OSError:
     pass
 log("=== Compile test finished ===")

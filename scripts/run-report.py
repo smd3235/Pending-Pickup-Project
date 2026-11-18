@@ -48,6 +48,7 @@ parser.add_argument("--source", default=None)
 parser.add_argument("--temp-copy", default=None)
 parser.add_argument("--max-run-seconds", type=int, default=30)
 parser.add_argument("--stall-seconds", type=int, default=10)
+parser.add_argument("--no-screenshots", action="store_true", help="Skip post-run screenshot regeneration (debug only; screenshots are required)")
 args = parser.parse_args()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -58,6 +59,7 @@ source_path = args.source or os.path.join(project_root, "AllOpenTreatmentPlansRe
 temp_copy = args.temp_copy or os.path.join(project_root, "_run_temp.xlsm")
 max_run_seconds = args.max_run_seconds
 stall_seconds = args.stall_seconds
+SCREENSHOT_TIMEOUT_SECONDS = 120  # screenshots may take >30s but must finish within 2m or be treated as hang
 
 reports_dir = os.path.join(project_root, "Reports")
 os.makedirs(reports_dir, exist_ok=True)
@@ -71,7 +73,8 @@ completion_marker = os.path.join(log_dir, "pending-pickup-complete.txt")
 
 before = set()
 if os.path.isdir(reports_dir):
-    before = {f.name for f in os.scandir(reports_dir) if f.name.lower().endswith(".xlsx")}
+    before = {f.name for f in os.scandir(reports_dir)
+              if f.name.lower().endswith(".xlsx") and not f.name.startswith("~$")}
 
 if os.path.exists(completion_marker):
     os.remove(completion_marker)
@@ -158,6 +161,7 @@ def ensure_template_email_sync(template_path, project_root_path, log_fn):
             cwd=project_root_path,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if r.returncode == 0:
             log_fn("sync_template.py completed successfully before report run.")
@@ -169,6 +173,8 @@ def ensure_template_email_sync(template_path, project_root_path, log_fn):
             out = ((r.stdout or "") + ("\n" + (r.stderr or ""))).strip().splitlines()
             for ln in out[-15:]:
                 log_fn("  " + ln)
+    except subprocess.TimeoutExpired:
+        log_fn("sync_template.py timed out (>30s) before report run. Continuing with current template.")
     except Exception as e:
         log_fn(f"Could not run sync_template.py before report ({e}). Continuing with current template.")
 
@@ -318,7 +324,7 @@ def key_down_once(vk):
 
 def kill_excel():
     try:
-        subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True)
+        subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True, timeout=10)
     except Exception:
         pass
 
@@ -334,12 +340,12 @@ def watchdog_thread():
         try:
             new_files = [
                 f.name for f in os.scandir(reports_dir)
-                if f.name.lower().endswith(".xlsx") and f.name not in before
+                if f.name.lower().endswith(".xlsx") and f.name not in before and not f.name.startswith("~$")
             ]
         except OSError:
             new_files = []
         if new_files:
-            write_log(run_log, f"REPORT OK: {', '.join(new_files)}")
+            write_log(run_log, f"REPORT OK: {', '.join(sorted(new_files))}")
         if os.path.exists(completion_marker):
             write_log(run_log, "MACRO COMPLETE: marker found; forcing Excel shutdown if COM remains blocked")
             kill_excel()
@@ -500,9 +506,9 @@ try:
             break
         try:
             new_files = [f.name for f in os.scandir(reports_dir)
-                         if f.name.lower().endswith(".xlsx") and f.name not in before]
+                         if f.name.lower().endswith(".xlsx") and f.name not in before and not f.name.startswith("~$")]
             if new_files:
-                append_run_log(f"Report found during wait: {', '.join(new_files)}")
+                append_run_log(f"Report found during wait: {', '.join(sorted(new_files))}")
                 run_completed = True
                 break
         except OSError:
@@ -542,9 +548,63 @@ finally:
                 append_run_log("  " + line.rstrip())
     else:
         append_run_log("Completion marker was not written by VBA.")
-    # Append only this run's VBA log tail, avoiding duplicate macro-debug history.
+    # Append per-run VBA trace when available (LogMsg/LogErr dual-write to mRunLogPath during runs);
+    # fall back to macro-debug.log tail for older behavior.
     dbg_log = os.path.join(project_root, "log", "macro-debug.log")
-    if os.path.exists(dbg_log):
+    run_vba_log = None
+    try:
+        log_dir_path = os.path.join(project_root, "log")
+        vba_candidates = []
+        marker_saved = None
+        if os.path.exists(completion_marker):
+            try:
+                with open(completion_marker, "r", encoding="utf-8") as f:
+                    for ln in f:
+                        if ln.startswith("saved="):
+                            marker_saved = ln.split("=", 1)[1].strip()
+            except Exception:
+                marker_saved = None
+        for name in os.listdir(log_dir_path):
+            if not name.startswith("pending-pickup_") or not name.endswith(".log"):
+                continue
+            p = os.path.join(log_dir_path, name)
+            try:
+                st = os.stat(p)
+            except OSError:
+                continue
+            # created/modified around this run
+            if st.st_mtime + 1 < run_start_time:
+                continue
+            try:
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    head = f.read(4096)
+                if "=== CreatePendingPickupReport started ===" not in head:
+                    continue
+                if marker_saved and marker_saved not in head:
+                    # may be in tail, but cheap check: read more only if needed
+                    with open(p, "r", encoding="utf-8", errors="replace") as f:
+                        txt = f.read()
+                    if marker_saved not in txt and "VBAWarnings registry set" in txt:
+                        continue
+                vba_candidates.append((st.st_mtime, p))
+            except Exception:
+                continue
+        if vba_candidates:
+            vba_candidates.sort()
+            run_vba_log = vba_candidates[-1][1]
+    except Exception:
+        run_vba_log = None
+
+    if run_vba_log and os.path.exists(run_vba_log):
+        append_run_log(f"--- per-run VBA log ({os.path.basename(run_vba_log)}) last 200 lines ---")
+        try:
+            with open(run_vba_log, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+            for line in lines[-200:]:
+                append_run_log(line.rstrip())
+        except Exception as e:
+            append_run_log(f"Could not read per-run VBA log: {e}")
+    elif os.path.exists(dbg_log):
         append_run_log("--- macro-debug.log (last 120 lines) ---")
         with open(dbg_log, "r", encoding="utf-8") as f:
             lines = f.readlines()
@@ -557,7 +617,8 @@ finally:
 
     # Log any new report files created during this run.
     try:
-        after = {f.name for f in os.scandir(reports_dir) if f.name.lower().endswith(".xlsx")}
+        after = {f.name for f in os.scandir(reports_dir)
+                 if f.name.lower().endswith(".xlsx") and not f.name.startswith("~$")}
         new_files = after - before
         if new_files:
             append_run_log(f"New report file(s): {', '.join(sorted(new_files))}")
@@ -566,21 +627,76 @@ finally:
     except OSError:
         append_run_log("Could not scan Reports/ for new files.")
 
+    # Flag leftover run artifacts (temp/compile probe debris) for cleanup visibility.
+    for leftover in ["_run_temp.xlsm", "_compile_test.xlsm", "probe_ran.txt", "~$_run_temp.xlsm"]:
+        lp = os.path.join(project_root, leftover)
+        if os.path.exists(lp):
+            append_run_log(f"Leftover artifact detected: {lp}")
+            try:
+                os.remove(lp)
+                append_run_log(f"Removed leftover artifact: {lp}")
+            except Exception as e:
+                append_run_log(f"Could not remove leftover artifact {lp}: {e}")
+
 t_a.join(timeout=2)
 t_b.join(timeout=2)
 
 # After Excel is fully shut down, regenerate test screenshots from the newest
 # report. snapshot-report.py starts its own Excel instance, so no conflict.
-if run_completed:
+# Screenshots/exports are required and must be allowed to finish, but if they take
+# more than 2 minutes (120s) treat as failure/hang: kill the app/Excel and check logs.
+screenshot_status = "skipped" if args.no_screenshots else "pending"
+if run_completed and not args.no_screenshots:
     snap_script = os.path.join(script_dir, "snapshot-report.py")
     if os.path.exists(snap_script):
         try:
             append_run_log("Regenerating test screenshots from newest report...")
-            subprocess.run([sys.executable, snap_script], check=True, capture_output=True, text=True, timeout=120)
-            append_run_log("Test screenshots regenerated successfully.")
+            snap_start = time.time()
+            subprocess.run(
+                [sys.executable, snap_script],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=SCREENSHOT_TIMEOUT_SECONDS,
+            )
+            snap_dur = time.time() - snap_start
+            append_run_log(f"Test screenshots regenerated successfully ({snap_dur:.2f}s).")
+            screenshot_status = "ok"
+        except subprocess.TimeoutExpired:
+            append_run_log(
+                f"Screenshot regeneration timed out (>{SCREENSHOT_TIMEOUT_SECONDS}s). "
+                "Excel killed; check/read logs, identify cause, apply fix, then rerun."
+            )
+            try:
+                subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True, timeout=10)
+            except Exception:
+                pass
+            screenshot_status = "timeout"
         except subprocess.CalledProcessError as e:
-            append_run_log(f"Screenshot regeneration failed: {e.stderr}")
+            append_run_log(f"Screenshot regeneration failed: {(e.stderr or e.stdout or str(e))[-1000:]}")
+            screenshot_status = "failed"
         except Exception as e:
             append_run_log(f"Screenshot regeneration error: {e}")
+            screenshot_status = "failed"
     else:
         append_run_log("Snapshot script not found, skipping screenshot regeneration.")
+        screenshot_status = "missing_script"
+elif run_completed and args.no_screenshots:
+    append_run_log("Screenshot regeneration skipped (--no-screenshots). Screenshots are required.")
+    screenshot_status = "skipped"
+else:
+    screenshot_status = "not_run"
+
+# Determine final exit: report must complete and screenshots must succeed (not skipped).
+final_ok = bool(run_completed) and (screenshot_status == "ok")
+if run_completed and not final_ok:
+    if screenshot_status == "skipped":
+        append_run_log("Run incomplete: screenshots were skipped (screenshots are required).")
+    elif screenshot_status == "timeout":
+        append_run_log("Run incomplete: screenshot regeneration timed out (>120s).")
+    elif screenshot_status == "failed":
+        append_run_log("Run incomplete: screenshot regeneration failed.")
+    elif screenshot_status == "missing_script":
+        append_run_log("Run incomplete: snapshot-report.py missing; screenshots required.")
+append_run_log(f"Screenshot status: {screenshot_status}")
+sys.exit(0 if final_ok else 1)

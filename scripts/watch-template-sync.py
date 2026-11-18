@@ -1,4 +1,4 @@
-﻿# watch-template-sync.py
+# watch-template-sync.py
 # Watches Pending Pickup Template.xlsm for changes and keeps email template
 # sections (TO/CC/SUBJECT/BODY on Manager/Director email tabs) in sync with
 # Pending Pickup Template (no-macros).xlsx and Project-Local-Build.zip.
@@ -162,7 +162,7 @@ def main():
 
             log(f"Running sync_template.py ({reason})...", log_path)
             try:
-                r = subprocess.run([sys.executable, sync_script], cwd=project_root, capture_output=True, text=True)
+                r = subprocess.run([sys.executable, sync_script], cwd=project_root, capture_output=True, text=True, timeout=30)
                 if r.returncode == 0:
                     log("sync_template.py completed successfully.", log_path)
                     if r.stdout.strip():
@@ -173,6 +173,12 @@ def main():
                     out = (r.stdout or "") + ("\n" + r.stderr if r.stderr else "")
                     for ln in out.strip().splitlines()[-20:]:
                         log("  " + ln, log_path)
+            except subprocess.TimeoutExpired:
+                log("sync_template.py timed out (>30s). Excel/process may need cleanup; investigate logs before retrying.", log_path)
+                try:
+                    subprocess.run(["taskkill", "/F", "/IM", "excel.exe"], capture_output=True, timeout=10)
+                except Exception:
+                    pass
             except Exception as e:
                 log(f"Failed to run sync_template.py: {e}", log_path)
 
