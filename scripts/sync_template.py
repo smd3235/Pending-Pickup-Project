@@ -192,29 +192,41 @@ try:
             b.Line.ForeColor.RGB = line
             b.Line.Weight = 1.25
             b.Shadow.Type = 0  # no shadow
+            # Set button text — try TextFrame2 first, fall back to TextFrame
+            tf = None
             try:
                 b.TextFrame2.TextRange.Text = text
-                b.TextFrame2.TextRange.Font.Name = "Segoe UI"
-                b.TextFrame2.TextRange.Font.Bold = bold
-                b.TextFrame2.TextRange.Font.Size = font_size
-                b.TextFrame2.TextRange.Font.Color = 0xFFFFFF
-                b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
-                b.TextFrame2.VerticalAnchor = 3  # middle
+                tf = b.TextFrame2
+            except Exception:
+                try:
+                    b.TextFrame.TextRange.Text = text
+                    tf = b.TextFrame
+                except Exception:
+                    pass
+            # Apply font styling to whichever text frame succeeded
+            if tf is not None:
+                try:
+                    tf.TextRange.Font.Name = "Segoe UI"
+                    tf.TextRange.Font.Bold = bold
+                    tf.TextRange.Font.Size = font_size
+                    tf.TextRange.Font.Color = 0xFFFFFF
+                    tf.TextRange.ParagraphFormat.Alignment = 2  # center
+                    try:
+                        tf.VerticalAnchor = 3  # middle (TextFrame2)
+                    except Exception:
+                        try:
+                            tf.VerticalAlignment = 3  # middle (TextFrame)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            try:
                 b.TextFrame2.MarginLeft = 4
                 b.TextFrame2.MarginRight = 4
                 b.TextFrame2.MarginTop = 2
                 b.TextFrame2.MarginBottom = 2
             except Exception:
-                try:
-                    b.TextFrame.TextRange.Text = text
-                    b.TextFrame.TextRange.Font.Name = "Segoe UI"
-                    b.TextFrame.TextRange.Font.Bold = bold
-                    b.TextFrame.TextRange.Font.Size = font_size
-                    b.TextFrame.TextRange.Font.Color = 0xFFFFFF
-                    b.TextFrame.HorizontalAlignment = 2  # center
-                    b.TextFrame.VerticalAlignment = 3  # middle
-                except Exception:
-                    pass
+                pass
             try:
                 b.Placement = 3  # free floating
                 b.LockAspectRatio = False
@@ -413,6 +425,12 @@ try:
             aw.DisplayHeadings = False
             aw.Zoom = 115
         ws.Range("B2").Select()
+    except Exception:
+        pass
+
+    # Lock all cells on START HERE (UserInterfaceOnly lets buttons/macros still work)
+    try:
+        ws.Protect(Password="", UserInterfaceOnly=True, AllowUsingPivotTables=False, AllowSorting=False, AllowFiltering=False)
     except Exception:
         pass
 

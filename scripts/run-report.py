@@ -538,6 +538,14 @@ finally:
         os.remove(os.path.join(project_root, "~$_run_temp.xlsm"))
     except OSError:
         pass
+    # Remove auto-mode files so the template prompts for files when opened manually
+    auto_source_file = os.path.join(log_dir, "auto-source.txt")
+    auto_skip_prior_file = os.path.join(log_dir, "auto-skip-prior.txt")
+    for af in (auto_source_file, auto_skip_prior_file):
+        try:
+            os.remove(af)
+        except OSError:
+            pass
     if run_completed:
         outcome = "OK"
     write_log(run_log, f"run finished (outcome={outcome})")
