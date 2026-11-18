@@ -1,203 +1,204 @@
 ﻿# Pending Pickup Report Builder (v1.0)
 
-An Excel macro-enabled workbook (`.xlsm`) that turns a raw **All Open Treatment Plans** export into a
-formatted **Pending Pickup** report: a KPI dashboard, one tab per Assigned Sales Manager, and the
-filtered raw data. It can also compare the current run against the prior month's Pending Pickup report
-to show what is new, what cleared, and what is still pending.
+An Excel macro-enabled workbook (`.xlsm`) that turns a raw **All Open Treatment Plans** export into a formatted **Pending Pickup** report: a KPI dashboard, one tab per Assigned Sales Manager, and the filtered raw data. It can also compare the current run against the prior month's Pending Pickup report to show what is new, what cleared, and what is still pending.
 
-> Scope of this document: current behavior of the code in `Pending_Pickup_Macro.bas` and the
-> embedded VBA project in `Pending Pickup Template.xlsm`. Assumed, inconsistent, or not-yet-
-> implemented items are called out in **Decisions & remaining questions** and **Known issues**.
+> Scope: current behavior of the VBA modules in `vba/` (`modCore.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modAudit.bas`, `modDeclarations.bas`, `modUtils.bas`) and the embedded VBA project in `Pending Pickup Template.xlsm`. Assumed, inconsistent, or not-yet-implemented items are called out in **Decisions & remaining questions** and **Known issues**.
 
 ## Table of Contents
 
 - [1. At a glance](#1-at-a-glance)
-- [App Workflow](#app-workflow)
-- [2. Business context (confirmed)](#2-business-context-confirmed)
-- [3. Project files](#3-project-files)
+- [2. Project files](#2-project-files)
+- [3. Repository layout](#3-repository-layout)
 - [4. Requirements](#4-requirements)
-- [5. Setup & maintenance](#5-setup-maintenance)
-- [6. Template flow](#6-template-flow)
-- [7. Data contract (current export)](#7-data-contract-current-export)
-- [8. Comparison logic](#8-comparison-logic)
-- [9. Output specification](#9-output-specification)
-  - [9.1 Dashboard](#91-dashboard)
-  - [9.2 Manager tab](#92-manager-tab-one-per-assigned-sales-manager)
-  - [9.3 Raw Data tab](#93-raw-data-tab)
-- [10. Aging definition](#10-aging-definition)
-- [11. Screenshots](#11-screenshots)
-- [12. Known issues / technical debt](#12-known-issues-technical-debt)
-- [13. Decisions & remaining questions](#13-decisions-remaining-questions)
-- [14. Changelog](#14-changelog)
+- [5. Quick start](#5-quick-start)
+- [6. Locked-down work PCs (macro-blocked)](#6-locked-down-work-pcs-macro-blocked)
+- [7. Template flow](#7-template-flow)
+- [8. Email templates (START HERE)](#8-email-templates-start-here)
+- [9. Data contract (current export)](#9-data-contract-current-export)
+- [10. Comparison logic](#10-comparison-logic)
+- [11. Output specification](#11-output-specification)
+- [12. Aging definition](#12-aging-definition)
+- [13. Maintainer workflow](#13-maintainer-workflow)
+- [14. Screenshots](#14-screenshots)
+- [15. Timeout & validation policy](#15-timeout--validation-policy)
+- [16. Known issues / technical debt](#16-known-issues-technical-debt)
+- [17. Decisions & remaining questions](#17-decisions-remaining-questions)
+- [18. Changelog](#18-changelog)
 
 ---
 
 ## 1. At a glance
 
 | Item | Value |
-| --- | --- |
-| Report type | Pending Pickup worklist + KPI dashboard (DME / HME style data) |
+|---|---|
+| Report type | Pending Pickup worklist + KPI dashboard (DME/HME-style data) |
 | Inputs | Current All Open Treatment Plans export (`.xlsx`/`.xlsm`), optional prior Pending Pickup report |
-| Trigger | `CREATE PENDING PICKUP REPORT` button on `START HERE` (runs `CreatePendingPickupReport`) |
-| Output | New `.xlsx` with **Dashboard**, **one tab per manager**, **Raw Data** |
+| Trigger | **CREATE PENDING PICKUP REPORT** button on `START HERE` (runs `CreatePendingPickupReport`) |
+| Output | New `.xlsx` with **Dashboard**, one tab per Assigned Sales Manager, **Raw Data** |
 | Comparison key | `EMPI`, falling back to `Name` when `EMPI` is blank |
 | Row filter | `Treatment Status` contains `Pending Pickup` (case-insensitive substring) |
-| Source columns required | `Assigned Sales Manager`, `Treatment Status`, `Sales Representative`, `Name` |
-| Config surface | Hardcoded `Const` values in the module (see Known Issues) |
+| Required source headers | `Assigned Sales Manager`, `Treatment Status`, `Sales Representative`, `Name` |
+| Config surface | Hidden template tabs: TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11` |
 | Persistence | Remembers current/prior/output folders via Windows registry `SaveSetting` |
-| Code version | `1.0` â€” module `MACRO_VERSION = 1.0`, filenames, `START HERE`, and README all aligned |
+| Code version | `1.0` |
 
 ---
 
-## App Workflow
-
-The report runs through these steps end-to-end:
-
-1. **Open template.** User opens `Pending Pickup Template.xlsm`.
-2. **Press button.** User clicks **CREATE PENDING PICKUP REPORT** on `START HERE` (runs `CreatePendingPickupReport`).
-3. **Select raw data.** A file picker opens; user selects the current All Open Treatment Plans export (`.xlsx`/`.xlsm`).
-4. **(Optional) Select prior report.** A second file picker asks whether to import last month's Pending Pickup report for comparison. Select it to compare; **Cancel** means no comparison happens.
-5. **(If not completed yet) Select save location.** User chooses where to save the finished report. Once chosen, the location is remembered via registry `SaveSetting` and is not asked again on subsequent runs.
-
-The report is then generated with a Dashboard, one tab per Assigned Sales Manager, and a Raw Data tab.
-
----
-
-## 2. Business context (confirmed)
-
-This report is run **every month**, pulling **every patient in the country** from the All Open Treatment Plans export. It references any patient who has equipment pending pickup, and the resulting report is sent to each manager covering their team/region — so each manager sees exactly the patients they need to close out and pick up equipment for.
-
-- **Pending Pickup is the only treatment status included.** A record leaves the report ("cleared") when the equipment is picked up and the patient is closed out, **or** when the patient is returned to active and the status is no longer Pending Pickup. Both are legitimate exits, so "in prior but not current" means cleared.
-- **Pickup Age** = days from `AUDIT: TP End Date` to today. **Older is worse** â€” it means the account has been waiting longer for pickup.
-- **Missing `AUDIT: TP End Date`** means whoever flagged the account for pickup forgot to enter the date, so the wait time is unknown; these are surfaced as `MISSING DATE`.
-- **Cadence:** run monthly. Each run compares against the **prior month's generated Pending Pickup report** to show progress (cleared / still pending) plus what is new.
-- **EMPI** is present in the export but is **not shown in the final report** â€” it is treated as noise. It is still used internally as the comparison key, with `Name` as the fallback.
-- **Roles:** `Assigned Sales Manager` owns a manager tab; `Sales Representative` is the rep on the record. No rep works for more than one manager. `Assigned Associate WCC`, `Assigned Setup Technician`, and `Admin Representative` are supporting roles shown on manager tabs.
-
----
-
-## 3. Project files
+## 2. Project files
 
 | File | Role |
-| --- | --- |
-| `Pending Pickup Template.xlsm` | Master workbook. Contains `START HERE`, empty `Raw Data`, `_Config`, and the embedded VBA project. This is what users run. |
-| `Pending Pickup Template (no-macros).xlsx` | Macro-free base workbook for local rebuild on locked-down machines (no VBA project). |
-| `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas` | VBA source modules (source of truth for rebuild/import). |
-| `Pending_Pickup_Macro.bas` | Legacy monolithic VBA export (reference). |
+|---|---|
+| `Pending Pickup Template.xlsm` | Master workbook. Contains `START HERE`, hidden `Manager Email Template` / `Director Email Template` config tabs, and the embedded VBA project. This is what users run. |
+| `Pending Pickup Template (no-macros).xlsx` | Macro-free base workbook for local rebuild on locked-down machines (no VBA project). Regenerated by `sync_template.py`. |
+| `vba/modAudit.bas` | Audit init / log event / write sheet. |
+| `vba/modCore.bas` | `CreatePendingPickupReport` main builder. |
+| `vba/modDeclarations.bas` | Public constants + shared state. |
+| `vba/modDialog.bas` | File dialogs + email composition/send. |
+| `vba/modFormatting.bas` | `BuildDashboard` / `FormatManagerSheet` / `AddDashboardCard`. |
+| `vba/modLogging.bas` | `LogMsg` / `LogErr` / run log path / completion marker. |
+| `vba/modUtils.bas` | Utility functions (`CalculateAverageAge`, aging stats, date parsing). |
+| `Pending_Pickup_Macro.bas` | Legacy monolithic VBA export (reference only; source of truth is now `vba/`). |
 | `BUILD-INSTRUCTIONS.txt` | Step-by-step local rebuild instructions (no Python/tools). |
-| `Project-Local-Build.zip` | Downloadable build package: macro-free template + all modules + instructions. |
-| `scripts\sync_template.py` | Maintainer script: re-imports module `.bas` files into the template's embedded VBA and ensures START HERE buttons. Run after every VBA change. |
-| `scripts\snapshot-report.py` | QA script: opens a generated report `.xlsx` and exports sheets as PNGs into `documentation/screenshots/`. |
-| `scripts\run-report.py` | Full end-to-end report run harness. |
-| `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample â€” populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
-| `Reports/` | Output folder for finished reports. The macro's remembered `OutputFolder` is pre-set to this path. Also holds `Pending Pickup 2026-10-13.xlsx`, a **prior-month fixture** for testing comparison. |
+| `Project-Local-Build.zip` | Downloadable build package: macro-free template + all `.bas` modules + instructions. |
+| `Pending Pickup Template (macro).zip` | Macro-enabled `.xlsm` only (`.bas` modules already embedded in the file). |
+| `scripts/sync_template.py` | Re-imports `vba/*.bas` into the template's embedded VBA, ensures START HERE buttons, provisions email tabs/config, and rebuilds both ZIPs. |
+| `scripts/run-report.py` | Full end-to-end report run harness. On success: rebuilds both ZIPs and pushes all run artifacts to GitHub. |
+| `scripts/test-compile.py` | Compiles VBA in the template (run after VBA changes). |
+| `scripts/snapshot-report.py` | Exports report sheets as PNGs into `documentation/screenshots/`. |
+| `scripts/pipeline.py` | Capped pipeline: compile → sync → run → screenshots → scan/validate → audit. |
+| `scripts/check-logs.py` | Scans logs/artifacts for issues (`--latest`). |
+| `scripts/analyze-trace.py` | VBA per-run trace analyzer. |
+| `scripts/validate-report.py` | Deep workbook validator via openpyxl. |
+| `scripts/audit-code.py` | Static VBA/Python/project audit. |
+| `AllOpenTreatmentPlansResults618.xlsx` | Raw export sample — populated with **fake data** (150 Pending Pickup + 15 other-status rows, 10 managers, mixed aging, some missing `AUDIT: TP End Date`, some blank `EMPI`). Used to test the builder. |
+| `Reports/` | Output folder for finished reports. Also holds prior-month fixtures for comparison testing. |
+| `log/` | Runtime logs (`pending-pickup_*.log`, `macro-debug.log`, `answer-dialogs.log`, etc.). |
 | `documentation/changelog.md` | Dated (`YYYY-MM-DD HH:MM:SS`) change log. |
+| `documentation/AGENTS.md` | Agent/project rules (maintainers). |
 
-> **Distribution:** end users receive only `Pending Pickup Template.xlsm`. For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, provide **`Project-Local-Build.zip`** (`Pending Pickup Template (no-macros).xlsx` + all VBA module files + `BUILD-INSTRUCTIONS.txt`) so users can rebuild a local `.xlsm` without Python or extra tools. You may also include a prebuilt `.xlsm`, but it can still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback. Maintainer scripts, monolithic export, documentation, screenshots, and fake data remain maintainer-only unless intentionally included for rebuild. Keep the ZIP and module files updated whenever the template/VBA changes. Run from a local writable folder if outputs/logs are written next to the workbook, and follow org macro/Trusted Location policy. Do not include sensitive/PHI data in the repo.
+> **Distribution:** end users receive only `Pending Pickup Template.xlsm`. For locked-down work machines where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, provide **`Project-Local-Build.zip`** (`Pending Pickup Template (no-macros).xlsx` + all VBA `.bas` modules + `BUILD-INSTRUCTIONS.txt`) so users can rebuild a local `.xlsm` without Python or extra tools. Maintainer scripts, modular `.bas` sources, documentation, screenshots, and fake data remain maintainer-only unless intentionally included for rebuild. Do not include sensitive/PHI data in the repo.
 
-### Template workbook sheets
+---
 
-- **START HERE** â€” branded landing page: title + logo, a 4-step how-it-works, a styled
-  `CREATE PENDING PICKUP REPORT` button (autoshape, `OnAction` = `CreatePendingPickupReport`), and a
-  good-to-know panel.
-- **Raw Data** â€” header-only table matching the export layout. Not used as input at runtime (the macro
-  reads the selected export file directly); it is documentation/placeholder.
-- **_Config** â€” a small settings table (`Pending Text`, `Key Header`, `Name Header`, `Pickup Date
-  Header`, `Start Date Header`). **Not read by the current macro** â€” see Known Issues.
+## 3. Repository layout
+
+```
+Pending Pickup Project/
+├── Pending Pickup Template.xlsm          # macro-enabled master/test template
+├── Pending Pickup Template (no-macros).xlsx   # macro-free base (regenerated)
+├── Project-Local-Build.zip               # work-PC rebuild package (regenerated)
+├── Pending Pickup Template (macro).zip   # macro xlsm only (.bas already embedded)
+├── BUILD-INSTRUCTIONS.txt                # manual rebuild steps (no Python)
+├── README.md                             # this project's landing page (pointer to docs)
+├── AGENTS.md                             # agent instructions (project root)
+├── AllOpenTreatmentPlansResults618.xlsx  # fake test export
+├── Pending_Pickup_Macro.bas              # legacy monolithic VBA (reference)
+├── vba/                                  # VBA source of truth (7 .bas modules)
+├── scripts/                              # Python maintainer tooling
+├── documentation/
+│   ├── README.md                         # full user/maintainer guide (this file)
+│   ├── AGENTS.md                         # agent rules
+│   ├── changelog.md                      # change history (newest to oldest)
+│   ├── screenshots/                      # QA PNGs (regenerated each test run)
+│   ├── aoti-logo-2023.png/svg            # logo sources
+│   └── view-logs.py                      # log reorder utility
+├── Reports/                              # generated reports (gitignored build artifacts)
+└── log/                                  # runtime logs (gitignored)
+```
 
 ---
 
 ## 4. Requirements
 
 - Windows + desktop Excel (uses `Application.FileDialog`, `SaveSetting`, `ThisWorkbook.FileFormat`).
-- Master saved as **`.xlsm`**. If opened as `.xlsx`, `EnsureMacroEnabledWorkbook` prompts to Save As
-  `.xlsm` before any work.
-- Macros enabled (the workbook is macro-enabled and lives in a trusted location).
+- Master saved as **`.xlsm`**. If opened as `.xlsx`, the macro prompts to Save As `.xlsm` before any work.
+- Macros enabled and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`) for sync/compile scripts.
+- Python 3 + `pywin32` and `openpyxl` for maintainer tooling.
 
 ---
 
-## 5. Setup & maintenance
+## 5. Quick start
 
-**End users (normal):** Open `Pending Pickup Template.xlsm`, click **CREATE PENDING PICKUP REPORT** on `START HERE`, and follow the prompts.
-
-**End users (locked-down work PC / blocked macros):** If a downloaded `.xlsm` is blocked by Windows or organizational macro security/Mark-of-the-Web, use `Project-Local-Build.zip` (`Pending Pickup Template (no-macros).xlsx` + all VBA module `.bas` files + `BUILD-INSTRUCTIONS.txt`) to build a local `.xlsm` without Python or extra tools:
-1. Download/extract ZIP to a local writable folder and **Unblock** files if required (Properties → Unblock) per org policy.
-2. Open `Pending Pickup Template (no-macros).xlsx` in desktop Excel.
-3. **Alt+F11 → File → Import File…** and import **all** module files (`modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`). Replace if prompted.
-4. Confirm button assignments (`CreatePendingPickupReport`, `SetupEmailCC` if present).
-5. **Save As → Excel Macro-Enabled Workbook (*.xlsm)** in a local/trusted folder, close/reopen, enable macros, and run.
-
-A prebuilt `.xlsm` may still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback.
-
-**Maintainers: after editing VBA or template content, re-sync.** The `.xlsm` does not auto-update derived artifacts from source/modules; it carries its own embedded copy. Run:
-
-```text
-python .\scripts\sync_template.py
-```
-
-`sync_template.py` opens the template in Excel, replaces embedded VBA modules with the current `.bas` files, ensures START HERE buttons exist and point at the correct macros, provisions email template tabs/config, saves the template, then **automatically rebuilds** `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` (macro-free base + all VBA source modules `.bas`/`.cls`/`.frm` + `BUILD-INSTRUCTIONS.txt`) for locked-down work PCs. It requires desktop Excel and "Trust access to the VBA project object model" enabled (`HKCU\Software\Microsoft\Office\16.0\Excel\Security\AccessVBOM = 1`). Use `--skip-package` only for rare maintenance cases.
-
-**Auto-sync during report runs:** `python .\scripts\run-report.py` checks Manager/Director email template fields (TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11`) in `Pending Pickup Template.xlsm` vs `Pending Pickup Template (no-macros).xlsx` and runs `sync_template.py` before launching Excel when they differ, keeping macro-enabled and no-macro/ZIP artifacts aligned.
-
-**Auto-sync watcher (recommended when editing/saving the `.xlsm`):** to automatically detect saved changes and keep the no-macro `.xlsx`/ZIP matched without running a report, run:
-
-```text
-python .\scripts\watch-template-sync.py
-```
-
-The watcher polls for stable saves to `Pending Pickup Template.xlsm`, compares those email fields against `Pending Pickup Template (no-macros).xlsx`, and runs `sync_template.py` when they differ (or on any change with `--always-sync-on-change`). Logs: `log/template-watch.log`. Stop with Ctrl+C. Close Excel before a sync runs if COM access conflicts; rerun sync manually if needed.
-
-**QA:** after a successful `scripts\run-report.py` run, refresh committed screenshots with:
-
-```text
-python .\scripts\snapshot-report.py
-```
-
-This exports every sheet of the newest report in `Reports/` as PNGs into `documentation/screenshots/`.
-
-**Build package maintenance:** because `sync_template.py` regenerates the package on each sync, commit the updated `Pending Pickup Template (no-macros).xlsx`, module files, and `Project-Local-Build.zip` (and `BUILD-INSTRUCTIONS.txt` if steps change) with every template/VBA change. Do not include sensitive/PHI data in the repo.
-
----
-
-## 6. Template flow
+### Generate a report (macro-enabled template)
 
 1. Open `Pending Pickup Template.xlsm`.
-2. Press the **CREATE PENDING PICKUP REPORT** macro/button on `START HERE`.
-3. A window opens to select the **raw data** (the current All Open Treatment Plans export).
-4. A second window asks whether to **import last month's report**. Select it to compare, or **Cancel** â€”
-   Cancel means no comparison happens.
-5. The report is generated.
-6. You are asked **where to save** it. Once a save location is chosen it is remembered, and you are not
-   asked again.
-7. If `Pending Pickup yyyy-mm-dd.xlsx` already exists, a timestamped filename
-   (`Pending Pickup yyyy-mm-dd_HHMMSS.xlsx`) is used instead of overwriting.
+2. On **START HERE**, click **CREATE PENDING PICKUP REPORT**.
+3. Select the current All Open Treatment Plans export (`.xlsx`/`.xlsm`).
+4. (Optional) Select last month's Pending Pickup report for comparison, or **Cancel** to skip.
+5. Choose where to save the report (the folder is remembered via registry `SaveSetting`).
 
-This project's save location is `...\Pending Pickup Project\Reports`, already set as the remembered
-`OutputFolder` (registry `HKCU\Software\VB and VBA Program Settings\PendingPickupReport\Settings\OutputFolder`).
-Folder memory uses `SaveSetting "PendingPickupReport", "Settings", <CurrentFolder|PriorFolder|OutputFolder>`.
-
-**Testing comparison:** select a prior generated Pending Pickup report at step 4 (not bundled in the repo). Example result against the current fake export with a matching prior fixture: ~114 still pending, ~36 new, ~12 cleared (actual counts depend on the prior report used).
+The report opens on **Dashboard** and is saved as `Pending Pickup yyyy-mm-dd_HHMMSS.xlsx`.
 
 ---
 
-## 7. Data contract (current export)
+## 6. Locked-down work PCs (macro-blocked downloads)
 
-The macro locates a header row (scans rows 1â€“25) that contains all four required headers, then reads
-the used range. It looks for a sheet named `Raw Data` first, otherwise any sheet with the headers.
+If a downloaded `.xlsm` is blocked by Windows/org policy (Mark-of-the-Web), rebuild locally from `Project-Local-Build.zip`:
 
-**Required headers**
+1. Download and extract `Project-Local-Build.zip` to a **local, writable** folder (not a network share or read-only location).
+2. Unblock extracted files if required (Properties → **Unblock**), per org policy.
+3. Open `Pending Pickup Template (no-macros).xlsx` in desktop Excel.
+4. **Alt+F11 → File → Import File…** and import **all** seven `.bas` modules:
+   `modAudit.bas`, `modCore.bas`, `modDeclarations.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modUtils.bas`. Replace if prompted.
+5. Verify button assignments: **CREATE PENDING PICKUP REPORT** → `CreatePendingPickupReport`; manager/director email setup buttons → `SetupEmailCC` / `SetupDirectorEmail`.
+6. **Save As → Excel Macro-Enabled Workbook (*.xlsm)** in a local/trusted folder (AutoSave off if needed).
+7. Close/reopen, enable macros, and run.
+
+See [`BUILD-INSTRUCTIONS.txt`](BUILD-INSTRUCTIONS.txt) for full steps. A prebuilt `.xlsm` may still be blocked when downloaded; the macro-free base + modules ZIP is the reliable fallback.
+
+---
+
+## 7. Template flow
+
+1. Open `Pending Pickup Template.xlsm`.
+2. Press **CREATE PENDING PICKUP REPORT** on `START HERE` (runs `CreatePendingPickupReport`).
+3. A file picker opens; select the current All Open Treatment Plans export.
+4. A second picker asks whether to import last month's Pending Pickup report for comparison. Select it to compare; **Cancel** means no comparison.
+5. The report is generated (Dashboard, one tab per manager, Raw Data).
+6. You are asked where to save it. Once chosen, the location is remembered via `SaveSetting` and is not asked again on subsequent runs.
+7. If `Pending Pickup yyyy-mm-dd.xlsx` already exists, a timestamped filename (`Pending Pickup yyyy-mm-dd_HHMMSS.xlsx`) is used instead of overwriting.
+
+The save location is `...\Pending Pickup Project\Reports`, pre-set as the remembered `OutputFolder` (registry `HKCU\Software\VB and VBA Program Settings\PendingPickupReport\Settings\OutputFolder`).
+
+---
+
+## 8. Email templates (START HERE)
+
+START HERE includes setup buttons for **Manager** and **Director** emails. Each opens a hidden, formatted template tab with a **Return to START HERE** button.
+
+| Field | Manager tab cell | Director tab cell |
+|---|---|---|
+| To | `D5` | `D5` |
+| CC | `D7` | `D7` |
+| Subject | `D9` | `D9` |
+| Body | `D11` (merged `D11:K31`) | `D11` (merged `D11:K31`) |
+
+- **TO/CC:** separate multiple addresses with semicolons (`;`).
+- **Body marker:** keep `{{REPORT}}` where the copied Excel report should be pasted. Text above = intro, text below = closing. If `{{REPORT}}` is removed, the report is pasted after the body and a default closing is appended.
+- **New lines in Excel cells:** use **Alt+Enter**.
+- **Director subject:** defaults to monthly dashboard; when sending, the current date `(m/d/yyyy)` is appended if not already present. Manager subject also appends the date when missing.
+- Config is read from the hidden template tabs (`vba/modDialog.bas` / `vba/modDeclarations.bas`) with legacy START HERE fallbacks retained.
+- Outlook drafts are created via COM/Word editor; wait/retry for editor readiness within the overall 30s budget.
+
+---
+
+## 9. Data contract (current export)
+
+The macro locates a header row (scans rows 1–25) that contains all four required headers, then reads the used range. It looks for a sheet named `Raw Data` first, otherwise any sheet with the headers.
+
+### Required headers
 
 | Header | Used for |
-| --- | --- |
-| `Assigned Sales Manager` | Manager tab grouping (blank â†’ `Unassigned`) |
+|---|---|
+| `Assigned Sales Manager` | Manager tab grouping (blank → `Unassigned`) |
 | `Treatment Status` | Row filter (`Pending Pickup` substring) |
 | `Sales Representative` | Sort + rep banding on manager tabs |
 | `Name` | Comparison fallback key; manager-tab display |
 
-**Optional but used when present**
+### Optional but used when present
 
 | Header | Used for |
-| --- | --- |
+|---|---|
 | `EMPI` | Primary comparison key |
 | `AUDIT: TP End Date` | Pickup Age (days) and 30/60/90 aging |
 | `Start Date` | Manager-tab column + date formatting |
@@ -206,171 +207,194 @@ If a required header is missing, the macro stops with a message listing what is 
 
 ---
 
-## 8. Comparison logic
+## 10. Comparison logic
 
 - A row is "pending" when `Treatment Status` contains `Pending Pickup` (case-insensitive).
 - Key = `EMPI` (trimmed, case-insensitive); if blank, fall back to `Name`; if both blank, `ROW-<n>`.
 - **Still Pending** = key in both current and prior.
 - **New** = key in current but not prior.
-- **Cleared / No Longer Pending** = key in prior but not current. Confirmed as a real exit: either the
-  equipment was picked up and the patient closed out, or the patient was returned to active (status no
-  longer Pending Pickup).
+- **Cleared / No Longer Pending** = key in prior but not current. Confirmed as a real exit: either the equipment was picked up and the patient closed out, or the patient was returned to active (status no longer Pending Pickup).
 - With no prior report selected, `NEW`, `CLEARED`, `STILL PENDING`, `PRIOR`, and `% CHANGE` show `N/A`.
 
-> Note: comparison is at the **record/key** level, not the row level â€” duplicate `EMPI`s collapse to the
-> first occurrence in each report. Because `EMPI` is treated as noise in the report, rows with a blank
-> `EMPI` fall back to `Name`; confirm names are unique enough for reliable matching (see Open Questions).
+> Note: comparison is at the **record/key** level, not the row level — duplicate `EMPI`s collapse to the first occurrence in each report. Because `EMPI` is treated as noise in the report, rows with a blank `EMPI` fall back to `Name`; confirm names are unique enough for reliable matching.
 
 ---
 
-## 9. Output specification
+## 11. Output specification
 
-Output workbook = new `.xlsx` containing **Dashboard**, **manager tabs**, **Raw Data**.
+Output workbook = new `.xlsx` containing **Dashboard**, **manager tabs**, **Raw Data**, **Audit Log**.
 
-### 9.1 Dashboard
+### 11.1 Dashboard
 
-- Title banner (rows 1â€“2), with the company logo at the top-right (`I1:J2`). The logo is embedded in the
-  template and copied into the generated report by `AddLogoFromTemplate`.
-- **KPI cards, 5 Ã— 2 grid:**
-  - Row 1: `CURRENT`, `PRIOR`, `NEW`, `CLEARED`, `STILL PENDING`.
-  - Row 2: `% CHANGE`, `30+ DAYS`, `60+ DAYS`, `90+ DAYS`, `MISSING DATE`.
-- **Pending Pickups by Manager** table (header row 13, data from row 14), with columns:
-  `Manager` (hyperlink to that manager's tab), `Current`, `New`, `30+ Days`, `60+ Days`, `90+ Days`,
-  `Missing Date`, `Avg Age`, `% 30+`.
-- `% CHANGE` = (current âˆ’ prior) / prior, shown as `0.0%`; `N/A` without a prior. (Fixed: previously written as text so the number format never applied; now written as a numeric value so it renders as a true percentage.)
-- `Avg Age` = mean pickup age over rows with a valid `AUDIT: TP End Date`; `% 30+` = share of the
-  manager's rows older than 30 days.
+- Title banner (rows 1–2).
+- Subtitle (row 3): "Report generated <timestamp> | Source: <file>".
+- **KPI cards, 5 × 2 grid:**
+  - Row 1: `CURRENT PERIOD`, `PRIOR PERIOD`, `NEW SINCE PRIOR`, `CLEARED SINCE PRIOR`, `STILL PENDING`.
+  - Row 2: `% CHANGE VS PRIOR`, `AGING 30+ DAYS`, `AGING 60+ DAYS`, `AGING 90+ DAYS`, `MISSING PICKUP DATE`.
+- **Pending Pickups by Manager** table (header row 12, data from row 13), with columns: `Manager` (hyperlink to that manager's tab), `Current`, `New`, `30+ Days`, `60+ Days`, `90+ Days`, `Missing Date`, `Avg Age`, `% 30+`.
+- `% CHANGE` = (current − prior) / prior, shown as `0.0%`; `N/A` without a prior.
+- `Avg Age` = mean pickup age over rows with a valid `AUDIT: TP End Date`; `% 30+` = share of the manager's rows older than 30 days.
 
-### 9.2 Manager tab (one per `Assigned Sales Manager`)
+### 11.2 Manager tab (one per `Assigned Sales Manager`)
 
-- Rows 1â€“2: manager name banner.
-- KPI cards: `PENDING PICKUPS`, `SALES REPS` (unique rep count), `NEW`, `30+ DAYS`, `60+ DAYS`,
-  `90+ DAYS`, `MISSING DATE`.
-- Row 10: table header. Data from row 11.
-- Sorted by `Sales Representative`, then `Name`. Rows are banded by rep (alternating fill per rep
-  group). New records (when a prior is selected) are bold + green fill. Pickup Age > 30 shows red text.
-- Freeze panes at row 11; gridlines off; zoom 85%.
-- Column order: `Sales Representative`, `Start Date`, `Name`, then remaining retained source columns,
-  with calculated `Pickup Age (Days)` last.
+- Rows 1–2: manager name banner.
+- KPI cards: `TOTAL PENDING PICKUPS`, `NEW SINCE PRIOR`, `AVERAGE PICKUP AGE`, `% OVER 30 DAYS`, `AGING 30+ DAYS`, `AGING 60+ DAYS`, `AGING 90+ DAYS`, `MISSING PICKUP DATE`.
+- Table header row, data below. Sorted by `Sales Representative`, then `Name`. Rows banded by rep (alternating fill per rep group). New records (when a prior is selected) are bold + green fill. Pickup Age > 30 shows red text.
+- Freeze panes at header row; gridlines off; zoom 85%.
+- Column order: `Sales Representative`, `Start Date`, `Name`, then remaining retained source columns, with calculated `Pickup Age (Days)` last.
 
-**Excluded from manager tabs:** `EMPI`, `Customer`, `Treatment Status`, `Consumable Type`, `Assigned
-Setup Technician`, `Admin Representative`, `Patient Date of Birth`, `Last Name`, `Assigned Sales
-Manager`, `Assigned Associate WCC`.
+**Excluded from manager tabs:** `EMPI`, `Customer`, `Treatment Status`, `Consumable Type`, `Assigned Setup Technician`, `Admin Representative`, `Patient Date of Birth`, `Last Name`, `Assigned Sales Manager`, `Assigned Associate WCC`.
 
-### 9.3 Raw Data tab
+### 11.3 Raw Data tab
 
 - Current pending rows only, original column order, formatted as a filterable table with frozen header.
-- Column widths/number formats copied from the source where possible.
+
+### 11.4 Audit Log sheet
+
+- Run/comparison and data-quality events written by `vba/modAudit.bas`.
 
 ---
 
-## 10. Aging definition
+## 12. Aging definition
 
-- **Pickup Age (Days)** = `today âˆ’ date(AUDIT: TP End Date)`, floored at 0 for future dates. Confirmed:
-  **older is worse** (longer wait for pickup).
-- **30+/60+/90+** buckets count rows with age **strictly greater than** 30 / 60 / 90 days (so exactly 30
-  days is *not* counted as "30+"). See Known Issues for the boundary question.
-- **Missing Date** counts pending rows with no parseable `AUDIT: TP End Date` â€” confirmed to mean the
-  user who flagged the account forgot to enter the pickup date, so the wait is unknown. Also counts all
-  rows as missing if the column is absent.
+- **Pickup Age (Days)** = `today − date(AUDIT: TP End Date)`, floored at 0 for future dates. Confirmed: **older is worse** (longer wait for pickup).
+- **30+/60+/90+** buckets count rows with age **strictly greater than** 30 / 60 / 90 days (so exactly 30 days is *not* counted as "30+").
+- **Missing Date** counts pending rows with no parseable `AUDIT: TP End Date` — confirmed to mean the user who flagged the account forgot to enter the pickup date, so the wait is unknown. Also counts all rows as missing if the column is absent.
 
 Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ---
 
-## 11. Screenshots
+## 13. Maintainer workflow
 
-QA screenshots of the generated report (Dashboard KPI cards, manager tabs, Raw Data) are stored in `documentation/screenshots/`. These were captured from `Reports/Pending Pickup 2026-11-14.xlsx` after a clean end-to-end run using the bundled fake export (`AllOpenTreatmentPlansResults618.xlsx`). They are **QA screenshots from test data**, not live production data — they show the layout and formatting but not real patient records.
+### Standard validation loop (mandatory for code/template changes)
 
-> Note: screenshots are exported via an automated CopyPicture → chart → PNG method (`scripts/snapshot-report.py`). If they appear sparse or blank, regenerate them against a real report run with `scripts/snapshot-report.py -Report <path-to-real-report.xlsx>`.
+```powershell
+# 1. Compile gate — VBA must compile cleanly
+python scripts\test-compile.py
 
-### Dashboard
+# 2. Sync/build — re-import vba/*.bas into .xlsm, rebuild no-macro .xlsx and both ZIPs
+python scripts\sync_template.py
 
-![Dashboard KPI cards](screenshots/Dashboard.png)
+# 3. Run report — end-to-end run; on success rebuilds artifacts + pushes to GitHub
+python scripts\run-report.py
 
-### Manager tabs
+# 4. Scan/validate
+python scripts\check-logs.py --latest
+python scripts\analyze-trace.py
+python scripts\validate-report.py
+python scripts\audit-code.py
 
-Each `Assigned Sales Manager` gets its own tab with KPI cards, a rep-banded data table, freeze panes at the header row, and calculated Pickup Age.
+# 5. Full pipeline (optional, runs all of the above)
+python scripts\pipeline.py
+```
 
-![Victor Alvarez](screenshots/Victor Alvarez.png)
-![Terrence Boyd](screenshots/Terrence Boyd.png)
-![Darnell Brooks](screenshots/Darnell Brooks.png)
-![Gregory Hall](screenshots/Gregory Hall.png)
-![Hannah Kim](screenshots/Hannah Kim.png)
-![Sofia Marchetti](screenshots/Sofia Marchetti.png)
-![Rachel Nguyen](screenshots/Rachel Nguyen.png)
-![Priya Raman](screenshots/Priya Raman.png)
-![Michael Torres](screenshots/Michael Torres.png)
-![Dana Whitfield](screenshots/Dana Whitfield.png)
+### After every successful `run-report.py`
 
-### Raw Data
+- Both `Project-Local-Build.zip` and `Pending Pickup Template (macro).zip` are rebuilt via `sync_template.py`.
+- All run artifacts (screenshots, zips, templates, logs) are committed and pushed to `origin/main`.
 
-Filtered pending rows with frozen header and date formats.
+### Editing VBA/template
 
-![Raw Data](screenshots/Raw Data.png)
+1. Edit `.bas` files in `vba/` (source of truth) or template content in `.xlsm`.
+2. Run `scripts\test-compile.py` if VBA changed.
+3. Run `scripts\sync_template.py` to embed modules into `.xlsm` and rebuild derived artifacts.
+4. Run `scripts\run-report.py` to verify end-to-end.
+5. Commit and push (`git add`, `git commit`, `git push origin main`).
+
+### Auto-sync during report runs
+
+`run-report.py` checks Manager/Director email template fields (TO `D5`, CC `D7`, SUBJECT `D9`, BODY `D11`) in `Pending Pickup Template.xlsm` vs `Pending Pickup Template (no-macros).xlsx` and runs `sync_template.py` before launching Excel when they differ, keeping macro-enabled and no-macro/ZIP artifacts aligned.
+
+### Auto-sync watcher (recommended when editing/saving the `.xlsm`)
+
+```text
+python .\scripts\watch-template-sync.py
+```
+
+Polls for stable saves to `Pending Pickup Template.xlsm`, compares email fields against the no-macro `.xlsx`, and runs `sync_template.py` when they differ (or on any change with `--always-sync-on-change`). Logs: `log/template-watch.log`.
+
+### QA screenshots
+
+After a successful `run-report.py` run, screenshots are regenerated automatically. To regenerate manually:
+
+```text
+python .\scripts\snapshot-report.py
+```
+
+This exports every sheet of the newest report in `Reports/` as PNGs into `documentation/screenshots/`.
 
 ---
 
-## 12. Known issues / technical debt
+## 14. Screenshots
 
-1. **Embedded VBA vs `.bas` source.** The `.xlsm` embeds its own compiled copy; editing the `.bas` does
-   **not** update the template. After every `.bas` change, run `sync_template.py` (Excel + `AccessVBOM=1`)
-   to re-import the module. End users never import anything.
-2. **Vestigial `_Config` sheet.** All labels are hardcoded `Const` values; the macro never reads
-   `_Config`. Either wire the macro to `_Config` or remove the sheet.
-3. **Redundant `Raw Data` sheet in the master.** It is not consumed as input; it can drift from the real
-   export. Consider removing or clearly marking it as a schema reference.
-4. **Aging boundary.** KPI labels say "30+ / 60+ / 90+ days" but the code uses `> 30 / > 60 / > 90`.
-   Decide whether the boundary should be inclusive.
-5. **`SetupPendingPickupButton` is `Private`.** It cannot be run from the standard Macro dialog; the
-   README/setup must explain the editor-based run, or it should be made `Public` for one-time setup.
-6. **Duplicate `EMPI`/missing keys.** Comparison silently collapses duplicates and invents `ROW-<n>`
-   keys; mismatches in source keys can produce misleading new/cleared counts.
-7. **Performance.** Manager row sorting and rep banding are cell-by-cell; large exports may be slow.
-   Consider array-based sorting and bulk formatting.
-8. **No automated tests.** The builder can be exercised manually with the bundled fake export
-   (`AllOpenTreatmentPlansResults618.xlsx`) and prior fixture (`Reports/Pending Pickup 2026-10-13.xlsx`),
-   but there is no automated regression test.
+QA screenshots live in `documentation/screenshots/` and are regenerated on every successful report run. They reflect test (fake) data, not live production data.
+
+| Screenshot | Description |
+|---|---|
+| `template-start-here.png` | START HERE landing page |
+| `template-manager-email.png` | Manager Email Template config |
+| `template-director-email.png` | Director Email Template config |
+| `report-dashboard.png` | Dashboard KPI cards + manager table |
+| `report-raw-data.png` | Raw Data tab |
+| `report-<manager>.png` | One per Assigned Sales Manager tab |
+
+Regenerate with `python .\scripts\snapshot-report.py`.
 
 ---
 
-## 13. Decisions & remaining questions
+## 15. Timeout & validation policy
+
+### Hard rule: 30-second timeout (no hangs)
+
+Everything other than screenshot/export operations must complete within a few seconds; if any such operation takes longer than 30 seconds, treat it as a failure/hang. This applies to Excel/COM calls, macro/report runs, compile/sync, subprocesses, builds, log scan/validation steps, and script waits.
+
+On timeout or stall: stop/kill the process (especially Excel), read the logs, identify the cause, apply a fix, then re-run. Do not increase waits to "wait it out".
+
+### Exception — screenshots/exports
+
+Screenshot/export/regeneration steps may take longer than 30 seconds but **must finish within 120 seconds**. Do not kill Excel/the app while screenshots/exports are running normally. If regeneration exceeds 120s, kill Excel, check/read logs, fix, then rerun. Screenshots are required — skips are flagged as warnings/errors and cause non-success exits.
+
+### Validation pipeline
+
+`scripts/pipeline.py` runs compile → sync → run → screenshots → scan/validate (and `audit-code` if present). Non-screenshot steps are capped at 30s (Excel killed on timeout/failure). Screenshot/export steps are required and capped at 120s (Excel killed only if >120s).
+
+`scripts/check-logs.py --latest` scans the latest run: screenshot timeout (>120s) or failure → error; skipped screenshots → warning; missing/stale report screenshots warned when not completed successfully.
+
+---
+
+## 16. Known issues / technical debt
+
+1. **Embedded VBA vs `.bas` source.** The `.xlsm` embeds its own compiled copy; editing the `.bas` does **not** update the template. After every `.bas` change, run `sync_template.py` (Excel + `AccessVBOM=1`) to re-import the module. End users never import anything.
+2. **Vestigial `_Config` sheet.** All labels are hardcoded `Const` values; the macro never reads `_Config`. Either wire the macro to `_Config` or remove the sheet.
+3. **Redundant `Raw Data` sheet in the master.** It is not consumed as input; it can drift from the real export. Consider removing or clearly marking it as a schema reference.
+4. **Aging boundary.** KPI labels say "30+ / 60+ / 90+ days" but the code uses `> 30 / > 60 / > 90`. Decide whether the boundary should be inclusive.
+5. **Duplicate `EMPI`/missing keys.** Comparison silently collapses duplicates and invents `ROW-<n>` keys; mismatches in source keys can produce misleading new/cleared counts.
+6. **Performance.** Manager row sorting and rep banding are cell-by-cell; large exports may be slow. Consider array-based sorting and bulk formatting.
+7. **No automated tests.** The builder can be exercised manually with the bundled fake export (`AllOpenTreatmentPlansResults618.xlsx`) and prior fixture, but there is no automated regression test.
+
+---
+
+## 17. Decisions & remaining questions
 
 **Confirmed with the business owner**
 
 - Filter status is **Pending Pickup** only.
 - **Older = worse**: Pickup Age is days waiting, measured from `AUDIT: TP End Date` to today.
-- **Cleared is legitimate**: a record drops when equipment is picked up/closed out, or when the patient
-  is returned to active.
+- **Cleared is legitimate**: a record drops when equipment is picked up/closed out, or when the patient is returned to active.
 - **Comparison baseline**: the **prior month's generated Pending Pickup report**, run monthly.
-- **Scale/shape for test data**: 10 managers, varied reps per manager, no rep on more than one manager,
-  ~100â€“200 pending samples, realistic aging mix.
 - **`EMPI` is noise** in the final report (not displayed); `MISSING DATE` = forgotten pickup date.
 
 **Still open**
 
-1. **Comparison key policy.** Since `EMPI` is "noise", should the builder keep using it internally
-   (falling back to `Name`), or match on `Name` only? Blank `EMPI` is already handled, but name collisions
-   would then cause wrong new/cleared counts.
-2. **EMPI in Raw Data.** `EMPI` is excluded from manager tabs but still appears on the **Raw Data** tab.
-   Remove it there too, or keep it as the backing key?
-3. **Non-pending rows in the export.** Real "All Open Treatment Plans" exports contain other statuses;
-   the macro filters them out. Confirm we should keep a realistic status mix (not all Pending Pickup) in
-   the source so the filter is exercised.
-4. **Consumers/decision.** Who reads the dashboard and manager tabs, and what action does it drive
-   (daily huddle, monthly review, 30/60/90+ escalation)?
-5. **Edge-case policy.** Confirm the current defaults: blank manager â†’ `Unassigned`, missing
-   `EMPI`+`Name` â†’ synthetic `ROW-<n>` key, future pickup date â†’ age 0.
-6. **Aging boundary.** Keep strict `> 30 / > 60 / > 90`, or make the labels truly inclusive (`>=`)?
-7. **Future scope.** Any additions â€” trend charts, email/export, scheduled refresh, multi-site, or extra
-   KPIs?
+1. **Comparison key policy.** Since `EMPI` is "noise", should the builder keep using it internally (falling back to `Name`), or match on `Name` only?
+2. **EMPI in Raw Data.** `EMPI` is excluded from manager tabs but still appears on the **Raw Data** tab. Remove it there too, or keep it as the backing key?
+3. **Edge-case policy.** Confirm the current defaults: blank manager → `Unassigned`, missing `EMPI`+`Name` → synthetic `ROW-<n>` key, future pickup date → age 0.
+4. **Aging boundary.** Keep strict `> 30 / > 60 / > 90`, or make the labels truly inclusive (`>=`)?
+5. **Future scope.** Any additions — trend charts, email/export, scheduled refresh, multi-site, or extra KPIs?
 
 ---
 
-## 14. Changelog
+## 18. Changelog
 
-See [`documentation/changelog.md`](changelog.md) for the dated (`YYYY-MM-DD HH:MM:SS`) change log. Version `1.0` is the
-current baseline; the older per-version history that used to live in the module header has been retired
-in favor of the changelog file.
-
-> **Build package:** For work PCs where downloaded `.xlsm` files are blocked by macro security/Mark-of-the-Web, use `Project-Local-Build.zip` (`Pending Pickup Template (no-macros).xlsx` + all VBA `.bas` modules + `BUILD-INSTRUCTIONS.txt`). Keep the ZIP and modules updated whenever template/VBA changes. No sensitive/PHI data in the repo.
+See [`documentation/changelog.md`](changelog.md) for the dated (`YYYY-MM-DD HH:MM:SS`) change log. Version `1.0` is the current baseline.

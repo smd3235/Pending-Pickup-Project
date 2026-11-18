@@ -3,6 +3,18 @@
 All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 `YYYY-MM-DD HH:MM:SS` (local time). Version `1.0` is the current baseline.
 
+## 2026-11-18
+
+- **16:50:00** — Overhauled `README.md` (root landing page: quick start, key artifacts, maintainer workflow, distribution) and `documentation/README.md` (comprehensive user/maintainer guide: project files, repository layout, requirements, quick start, locked-down work PC rebuild, template flow, email templates, data contract, comparison logic, output specification, aging definition, maintainer workflow, screenshots, timeout/validation policy, known issues, open questions). Root README now points to `documentation/README.md` per Markdown-location rule.
+- **16:50:01** — `scripts/run-report.py` now pushes all run artifacts (screenshots, zips, templates, logs) to `origin/main` after every successful test run via `git add -A` / `git commit` / `git push`, so GitHub stays in sync with each run.
+- **16:45:00** — `scripts/run-report.py` rebuilt both build artifacts (`Project-Local-Build.zip` and `Pending Pickup Template (macro).zip`) via `sync_template.py` after each successful report run, then committed and pushed to GitHub.
+- **16:43:00** — `Pending Pickup Template (macro).zip` reduced to contain only `Pending Pickup Template.xlsm` (`.bas` modules already embedded); `Project-Local-Build.zip` retains the no-macro `.xlsx` + all `.bas` modules + `BUILD-INSTRUCTIONS.txt`. Both built in tandem by `scripts/sync_template.py`.
+- **16:40:00** — `scripts/sync_template.py` now builds `Pending Pickup Template (macro).zip` alongside `Project-Local-Build.zip` in the sync/build step.
+- **16:30:00** — Overhauled KPI coloring in `vba/modFormatting.bas`: replaced near-identical light blue/green fills with a distinct palette (navy, steel blue, green, olive, gray, purple, red, dark red, maroon, gold) with white card text on both dashboard cell-cards and manager-tab shape-cards; gap fill around shape cards changed to light gray.
+- **16:25:00** — Moved VBA source of truth from project root to `vba/` (7 `.bas` modules detected as Git renames); updated `scripts/sync_template.py` default `bas_dir` and build-package glob; updated `AGENTS.md`.
+- **16:20:00** — Cleared all runtime logs, re-ran `run-report.py` (exit 0), regenerated all 13 report screenshots, `check-logs.py --latest` → 0 errors / 0 warnings; committed and pushed.
+- **16:00:00** — Timeout policy hardened: screenshots/exports required with 120s cap (Excel killed only if >120s); non-screenshot steps 30s cap; skips flagged as warnings/errors in `check-logs.py`, `run-report.py`, and `pipeline.py`; `AGENTS.md` updated.
+
 ## 2026-11-17
 
 - **11:46:00** — Overhauled `README.md` (current workflow, email template config/`{{REPORT}}`/Alt+Enter, template alignment for macro vs no-macro/live, scripts). Updated `.gitignore` to exclude Python cache (`__pycache__/`, `*.pyc`).
