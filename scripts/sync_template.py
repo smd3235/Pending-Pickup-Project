@@ -215,6 +215,19 @@ try:
             pass
         return None
 
+    # Remove/replace old START HERE shapes before creating new ones,
+    # so stale buttons/overlays don't overlap or get deleted after creation.
+    try:
+        for s in list(ws.Shapes):
+            nm = str(getattr(s, "Name", ""))
+            if nm in {button_name, "btnSetupEmailCC", "btnSetupDirectorEmail"} or nm.lower().startswith("btncreate") or nm.lower().startswith("btnsetup"):
+                try:
+                    s.Delete()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     # ---------- HERO BAND ----------
     try:
         _merge("B2:E3", "Pending Pickup Report Builder")
@@ -382,18 +395,6 @@ try:
         _set_font("B30:E30", size=9, bold=False, color=MUTED)
         ws.Range("B30").HorizontalAlignment = -4152  # right
         ws.Range("B30").IndentLevel = 1
-    except Exception:
-        pass
-
-    # Remove/replace old START HERE shapes to avoid stale overlays
-    try:
-        for s in list(ws.Shapes):
-            nm = str(getattr(s, "Name", ""))
-            if nm in {button_name, "btnSetupEmailCC", "btnSetupDirectorEmail"} or nm.lower().startswith("btncreate") or nm.lower().startswith("btnsetup"):
-                try:
-                    s.Delete()
-                except Exception:
-                    pass
     except Exception:
         pass
     # View cleanup
