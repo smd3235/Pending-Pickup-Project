@@ -699,4 +699,39 @@ if run_completed and not final_ok:
     elif screenshot_status == "missing_script":
         append_run_log("Run incomplete: snapshot-report.py missing; screenshots required.")
 append_run_log(f"Screenshot status: {screenshot_status}")
+
+# After each successful run, rebuild both build artifacts so they always reflect
+# the current template: Project-Local-Build.zip (no-macros xlsx + bas + instructions)
+# and Pending Pickup Template (macro).zip (xlsm only; bas already embedded).
+if final_ok:
+    sync_script = os.path.join(script_dir, "sync_template.py")
+    if os.path.exists(sync_script):
+        try:
+            append_run_log("Rebuilding template build artifacts after successful run...")
+            sync_start = time.time()
+            r = subprocess.run(
+                [sys.executable, sync_script],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            sync_dur = time.time() - sync_start
+            if r.returncode == 0:
+                append_run_log(f"Build artifacts rebuilt successfully ({sync_dur:.2f}s).")
+                out = (r.stdout or "").strip().splitlines()
+                for ln in out[-8:]:
+                    append_run_log("  " + ln)
+            else:
+                append_run_log(f"sync_template.py exited {r.returncode} after successful run.")
+                out = ((r.stdout or "") + ("\n" + (r.stderr or ""))).strip().splitlines()
+                for ln in out[-12:]:
+                    append_run_log("  " + ln)
+        except subprocess.TimeoutExpired:
+            append_run_log("sync_template.py timed out (>30s) after successful run.")
+        except Exception as e:
+            append_run_log(f"Could not rebuild build artifacts after successful run: {e}")
+    else:
+        append_run_log("sync_template.py not found; skipping artifact rebuild.")
+
 sys.exit(0 if final_ok else 1)
