@@ -375,7 +375,8 @@ try:
     try:
         _merge("B24:E24", "GOOD TO KNOW")
         _set_font("B24:E24", size=10, bold=True, color=MUTED)
-        ws.Range("B24").IndentLevel = 1
+        ws.Range("B24:E24").HorizontalAlignment = -4131  # left
+        ws.Range("B24").IndentLevel = 0
     except Exception:
         pass
 
@@ -391,8 +392,9 @@ try:
             _merge(addr + ":E" + addr[1:], val)
             ws.Range(addr).Font.Size = 9.5
             ws.Range(addr).Font.Color = TEXT
+            ws.Range(addr).HorizontalAlignment = -4131  # left
             ws.Range(addr).VerticalAlignment = -4108
-            ws.Range(addr).IndentLevel = 1
+            ws.Range(addr).IndentLevel = 0
         except Exception:
             pass
 
