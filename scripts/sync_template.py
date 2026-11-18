@@ -198,7 +198,6 @@ try:
                 b.TextFrame2.TextRange.Font.Bold = bold
                 b.TextFrame2.TextRange.Font.Size = font_size
                 b.TextFrame2.TextRange.Font.Color = 0xFFFFFF
-                b.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0xFFFFFF
                 b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
                 b.TextFrame2.VerticalAnchor = 3  # middle
                 b.TextFrame2.MarginLeft = 4

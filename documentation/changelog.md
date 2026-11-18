@@ -5,9 +5,9 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-18
 
-- **15:25:00** — Left-aligned START HERE "GOOD TO KNOW" section header (B24:E24) and all four note bullets (B25:E25 through B28:E28): set `HorizontalAlignment = -4131` (left) and `IndentLevel = 0` on each, instead of center/indent 1. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
+- **15:30:00** — Fixed button text visibility: removed `Font.Fill.ForeColor.RGB` from `_make_button` (it sets text highlight/fill, not text color; can override `Font.Color` and cause invisible text). Now uses only `Font.Color = 0xFFFFFF` for button text. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
 
-- **15:20:00** — Fixed START HERE step alignment: steps 1-5 now merge B:E per row (was D:E) so they sit directly under the "STEP 3 • HOW IT WORKS" header (B17:E17), no longer shifted to column D. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
+- **15:25:00** — Fixed START HERE step alignment: steps 1-5 now merge B:E per row (was D:E) so they sit directly under the "STEP 3 • HOW IT WORKS" header (B17:E17), no longer shifted to column D. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
 
 - **15:05:00** — Fixed three START HERE page issues in `scripts/sync_template.py`: (1) Button labels were missing because `_make_button` only set text via `TextFrame2` with no `Font.Color` fallback — added `Font.Color = 0xFFFFFF` and a regular `TextFrame` fallback when `TextFrame2` fails. (2) Step 3 text (1-5) was drifting off to the right because numbers lived in column D and text in column E as separate cells — now merges D:E per step row with `num + "  " + text` so they stay aligned directly below each other. (3) Start macro button was auto-running without file picker — deleted `log/auto-source.txt` and `log/auto-skip-prior.txt` so clicking CREATE in the template prompts for source and prior files (automated `run-report.py` still recreates these files for unattended runs).
 
