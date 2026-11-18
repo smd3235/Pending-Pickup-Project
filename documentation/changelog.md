@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-18
 
+- **13:20:00** — Unfroze manager tab panes in `vba/modFormatting.bas` (`FormatManagerSheet`): changed `ActiveWindow.SplitRow` from `MANAGER_HEADER_ROW` (16) to `0` and set `ActiveWindow.FreezePanes = False` so the entire manager tab scrolls together instead of pinning the KPI cards at the top. KPI cards still render at the top of each tab but no longer block scrolling of the data table below.
+
 - **13:15:00** — Redesigned START HERE page layout in `scripts/sync_template.py`: new hero band (deep blue, centered title/subtitle), prominent CTA card with large "CREATE PENDING PICKUP REPORT" button, email setup card with side-by-side manager/director setup buttons, numbered "HOW IT WORKS" steps, and a clean "GOOD TO KNOW" notes panel. Replaced cramped multi-column layout with single-content-area (B:E) cards, improved spacing, consistent typography hierarchy, and a modern blue/white color palette.
 
 - **13:05:00** — Manager email attachment privacy: `SendManagerEmail` in `vba/modDialog.bas` now creates a temp workbook containing ONLY that manager's tab when "Attach Report" (`D36` / registry `AttachReport=1`) is enabled, instead of attaching the full report with all managers' data. Added `CreateManagerOnlyWorkbook` helper that copies the manager sheet into a new macro-free `.xlsx`, saves to `%TEMP%`, attaches it, and deletes the temp file after the email is created. Prevents other managers' data from being exposed to individual managers.

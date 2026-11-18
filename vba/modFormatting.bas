@@ -704,12 +704,12 @@ Public Sub FormatManagerSheet(ByVal ws As Worksheet, ByVal managerName As String
         ws.Rows(firstRow & ":" & lastRow).AutoFit
     End If
 
-    ' Freeze panes below header
+    ' Display settings: gridlines off, zoom 85, no frozen panes so the whole tab scrolls
     ws.Activate
     On Error Resume Next
     ActiveWindow.FreezePanes = False
-    ActiveWindow.SplitRow = MANAGER_HEADER_ROW
-    ActiveWindow.FreezePanes = True
+    ActiveWindow.SplitRow = 0
+    ActiveWindow.SplitColumn = 0
     ActiveWindow.DisplayGridlines = False
     ActiveWindow.Zoom = 85
     On Error GoTo 0
