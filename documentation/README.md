@@ -181,6 +181,7 @@ START HERE includes setup buttons for **Manager** and **Director** emails. Each 
 - **TO validation:** TO address is validated before Outlook opens (must contain `@` and a domain). A clear error is shown if missing or malformed.
 - **Auto-send:** set `D35` to `1` on either email template sheet (or registry `PendingPickupReport\Email\AutoSend = 1`) to auto-send instead of opening as a draft. Draft mode is the default.
 - **Attach report:** set `D36` to `1` (or registry `PendingPickupReport\Email\AttachReport = 1`) to attach the generated report `.xlsx` to the email.
+- **Manager attachment privacy:** for manager emails, the attachment contains **only that manager's tab** (a temp workbook with just their sheet), never the full report with all managers' data. The temp file is created in `%TEMP%`, attached, then deleted after the email is created. Dashboard emails still attach the full dashboard workbook when enabled.
 - **Director subject:** defaults to monthly dashboard; when sending, the current date `(m/d/yyyy)` is appended if not already present. Manager subject also appends the date when missing.
 - **Signature preservation:** Outlook signatures are kept intact — the body is composed as [intro][report][closing][signature].
 - **Test email:** `SendTestEmail` creates a test inspector using the manager email config (no report range needed) to verify TO/CC/subject/body before sending real emails.

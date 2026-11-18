@@ -527,6 +527,54 @@ Private Sub NotifyEmailFailure(ByVal context As String, ByVal userMessage As Str
 End Sub
 
 ' ----------------------------------------------------------------------------
+' Helper: create a temp workbook containing only one manager's sheet, save it,
+' and return the path. Used for manager email attachments so each manager only
+' receives their own tab (no other managers' data).
+' ----------------------------------------------------------------------------
+
+Private Function CreateManagerOnlyWorkbook(ByVal sourceSheet As Worksheet, ByVal managerName As String) As String
+    On Error GoTo CleanFail
+    CreateManagerOnlyWorkbook = ""
+
+    Dim newWb As Workbook
+    Set newWb = Workbooks.Add
+
+    ' Copy the manager's sheet into the new workbook.
+    sourceSheet.Copy Before:=newWb.Sheets(1)
+
+    ' Remove default sheets that came with the new workbook.
+    Dim s As Worksheet
+    On Error Resume Next
+    For Each s In newWb.Sheets
+        If s.Name <> sourceSheet.Name Then
+            Application.DisplayAlerts = False
+            s.Delete
+            Application.DisplayAlerts = True
+        End If
+    Next s
+    On Error GoTo CleanFail
+
+    ' Build a safe temp filename.
+    Dim safeName As String, tempName As String, tempPath As String
+    safeName = Replace(Replace(Replace(managerName, " ", "_"), "/", "-"), "\", "-")
+    tempName = "Pending Pickup - " & safeName & " " & Format(Now, "yyyy-mm-dd_HHMMSS") & ".xlsx"
+    tempPath = Environ("TEMP") & "\" & tempName
+
+    ' Save as macro-free .xlsx (FileFormat = 51).
+    newWb.SaveAs tempPath, FileFormat:=51
+    newWb.Close SaveChanges:=False
+
+    CreateManagerOnlyWorkbook = tempPath
+    LogMsg "Email: created manager-only workbook for " & managerName & " -> " & tempPath
+    Exit Function
+
+CleanFail:
+    LogErr "CreateManagerOnlyWorkbook"
+    On Error Resume Next
+    If Not newWb Is Nothing Then newWb.Close SaveChanges:=False
+End Function
+
+' ----------------------------------------------------------------------------
 ' Send email to a manager using copy/paste of Excel range into Outlook Word editor
 ' ----------------------------------------------------------------------------
 
@@ -544,6 +592,9 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
     End If
 
     Dim toAddr As String
+    Dim attachPath As String
+    attachPath = ""
+
     toAddr = GetEmailTo()
     If Not ValidateEmailTo(toAddr, "SendManagerEmail") Then Exit Sub
 
@@ -579,10 +630,16 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
         End If
         .CC = GetEmailCC()
 
-        ' Optional attachment: attach the generated report .xlsx if enabled in registry.
-        If ReadEmailAttachReport() And Len(attachmentPath) > 0 Then
-            .Attachments.Add attachmentPath
-            LogMsg "Email: attached report for manager " & managerName & " (" & attachmentPath & ")"
+        ' Optional attachment: attach ONLY this manager's tab (not the full report) so other
+        ' managers' data is never exposed. If attach is disabled, no attachment is added.
+        If ReadEmailAttachReport() Then
+            attachPath = CreateManagerOnlyWorkbook(ws, managerName)
+            If Len(attachPath) > 0 Then
+                .Attachments.Add attachPath
+                LogMsg "Email: attached manager-only workbook for " & managerName & " (" & attachPath & ")"
+            Else
+                LogMsg "Email: attach requested for " & managerName & " but manager-only workbook could not be created."
+            End If
         End If
 
         ' Display the inspector so we can access the Word editor and paste formatted Excel content.
@@ -619,6 +676,11 @@ CleanFail:
 CleanExit:
     On Error Resume Next
     Application.CutCopyMode = False
+    ' Clean up temp manager-only workbook attachment.
+    If Len(attachPath) > 0 Then
+        Kill attachPath
+        LogMsg "Email: cleaned up temp attachment " & attachPath
+    End If
 End Sub
 
 ' ----------------------------------------------------------------------------

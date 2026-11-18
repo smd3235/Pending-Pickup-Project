@@ -95,6 +95,7 @@ START HERE includes setup buttons for **Manager** and **Director** emails. Each 
 - **Body marker:** keep `{{REPORT}}` where the copied Excel report is pasted. Text above = intro, text below = closing.
 - **Auto-send:** set `D35` to `1` to auto-send instead of opening as a draft. Draft mode is default.
 - **Attach report:** set `D36` to `1` to attach the generated `.xlsx`.
+- **Manager attachment privacy:** for manager emails, the attachment contains **only that manager's tab** (not the full report), so other managers' data is never exposed.
 - **TO validation:** TO is validated before Outlook opens.
 - **Test email:** `SendTestEmail` verifies config without a report range.
 - **Director subject:** defaults to monthly dashboard; current date `(m/d/yyyy)` appended when sending if missing.
