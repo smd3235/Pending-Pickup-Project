@@ -5,6 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-18
 
+- **16:55:00** — Restored detailed content to root `README.md` (quick start, key artifacts, maintainer workflow, distribution, screenshots: Dashboard + one manager tab + Raw Data) so GitHub landing page shows the full picture again; root README now points to `documentation/README.md` for the comprehensive guide.
 - **16:50:00** — Overhauled `README.md` (root landing page: quick start, key artifacts, maintainer workflow, distribution) and `documentation/README.md` (comprehensive user/maintainer guide: project files, repository layout, requirements, quick start, locked-down work PC rebuild, template flow, email templates, data contract, comparison logic, output specification, aging definition, maintainer workflow, screenshots, timeout/validation policy, known issues, open questions). Root README now points to `documentation/README.md` per Markdown-location rule.
 - **16:50:01** — `scripts/run-report.py` now pushes all run artifacts (screenshots, zips, templates, logs) to `origin/main` after every successful test run via `git add -A` / `git commit` / `git push`, so GitHub stays in sync with each run.
 - **16:45:00** — `scripts/run-report.py` rebuilt both build artifacts (`Project-Local-Build.zip` and `Pending Pickup Template (macro).zip`) via `sync_template.py` after each successful report run, then committed and pushed to GitHub.

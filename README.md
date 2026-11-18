@@ -2,15 +2,15 @@
 
 Excel VBA tool that converts an **All Open Treatment Plans** export into a monthly **Pending Pickup** report: a KPI dashboard, one tab per Assigned Sales Manager, filtered Raw Data, and optional comparison against the prior month's report.
 
-**Full documentation:** [`documentation/README.md`](documentation/README.md) — user guide, data contract, output spec, comparison logic, aging definition, known issues, and maintenance workflow.
+**Full maintainer guide:** [`documentation/README.md`](documentation/README.md)
 
 ## At a glance
 
 | Item | Value |
 |---|---|
 | Trigger | **CREATE PENDING PICKUP REPORT** button on `START HERE` |
-| Output | New `.xlsx` with **Dashboard**, one tab per manager, **Raw Data** |
-| Work PC package | `Project-Local-Build.zip` (macro-free base + `.bas` modules + instructions) |
+| Output | New `.xlsx` with **Dashboard**, one tab per Assigned Sales Manager, **Raw Data** |
+| Work PC package | `Project-Local-Build.zip` (macro-free base + all `.bas` modules + instructions) |
 | Macro template zip | `Pending Pickup Template (macro).zip` (`xlsm` only; `.bas` already embedded) |
 | Reports | Saved to `Reports/` |
 | Logs | `log/` |
@@ -19,8 +19,11 @@ Excel VBA tool that converts an **All Open Treatment Plans** export into a month
 
 1. Open `Pending Pickup Template.xlsm` (enable macros).
 2. On **START HERE**, click **CREATE PENDING PICKUP REPORT**.
-3. Select the current All Open Treatment Plans export; optionally select last month's report for comparison; choose a save location.
-4. The report opens on **Dashboard** and is saved as `Pending Pickup yyyy-mm-dd_HHMMSS.xlsx`.
+3. Select the current All Open Treatment Plans export (`.xlsx`/`.xlsm`).
+4. (Optional) Select last month's Pending Pickup report for comparison, or **Cancel** to skip.
+5. Choose where to save the report (the folder is remembered).
+
+The report opens on **Dashboard** and is saved as `Pending Pickup yyyy-mm-dd_HHMMSS.xlsx`.
 
 ## Key artifacts
 
@@ -58,8 +61,22 @@ On every successful `run-report.py`, both ZIPs are rebuilt and all run artifacts
 
 ## Screenshots
 
-QA screenshots live in [`documentation/screenshots/`](documentation/screenshots/) and are regenerated on every successful report run.
+### Dashboard
+
+![Dashboard](documentation/screenshots/report-dashboard.png)
+
+### Manager tab (one example)
+
+![Manager tab example](documentation/screenshots/report-victor-alvarez.png)
+
+### Raw Data
+
+![Raw Data](documentation/screenshots/report-raw-data.png)
+
+> Screenshots are QA captures from test (fake) data. Regenerate with `python scripts\snapshot-report.py`.
 
 ---
 
-*Maintainer rules: [`documentation/AGENTS.md`](documentation/AGENTS.md) — changelog conventions, testing loop, file organization, and version-control policy.*
+**Documentation:** [`documentation/README.md`](documentation/README.md) — data contract, comparison logic, output specification, aging definition, known issues, decisions/open questions.
+
+**Maintainer rules:** [`documentation/AGENTS.md`](documentation/AGENTS.md) — changelog conventions, testing loop, file organization, version-control policy.
