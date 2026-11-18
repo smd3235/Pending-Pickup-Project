@@ -5,9 +5,11 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-18
 
-- **15:35:00** — Locked START HERE sheet cells (`ws.Protect` with `UserInterfaceOnly=True`) so all cells are locked/not selectable, only buttons work. Fixed `ws.Protect` missing parentheses (was causing SyntaxError). Made `_make_button` text setting more robust (TextFrame2 → TextFrame fallback). `run-report.py` now deletes `auto-source.txt`/`auto-skip-prior.txt` in its finally block so the template prompts for files when opened manually (auto mode only during unattended runs).
+- **15:40:00** — Condensed START HERE dead space and fixed button text/positioning: (1) `_make_button` now uses `Characters.Text` property and applies font styling to both TextFrame2 and TextFrame fallbacks for guaranteed visible white text. (2) Condensed CTA card (row 8-9: 80→50) and email card (row 13: 72→50), reduced spacer rows 10-11 and 14-15 from 60/46/24 to 12/16/12. (3) Repositioned primary button inside CTA card (top + 8 instead of + 86) and email buttons inside email card (top + 8 instead of + 70) so they sit inside the cards rather than overlapping below. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
 
-- **15:30:00** — Left-aligned START HERE header and steps: section header "STEP 3 • HOW IT WORKS" (B17:E17) and steps 1-5 (B:E per row) now use `HorizontalAlignment = -4131` (left) instead of center, indent set to 0. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
+- **15:38:00** — Locked START HERE sheet cells (`ws.Protect` with `UserInterfaceOnly=True`) so all cells are locked/not selectable, only buttons work. Fixed `ws.Protect` missing parentheses (was causing SyntaxError). `run-report.py` now deletes `auto-source.txt`/`auto-skip-prior.txt` in its finally block so the template prompts for files when opened manually (auto mode only during unattended runs).
+
+- **15:35:00** — Left-aligned START HERE header and steps: section header "STEP 3 • HOW IT WORKS" (B17:E17) and steps 1-5 (B:E per row) now use `HorizontalAlignment = -4131` (left) instead of center, indent set to 0. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
 
 - **15:25:00** — Left-aligned START HERE "GOOD TO KNOW" section header (B24:E24) and all four note bullets (B25:E25 through B28:E28): set `HorizontalAlignment = -4131` (left) and `IndentLevel = 0` on each, instead of center/indent 1. Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
 

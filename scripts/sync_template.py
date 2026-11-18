@@ -105,14 +105,14 @@ try:
         ws.Rows("5").RowHeight = 20    # subtitle
         ws.Rows("6").RowHeight = 16
         ws.Rows("7").RowHeight = 22    # section label
-        ws.Rows("8").RowHeight = 80    # CTA card (description)
-        ws.Rows("9").RowHeight = 12
-        ws.Rows("10").RowHeight = 60   # primary button row
-        ws.Rows("11").RowHeight = 24
+        ws.Rows("8").RowHeight = 50    # CTA card (description + button inside)
+        ws.Rows("9").RowHeight = 12    # spacer
+        ws.Rows("10").RowHeight = 12   # spacer (button is inside card above)
+        ws.Rows("11").RowHeight = 16   # spacer
         ws.Rows("12").RowHeight = 22   # section label
-        ws.Rows("13").RowHeight = 72   # email card
-        ws.Rows("14").RowHeight = 12
-        ws.Rows("15").RowHeight = 46   # email buttons row
+        ws.Rows("13").RowHeight = 50   # email card (description + buttons inside)
+        ws.Rows("14").RowHeight = 12   # spacer
+        ws.Rows("15").RowHeight = 12   # spacer (buttons are inside card above)
         ws.Rows("16").RowHeight = 24
         ws.Rows("17").RowHeight = 22   # section label
         ws.Rows("18").RowHeight = 20   # step 1
@@ -192,34 +192,41 @@ try:
             b.Line.ForeColor.RGB = line
             b.Line.Weight = 1.25
             b.Shadow.Type = 0  # no shadow
-            # Set button text — try TextFrame2 first, fall back to TextFrame
-            tf = None
+            # Set button text — always try both frames to guarantee visible text
             try:
-                b.TextFrame2.TextRange.Text = text
-                tf = b.TextFrame2
+                b.TextFrame2.TextRange.Characters.Text = text
             except Exception:
                 try:
-                    b.TextFrame.TextRange.Text = text
-                    tf = b.TextFrame
+                    b.TextFrame.TextRange.Characters.Text = text
                 except Exception:
                     pass
-            # Apply font styling to whichever text frame succeeded
-            if tf is not None:
+            # Font styling — apply to TextFrame2 first, then TextFrame fallback
+            try:
+                tf = b.TextFrame2.TextRange.Font
+                tf.Name = "Segoe UI"
+                tf.Bold = bold
+                tf.Size = font_size
+                tf.Color = 0xFFFFFF
+                b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
                 try:
-                    tf.TextRange.Font.Name = "Segoe UI"
-                    tf.TextRange.Font.Bold = bold
-                    tf.TextRange.Font.Size = font_size
-                    tf.TextRange.Font.Color = 0xFFFFFF
-                    tf.TextRange.ParagraphFormat.Alignment = 2  # center
-                    try:
-                        tf.VerticalAnchor = 3  # middle (TextFrame2)
-                    except Exception:
-                        try:
-                            tf.VerticalAlignment = 3  # middle (TextFrame)
-                        except Exception:
-                            pass
+                    b.TextFrame2.VerticalAnchor = 3  # middle
                 except Exception:
                     pass
+            except Exception:
+                try:
+                    tf = b.TextFrame.TextRange.Font
+                    tf.Name = "Segoe UI"
+                    tf.Bold = bold
+                    tf.Size = font_size
+                    tf.Color = 0xFFFFFF
+                    b.TextFrame.HorizontalAlignment = 2  # center
+                    try:
+                        b.TextFrame.VerticalAlignment = 3  # middle
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+            # Margins
             try:
                 b.TextFrame2.MarginLeft = 4
                 b.TextFrame2.MarginRight = 4
@@ -227,6 +234,7 @@ try:
                 b.TextFrame2.MarginBottom = 2
             except Exception:
                 pass
+            # Placement
             try:
                 b.Placement = 3  # free floating
                 b.LockAspectRatio = False
@@ -309,10 +317,10 @@ try:
         anchor = ws.Range("B8")
         _make_button(
             button_name, "CreatePendingPickupReport",
-            anchor.Left + 14, anchor.Top + 86,
-            340, 52,
+            anchor.Left + 14, anchor.Top + 8,
+            280, 36,
             "CREATE PENDING PICKUP REPORT",
-            ACCENT, ACCENT_DARK, font_size=14, bold=True,
+            ACCENT, ACCENT_DARK, font_size=13, bold=True,
         )
     except Exception:
         pass
@@ -342,11 +350,11 @@ try:
     try:
         card = ws.Range("B13")
         left = card.Left + 14
-        top = card.Top + 70
+        top = card.Top + 8
         w = (card.Width - 42) / 2.0
-        h = 36
-        _make_button("btnSetupEmailCC", "SetupEmailCC", left, top, w, h, "Setup Manager Email", 0x5A86B8, 0x355A86, font_size=10)
-        _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", left + w + 14, top, w, h, "Setup Director Email", ACCENT_2, 0x1E5620, font_size=10)
+        h = 32
+        _make_button("btnSetupEmailCC", "SetupEmailCC", left, top, w, h, "Setup Manager Email", 0x5A86B8, 0x355A86, font_size=9)
+        _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", left + w + 14, top, w, h, "Setup Director Email", ACCENT_2, 0x1E5620, font_size=9)
     except Exception:
         pass
 
