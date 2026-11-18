@@ -20,6 +20,7 @@ parser.add_argument("--out", default=None, help="Output folder (defaults to docu
 parser.add_argument("--prefix", default="report", help="Filename prefix")
 parser.add_argument("--list", action="store_true", help="List sheets and exit")
 parser.add_argument("--no-kill", action="store_true", help="Do not kill Excel processes before starting (used when called from run-report.py)")
+parser.add_argument("--template-path", default=None, help="Template workbook for START HERE sheet screenshot (defaults to Pending Pickup Template.xlsm)")
 args = parser.parse_args()
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -289,6 +290,33 @@ try:
         kb = round(os.path.getsize(png) / 1024, 1)
         print(f"  exported {png}  ({kb} KB)")
         exported += 1
+
+    # Also export START HERE sheet from the template workbook so users can see
+    # the template layout (START HERE sheet with buttons).
+    template_path = args.template_path or os.path.join(project_root, "Pending Pickup Template.xlsm")
+    if os.path.exists(template_path):
+        try:
+            abs_tpl = os.path.abspath(template_path)
+            wb2 = xl.Workbooks.Open(abs_tpl, False, False)
+            time.sleep(3.0)
+            try:
+                start_here = None
+                for s in wb2.Worksheets:
+                    if s.Name == "START HERE":
+                        start_here = s
+                        break
+                if start_here:
+                    png = os.path.join(out_folder, "template-start-here.png")
+                    save_sheet_image(wb2, start_here, png)
+                    kb = round(os.path.getsize(png) / 1024, 1)
+                    print(f"  exported {png}  ({kb} KB)")
+                    exported += 1
+                else:
+                    print("START HERE sheet not found in template", file=sys.stderr)
+            finally:
+                wb2.Close(False)
+        except Exception as e:
+            print(f"Template START HERE screenshot failed: {e}", file=sys.stderr)
 finally:
     if wb:
         wb.Close(False)
