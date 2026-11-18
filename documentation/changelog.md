@@ -5,6 +5,8 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-18
 
+- **13:42:00** — Fixed `Dir$` infinite loop in `vba/modCore.bas` VBA import block: `Dir$` was matching non-`.bas` entries (e.g. `.gitkeep` via Windows 8.3 short-name mapping) and directory entries (`.`/`..`), causing repeated import attempts that hung the report run past the 30s cap and produced RPC failure. Now filters strictly by `.bas` extension via `LCase$(Right$(basFile, 4)) = ".bas"` before importing into `outWb.VBProject.VBComponents`. Report now generates macro-enabled `.xlsm` output successfully (`Reports/Pending Pickup 2026-11-18_134311.xlsm`) with completion marker written; `test-compile.py` → COMPILE OK; `sync_template.py` synced 7 modules + button; both ZIPs rebuilt.
+
 - **13:35:00** — Fixed broken START HERE page layout in `scripts/sync_template.py`: `_make_button` helper was defined after its call sites (all inside `try/except`, so button creation silently failed and no buttons appeared). Moved `_make_button` definition before all button creation calls, rewrote layout with proper cell-anchored cards (hero band, CTA card with large CREATE button, email setup card with side-by-side manager/director buttons, numbered how-it-works steps, good-to-know panel), consistent spacing and typography. Regenerated `template-start-here.png` screenshot.
 
 - **13:30:00** — Regenerated all QA screenshots after START HERE redesign and manager-tab unfreeze: `template-start-here.png` now reflects the new hero/CTA/email-layout design, and all 13 report screenshots (Dashboard, 10 manager tabs, Raw Data, Audit Log) were regenerated via `scripts/snapshot-report.py` to match current output.
