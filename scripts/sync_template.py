@@ -376,14 +376,31 @@ try:
     except Exception:
         pass
 
-    def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE"):
+    def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE", auto_send="", attach_report=""):
         # field_values: dict with keys to, cc, subject, body
         # NOTE: VBA readers expect D5 (To), D7 (CC), D9 (Subject), D11 (Body) - keep these cells.
+        # Additional email-behavior cells: D35 (Auto Send "1"=send), D36 (Attach Report "1"=attach).
         try:
             if hide:
                 sh.Visible = 0  # xlSheetHidden
         except Exception:
             pass
+
+        # Preserve existing email-behavior cell values before the full clear.
+        existing_auto_send = ""
+        existing_attach_report = ""
+        try:
+            existing_auto_send = str(sh.Range("D35").Value or "").strip()
+        except Exception:
+            pass
+        try:
+            existing_attach_report = str(sh.Range("D36").Value or "").strip()
+        except Exception:
+            pass
+        if auto_send == "":
+            auto_send = existing_auto_send
+        if attach_report == "":
+            attach_report = existing_attach_report
 
         # Derived palette
         def _blend(hex_color, white_mix=0.82):
@@ -448,11 +465,14 @@ try:
             for rr in range(12, 33):
                 sh.Rows(str(rr)).RowHeight = 19.5
             sh.Rows("33").RowHeight = 8
+            sh.Rows("34").RowHeight = 34   # AUTO SEND (D35)
+            sh.Rows("35").RowHeight = 34   # ATTACH REPORT (D36)
+            sh.Rows("36").RowHeight = 8    # spacer
         except Exception:
             pass
 
         try:
-            sh.Rows("34:1048576").Hidden = True
+            sh.Rows("37:1048576").Hidden = True
             sh.Columns("L:XFD").Hidden = True
             sh.Columns("A").Hidden = True
         except Exception:
@@ -609,6 +629,10 @@ try:
         _style_field(7, "CC", "D7", "D7:K7", "", 0xEAF7F0, wrap=False)
         _style_field(9, "SUBJECT", "D9", "D9:K9", "", 0xFFF4DF, wrap=False)
 
+        # Email-behavior toggles (read by VBA from registry EMAIL_REG_KEY)
+        _style_field(34, "AUTO SEND", "D35", "D35:K35", 'Enter "1" to auto-send (leave blank to open as draft)', 0xFFF4DF, wrap=False)
+        _style_field(35, "ATTACH REPORT", "D36", "D36:K36", 'Enter "1" to attach the generated report .xlsx', 0xE8F1FB, wrap=False)
+
         # BODY section: label block + large input area
         try:
             sh.Range("C11:C31").UnMerge()
@@ -677,6 +701,8 @@ try:
             sh.Range("D7").Value = field_values.get("cc", "")
             sh.Range("D9").Value = field_values.get("subject", "")
             sh.Range("D11").Value = field_values.get("body", "")
+            sh.Range("D35").Value = auto_send
+            sh.Range("D36").Value = attach_report
             for addr in ("D6", "D8", "D10"):
                 try:
                     sh.Range(addr).ClearContents()
@@ -747,6 +773,11 @@ try:
             mgr_body = "Please review the Pending Pickup report below.\n\n{{REPORT}}\n\nPlease review and respond as needed.\nPending Pickup Report System"
     except Exception:
         mgr_to, mgr_cc, mgr_subj, mgr_body = "", "", "Pending Pickup Report - Action Required", "Please review the Pending Pickup report below.\n\n{{REPORT}}\n\nPlease review and respond as needed.\nPending Pickup Report System"
+    try:
+        mgr_auto_send = str(mgr_ws.Range("D35").Value or "").strip()
+        mgr_attach_report = str(mgr_ws.Range("D36").Value or "").strip()
+    except Exception:
+        mgr_auto_send, mgr_attach_report = "", ""
     format_email_template_sheet(
         mgr_ws,
         "Manager Email Template",
@@ -755,6 +786,8 @@ try:
         accent=0x79411F,       # deep blue (BGR)
         accent_light=0xF3E6D7,
         badge_text="MANAGER EMAIL",
+        auto_send=mgr_auto_send,
+        attach_report=mgr_attach_report,
     )
 
     # Ensure hidden Director Email Template sheet exists with TO/CC/SUBJECT/BODY config.
@@ -789,6 +822,11 @@ try:
             d_body = "Please find the Pending Pickup monthly dashboard below.\n\n{{REPORT}}\n\nPending Pickup Report System"
     except Exception:
         d_to, d_cc, d_subj, d_body = "", "", "Pending Pickup Report - Monthly Dashboard", "Please find the Pending Pickup monthly dashboard below.\n\n{{REPORT}}\n\nPending Pickup Report System"
+    try:
+        d_auto_send = str(director_ws.Range("D35").Value or "").strip()
+        d_attach_report = str(director_ws.Range("D36").Value or "").strip()
+    except Exception:
+        d_auto_send, d_attach_report = "", ""
     format_email_template_sheet(
         director_ws,
         "Director Email Template",
@@ -797,6 +835,8 @@ try:
         accent=0x3E6B35,       # deep green (BGR)
         accent_light=0xE7F2E3,
         badge_text="DIRECTOR EMAIL",
+        auto_send=d_auto_send,
+        attach_report=d_attach_report,
     )
 
     wb.Save()

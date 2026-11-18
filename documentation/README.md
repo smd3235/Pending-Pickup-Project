@@ -172,13 +172,21 @@ START HERE includes setup buttons for **Manager** and **Director** emails. Each 
 | CC | `D7` | `D7` |
 | Subject | `D9` | `D9` |
 | Body | `D11` (merged `D11:K31`) | `D11` (merged `D11:K31`) |
+| Auto Send | `D35` (enter `1` to auto-send) | `D35` (enter `1` to auto-send) |
+| Attach Report | `D36` (enter `1` to attach `.xlsx`) | `D36` (enter `1` to attach `.xlsx`) |
 
 - **TO/CC:** separate multiple addresses with semicolons (`;`).
-- **Body marker:** keep `{{REPORT}}` where the copied Excel report should be pasted. Text above = intro, text below = closing. If `{{REPORT}}` is removed, the report is pasted after the body and a default closing is appended.
+- **Body marker:** keep `{{REPORT}}` where the copied Excel report should be pasted. Text above = intro, text below = closing. The report range is pasted at the marker position. If `{{REPORT}}` is removed, the full body is used as intro, the report is pasted after it, and a default closing is appended.
 - **New lines in Excel cells:** use **Alt+Enter**.
+- **TO validation:** TO address is validated before Outlook opens (must contain `@` and a domain). A clear error is shown if missing or malformed.
+- **Auto-send:** set `D35` to `1` on either email template sheet (or registry `PendingPickupReport\Email\AutoSend = 1`) to auto-send instead of opening as a draft. Draft mode is the default.
+- **Attach report:** set `D36` to `1` (or registry `PendingPickupReport\Email\AttachReport = 1`) to attach the generated report `.xlsx` to the email.
 - **Director subject:** defaults to monthly dashboard; when sending, the current date `(m/d/yyyy)` is appended if not already present. Manager subject also appends the date when missing.
+- **Signature preservation:** Outlook signatures are kept intact — the body is composed as [intro][report][closing][signature].
+- **Test email:** `SendTestEmail` creates a test inspector using the manager email config (no report range needed) to verify TO/CC/subject/body before sending real emails.
 - Config is read from the hidden template tabs (`vba/modDialog.bas` / `vba/modDeclarations.bas`) with legacy START HERE fallbacks retained.
 - Outlook drafts are created via COM/Word editor; wait/retry for editor readiness within the overall 30s budget.
+- All email events (config reads, send/draft, failures) are logged to `macro-debug.log` via `LogMsg`/`LogErr`.
 
 ---
 

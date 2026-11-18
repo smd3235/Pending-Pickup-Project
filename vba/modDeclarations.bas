@@ -39,6 +39,18 @@ Public Const EMAIL_SUBJECT_MANAGER As String = "Pending Pickup Report - Action R
 Public Const EMAIL_SUBJECT_DIRECTOR As String = "Pending Pickup Report - Monthly Dashboard"
 Public Const EMAIL_REG_KEY As String = "PendingPickupReport\Email"
 
+' Email mode / behavior toggles (read from registry under EMAIL_REG_KEY)
+Public Const EMAIL_REG_AUTO_SEND As String = "AutoSend"        ' "1" = auto-send, "" or missing = draft only
+Public Const EMAIL_REG_ATTACH_REPORT As String = "AttachReport" ' "1" = attach the generated report .xlsx
+Public Const EMAIL_MODE_DRAFT As String = "DRAFT"
+Public Const EMAIL_MODE_SEND As String = "SEND"
+
+' {{REPORT}} marker: body text is split at this marker. Text above = intro,
+' text below = closing. The copied Excel report range is pasted at the marker
+' position. If the marker is absent, the full body is used as intro, the report
+' is pasted after it, and a default closing is appended.
+Public Const EMAIL_MARKER_REPORT As String = "{{REPORT}}"
+
 ' ----------------------------------------------------------------------------
 ' Manager email template/config sheet (hidden tab in template)
 ' ----------------------------------------------------------------------------

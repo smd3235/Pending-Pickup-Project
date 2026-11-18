@@ -88,12 +88,18 @@ START HERE includes setup buttons for **Manager** and **Director** emails. Each 
 | CC | `D7` | `D7` |
 | Subject | `D9` | `D9` |
 | Body | `D11` (merged `D11:K31`) | `D11` (merged `D11:K31`) |
+| Auto Send | `D35` (enter `1`) | `D35` (enter `1`) |
+| Attach Report | `D36` (enter `1`) | `D36` (enter `1`) |
 
 - **TO/CC:** separate multiple addresses with semicolons (`;`).
-- **Body marker:** keep `{{REPORT}}` where the copied Excel report should be pasted. Text above = intro, text below = closing. If `{{REPORT}}` is removed, the report is pasted after the body and a default closing is appended.
-- **New lines in Excel cells:** use **Alt+Enter**.
-- **Director subject:** defaults to monthly dashboard; the current date `(m/d/yyyy)` is appended when sending if not already present. Manager subject also appends the date when missing.
-- Outlook drafts are created via COM/Word editor; wait/retry for editor readiness within the overall 30s budget.
+- **Body marker:** keep `{{REPORT}}` where the copied Excel report is pasted. Text above = intro, text below = closing.
+- **Auto-send:** set `D35` to `1` to auto-send instead of opening as a draft. Draft mode is default.
+- **Attach report:** set `D36` to `1` to attach the generated `.xlsx`.
+- **TO validation:** TO is validated before Outlook opens.
+- **Test email:** `SendTestEmail` verifies config without a report range.
+- **Director subject:** defaults to monthly dashboard; current date `(m/d/yyyy)` appended when sending if missing.
+- Outlook drafts via COM/Word editor; all email events logged to `macro-debug.log`.
+- Full details: [`documentation/README.md#8-email-templates-start-here`](documentation/README.md#8-email-templates-start-here)
 
 ---
 

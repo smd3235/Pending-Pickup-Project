@@ -333,7 +333,159 @@ Private Function GetWordEditor(ByVal mail As Object, Optional ByVal maxWaitSecon
     Loop While Timer - startTime < maxWaitSeconds
 End Function
 
-Private Function GetDashboardSnapshotRange(ByVal ws As Worksheet) As Range
+' ----------------------------------------------------------------------------
+' Email body composition: {{REPORT}} marker handling
+' Splits configured BODY text into intro (above marker) and closing (below
+' marker). If the marker is absent, the full body is used as intro and a
+' default closing is appended after the pasted report.
+' ----------------------------------------------------------------------------
+
+Private Function SplitBodyAtMarker(ByVal bodyText As String, ByRef introOut As String, ByRef closingOut As String) As Boolean
+    Dim pos As Long
+    pos = InStr(1, bodyText, EMAIL_MARKER_REPORT, vbTextCompare)
+    If pos > 0 Then
+        introOut = Left$(bodyText, pos - 1)
+        closingOut = Mid$(bodyText, pos + Len(EMAIL_MARKER_REPORT))
+        SplitBodyAtMarker = True
+    Else
+        introOut = bodyText
+        closingOut = ""
+        SplitBodyAtMarker = False
+    End If
+End Function
+
+' ----------------------------------------------------------------------------
+' Email behavior toggles (registry under EMAIL_REG_KEY)
+' ----------------------------------------------------------------------------
+
+Private Function ReadEmailAutoSend() As Boolean
+    On Error Resume Next
+    Dim v As String
+    v = GetSetting("PendingPickupReport", "Email", EMAIL_REG_AUTO_SEND, "")
+    ReadEmailAutoSend = (v = "1")
+    Err.Clear
+End Function
+
+Private Function ReadEmailAttachReport() As Boolean
+    On Error Resume Next
+    Dim v As String
+    v = GetSetting("PendingPickupReport", "Email", EMAIL_REG_ATTACH_REPORT, "")
+    ReadEmailAttachReport = (v = "1")
+    Err.Clear
+End Function
+
+' ----------------------------------------------------------------------------
+' Email address validation
+' ----------------------------------------------------------------------------
+
+Private Function ValidateEmailTo(ByVal toAddr As String, ByVal context As String) As Boolean
+    ValidateEmailTo = False
+    If Len(Trim$(toAddr)) = 0 Then
+        NotifyEmailFailure context, "No TO address configured. Set TO in cell D5 of the Manager Email Template sheet (or D5 of the Director Email Template sheet for dashboard emails), then try again."
+        Exit Function
+    End If
+    ' Very basic sanity check: must contain an @ and a dot after it.
+    Dim atPos As Long, dotPos As Long
+    atPos = InStr(1, toAddr, "@", vbTextCompare)
+    If atPos = 0 Then
+        NotifyEmailFailure context, "TO address '" & toAddr & "' is missing an '@' symbol. Correct it in the email template sheet and try again."
+        Exit Function
+    End If
+    dotPos = InStr(atPos + 1, toAddr, ".", vbTextCompare)
+    If dotPos = 0 Then
+        NotifyEmailFailure context, "TO address '" & toAddr & "' looks incomplete (no domain). Correct it in the email template sheet and try again."
+        Exit Function
+    End If
+    ValidateEmailTo = True
+End Function
+
+' ----------------------------------------------------------------------------
+' Insert composed email body into the Word editor, preserving any Outlook
+' signature that was already present. Order: [intro][report][closing][signature]
+' ----------------------------------------------------------------------------
+
+Private Sub InsertEmailBodyIntoEditor(ByVal wordDoc As Object, ByVal introFullText As String, ByVal closingText As String)
+    On Error Resume Next
+    Dim introLen As Long
+    introLen = Len(introFullText)
+
+    ' 1. Insert intro at the very start of the document.
+    Dim bodyRange As Object
+    Set bodyRange = wordDoc.Range(0, 0)
+    bodyRange.Text = introFullText
+
+    ' 2. Insert closing right after the intro (pushing any signature down).
+    Set bodyRange = wordDoc.Range(introLen, introLen)
+    bodyRange.Text = closingText
+
+    ' 3. Paste the copied Excel report between intro and closing.
+    Set bodyRange = wordDoc.Range(introLen, introLen)
+    bodyRange.Paste
+End Sub
+
+' ----------------------------------------------------------------------------
+' Test email: verify manager email config without needing a report range.
+' ----------------------------------------------------------------------------
+
+Public Sub SendTestEmail()
+    On Error GoTo CleanFail
+
+    Dim outlook As Object, mail As Object, wordDoc As Object
+    Dim toAddr As String, ccAddr As String, subj As String, bodyText As String
+    Dim introText As String, closingText As String
+
+    toAddr = GetEmailTo()
+    If Not ValidateEmailTo(toAddr, "SendTestEmail") Then Exit Sub
+
+    ccAddr = GetEmailCC()
+    subj = GetEmailSubject(EMAIL_SUBJECT_MANAGER & " - TEST")
+    If InStr(1, subj, Format(Date, "m/d/yyyy"), vbTextCompare) = 0 And _
+       InStr(1, subj, Format(Date, "yyyy-mm-dd"), vbTextCompare) = 0 Then
+        subj = Trim$(subj) & " (" & Format(Date, "m/d/yyyy") & ")"
+    End If
+
+    bodyText = GetEmailBody("This is a test email from the Pending Pickup Report Builder. If you receive it, your email configuration is working correctly.")
+    If Not SplitBodyAtMarker(bodyText, introText, closingText) Then
+        closingText = vbCrLf & vbCrLf & "Pending Pickup Report System"
+    End If
+
+    Set outlook = CreateObject("Outlook.Application")
+    If outlook Is Nothing Then
+        NotifyEmailFailure "SendTestEmail", "Outlook is not available. Open Outlook and try again."
+        Exit Sub
+    End If
+
+    Set mail = outlook.CreateItem(0)
+    With mail
+        .To = toAddr
+        .CC = ccAddr
+        .Subject = subj
+        .Display
+        DoEvents
+
+        Set wordDoc = GetWordEditor(mail, 8)
+        If wordDoc Is Nothing Then
+            NotifyEmailFailure "SendTestEmail", "Outlook opened, but the email editor was not ready. Try again in a few seconds."
+            GoTo CleanExit
+        End If
+
+        InsertEmailBodyIntoEditor wordDoc, "Hi," & vbCrLf & introText & vbCrLf & vbCrLf, closingText
+
+        LogMsg "Email: test inspector displayed (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
+    End With
+
+    GoTo CleanExit
+
+CleanFail:
+    LogErr "SendTestEmail"
+    MsgBox "An unexpected error occurred while creating the test email." & vbCrLf & vbCrLf & "See macro-debug.log for details.", vbExclamation, "Email Not Created"
+
+CleanExit:
+    On Error Resume Next
+    Application.CutCopyMode = False
+End Sub
+
+' ----------------------------------------------------------------------------
     On Error Resume Next
     Dim lastRow As Long, lastCol As Long
     lastRow = LastUsedRow(ws)
@@ -378,7 +530,7 @@ End Sub
 ' Send email to a manager using copy/paste of Excel range into Outlook Word editor
 ' ----------------------------------------------------------------------------
 
-Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, ByVal rowCount As Long)
+Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, ByVal rowCount As Long, Optional ByVal attachmentPath As String = "")
     On Error GoTo CleanFail
 
     Dim snapRg As Range
@@ -390,6 +542,10 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
         NotifyEmailFailure "SendManagerEmail", "Could not determine the manager report range to copy."
         Exit Sub
     End If
+
+    Dim toAddr As String
+    toAddr = GetEmailTo()
+    If Not ValidateEmailTo(toAddr, "SendManagerEmail") Then Exit Sub
 
     ' Copy the Excel range to the clipboard so formatting and spacing are preserved when pasted into Outlook.
     snapRg.Copy
@@ -408,14 +564,26 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
     LogMsg "Email: Outlook application created for manager " & managerName
     Set mail = outlook.CreateItem(0)
 
+    Dim bodyText As String, introText As String, closingText As String
+    bodyText = GetEmailBody("Please review the Pending Pickup report below. You have " & rowCount & " records requiring pickup action.")
+    If Not SplitBodyAtMarker(bodyText, introText, closingText) Then
+        closingText = vbCrLf & vbCrLf & "Please review and respond as needed." & vbCrLf & "Pending Pickup Report System"
+    End If
+
     With mail
-        .To = GetEmailTo()
+        .To = toAddr
         .Subject = GetEmailSubject(EMAIL_SUBJECT_MANAGER & " - " & managerName & " (" & rowCount & " pending)")
         If InStr(1, .Subject, Format(Date, "m/d/yyyy"), vbTextCompare) = 0 And _
            InStr(1, .Subject, Format(Date, "yyyy-mm-dd"), vbTextCompare) = 0 Then
             .Subject = Trim$(.Subject) & " (" & Format(Date, "m/d/yyyy") & ")"
         End If
         .CC = GetEmailCC()
+
+        ' Optional attachment: attach the generated report .xlsx if enabled in registry.
+        If ReadEmailAttachReport() And Len(attachmentPath) > 0 Then
+            .Attachments.Add attachmentPath
+            LogMsg "Email: attached report for manager " & managerName & " (" & attachmentPath & ")"
+        End If
 
         ' Display the inspector so we can access the Word editor and paste formatted Excel content.
         .Display
@@ -428,23 +596,17 @@ Public Sub SendManagerEmail(ByVal ws As Worksheet, ByVal managerName As String, 
             GoTo CleanExit
         End If
 
-        Dim introText As String
-        introText = GetEmailBody("Please review the Pending Pickup report below. You have " & rowCount & " records requiring pickup action.")
+        Dim introFullText As String
+        introFullText = "Hi " & managerName & "," & vbCrLf & introText & vbCrLf & vbCrLf
+        InsertEmailBodyIntoEditor wordDoc, introFullText, closingText
 
-        ' Insert intro text at the top.
-        Dim bodyRange As Object
-        Set bodyRange = wordDoc.Range(0, 0)
-        bodyRange.Text = "Hi " & managerName & "," & vbCrLf & introText & vbCrLf & vbCrLf
-
-        ' Move to the end and paste the copied Excel range (preserves formatting).
-        Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
-        bodyRange.Paste
-
-        ' Add closing text.
-        Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
-        bodyRange.Text = vbCrLf & vbCrLf & "Please review and respond as needed." & vbCrLf & "Pending Pickup Report System"
-
-        LogMsg "Email: inspector ready for manager " & managerName & " (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
+        ' Auto-send if enabled, otherwise leave as draft for user review.
+        If ReadEmailAutoSend() Then
+            .Send
+            LogMsg "Email: auto-sent to manager " & managerName & " (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
+        Else
+            LogMsg "Email: inspector displayed for manager " & managerName & " (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
+        End If
     End With
 
     LogMsg "Email: inspector displayed for manager " & managerName
@@ -463,7 +625,7 @@ End Sub
 ' Send dashboard email to Director using copy/paste of Excel range into Outlook Word editor
 ' ----------------------------------------------------------------------------
 
-Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
+Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long, Optional ByVal attachmentPath As String = "")
     On Error GoTo CleanFail
 
     Dim snapRg As Range
@@ -475,6 +637,10 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
         NotifyEmailFailure "SendDashboardEmail", "Could not determine the dashboard range to copy."
         Exit Sub
     End If
+
+    Dim toAddr As String
+    toAddr = GetDirectorEmailTo()
+    If Not ValidateEmailTo(toAddr, "SendDashboardEmail") Then Exit Sub
 
     ' Copy the Excel range to the clipboard so formatting and spacing are preserved when pasted into Outlook.
     snapRg.Copy
@@ -493,14 +659,30 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
     LogMsg "Email: Outlook application created for dashboard email"
     Set mail = outlook.CreateItem(0)
 
+    Dim bodyText As String, introText As String, closingText As String
+    If rowCount > 0 Then
+        bodyText = GetDirectorEmailBody("Please find the Pending Pickup monthly dashboard below. Current pending records: " & rowCount & ".")
+    Else
+        bodyText = GetDirectorEmailBody("Please find the Pending Pickup monthly dashboard below.")
+    End If
+    If Not SplitBodyAtMarker(bodyText, introText, closingText) Then
+        closingText = vbCrLf & vbCrLf & "Pending Pickup Report System"
+    End If
+
     With mail
-        .To = GetDirectorEmailTo()
+        .To = toAddr
         .Subject = GetDirectorEmailSubject(EMAIL_SUBJECT_DIRECTOR)
         If InStr(1, .Subject, Format(Date, "m/d/yyyy"), vbTextCompare) = 0 And _
            InStr(1, .Subject, Format(Date, "yyyy-mm-dd"), vbTextCompare) = 0 Then
             .Subject = Trim$(.Subject) & " (" & Format(Date, "m/d/yyyy") & ")"
         End If
         .CC = GetDirectorEmailCC()
+
+        ' Optional attachment: attach the generated report .xlsx if enabled in registry.
+        If ReadEmailAttachReport() And Len(attachmentPath) > 0 Then
+            .Attachments.Add attachmentPath
+            LogMsg "Email: attached report for dashboard (" & attachmentPath & ")"
+        End If
 
         ' Display the inspector so we can access the Word editor and paste formatted Excel content.
         .Display
@@ -513,27 +695,17 @@ Public Sub SendDashboardEmail(ByVal ws As Worksheet, ByVal rowCount As Long)
             GoTo CleanExit
         End If
 
-        Dim introText As String
-        If rowCount > 0 Then
-            introText = GetDirectorEmailBody("Please find the Pending Pickup monthly dashboard below. Current pending records: " & rowCount & ".")
+        Dim introFullText As String
+        introFullText = "Hi Director," & vbCrLf & introText & vbCrLf & vbCrLf
+        InsertEmailBodyIntoEditor wordDoc, introFullText, closingText
+
+        ' Auto-send if enabled, otherwise leave as draft for user review.
+        If ReadEmailAutoSend() Then
+            .Send
+            LogMsg "Email: auto-sent dashboard email (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
         Else
-            introText = GetDirectorEmailBody("Please find the Pending Pickup monthly dashboard below.")
+            LogMsg "Email: inspector displayed for dashboard (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
         End If
-
-        ' Insert intro text at the top.
-        Dim bodyRange As Object
-        Set bodyRange = wordDoc.Range(0, 0)
-        bodyRange.Text = "Hi Director," & vbCrLf & introText & vbCrLf & vbCrLf
-
-        ' Move to the end and paste the copied Excel range (preserves formatting).
-        Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
-        bodyRange.Paste
-
-        ' Add closing text.
-        Set bodyRange = wordDoc.Range(wordDoc.Characters.Count, wordDoc.Characters.Count)
-        bodyRange.Text = vbCrLf & vbCrLf & "Pending Pickup Report System"
-
-        LogMsg "Email: inspector ready for dashboard (To=" & .To & ", CC=" & .CC & ", Subject=" & .Subject & ")"
     End With
 
     LogMsg "Email: inspector displayed for dashboard"
@@ -615,7 +787,7 @@ Public Sub EmailSelectedManagerTab()
     rowCount = LastUsedRow(targetSheet) - MANAGER_HEADER_ROW
     If rowCount < 0 Then rowCount = 0
 
-    SendManagerEmail targetSheet, mgrName, rowCount
+    SendManagerEmail targetSheet, mgrName, rowCount, targetWb.FullName
     Exit Sub
 
 CleanFail:
@@ -673,7 +845,7 @@ Public Sub EmailDashboard()
     On Error GoTo CleanFail
     If rowCount = 0 Then rowCount = LastUsedRow(targetSheet)
 
-    SendDashboardEmail targetSheet, rowCount
+    SendDashboardEmail targetSheet, rowCount, targetWb.FullName
     Exit Sub
 
 CleanFail:
