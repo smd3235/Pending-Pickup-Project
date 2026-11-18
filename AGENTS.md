@@ -12,7 +12,7 @@
 ## Project layout and conventions
 
 - **VBA source of truth:** `.bas` modules in `vba/` (`modCore.bas`, `modDialog.bas`, `modFormatting.bas`, `modLogging.bas`, `modAudit.bas`, `modDeclarations.bas`, `modUtils.bas`, etc.). Do not hand-edit generated artifacts except via sync/build flow.
-- **Templates/artifacts:** `Pending Pickup Template.xlsm` (macro/test), `Pending Pickup Template (no-macros).xlsx` and `Project-Local-Build.zip` (work-PC). Keep aligned via `scripts/sync_template.py`.
+- **Templates/artifacts:** `Pending Pickup Template.xlsm` (macro/test), `Pending Pickup Template (no-macros).xlsx`, `Project-Local-Build.zip` (work-PC: no-macro `.xlsx` + `.bas` modules + instructions) and `Pending Pickup Template (macro).zip` (macro-enabled `.xlsm` only, created in tandem; `.bas` already embedded). Keep aligned via `scripts/sync_template.py`.
 - **Logs:** `log/` (lowercase) — `pending-pickup_*.log` (runner and/or VBA per-run), `macro-debug.log`, `pending-pickup-complete.txt`, `compile-test.log`, `watcher.log`, `answer-dialogs.log`, `excel-hangs.log`, `pipeline.log`.
 - **Reports/output:** `Reports/` (generated `.xlsx`, ignore `~$` lock files). **Screenshots/docs:** `documentation/screenshots/`, `documentation/changelog.md`.
 - **Config:** prefer `.kilo/command/*.md` and `.kilo/agent/*.md`; do not use `.kilocode/`.
@@ -20,7 +20,7 @@
 ## Standard workflow (mandatory loop for code/template changes)
 
 1. **Compile gate:** `python scripts/test-compile.py` — VBA must compile cleanly (probe runs). Dialogs captured via `scripts/watch-compile-error.py`.
-2. **Sync/build:** `python scripts/sync_template.py` — sync modules/buttons/templates into `.xlsm`, rebuild no-macro `.xlsx` and `Project-Local-Build.zip`.
+2. **Sync/build:** `python scripts/sync_template.py` — sync modules/buttons/templates into `.xlsm`, rebuild no-macro `.xlsx`, `Project-Local-Build.zip`, and `Pending Pickup Template (macro).zip`.
 3. **Run report:** `python scripts/run-report.py` — end-to-end run (auto email-config sync check, unattended dialogs/skip-prior as configured), writes run logs/marker and regenerates report screenshots on success. Screenshots must complete; if regeneration exceeds 120s the app/Excel is killed and logs must be checked before rerunning.
 4. **Scan/validate logs and output:** `python scripts/check-logs.py --latest`, `python scripts/monitor-logs.py`, `python scripts/analyze-trace.py`, `python scripts/validate-report.py`.
 5. **Code audit (when changing scripts/code):** `python scripts/audit-code.py`.
