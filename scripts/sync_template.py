@@ -105,14 +105,14 @@ try:
         ws.Rows("5").RowHeight = 20    # subtitle
         ws.Rows("6").RowHeight = 16
         ws.Rows("7").RowHeight = 22    # section label
-        ws.Rows("8").RowHeight = 50    # CTA card (description + button inside)
+        ws.Rows("8").RowHeight = 50    # CTA card (description)
         ws.Rows("9").RowHeight = 12    # spacer
-        ws.Rows("10").RowHeight = 12   # spacer (button is inside card above)
+        ws.Rows("10").RowHeight = 44   # CTA button row
         ws.Rows("11").RowHeight = 16   # spacer
         ws.Rows("12").RowHeight = 22   # section label
-        ws.Rows("13").RowHeight = 50   # email card (description + buttons inside)
-        ws.Rows("14").RowHeight = 12   # spacer
-        ws.Rows("15").RowHeight = 12   # spacer (buttons are inside card above)
+        ws.Rows("13").RowHeight = 50   # email card (description)
+        ws.Rows("14").RowHeight = 40   # email buttons row
+        ws.Rows("15").RowHeight = 12   # spacer
         ws.Rows("16").RowHeight = 24
         ws.Rows("17").RowHeight = 22   # section label
         ws.Rows("18").RowHeight = 20   # step 1
@@ -191,58 +191,66 @@ try:
             b.Fill.ForeColor.RGB = fill
             b.Line.ForeColor.RGB = line
             b.Line.Weight = 1.25
-            b.Shadow.Type = 0  # no shadow
-            # Set button text — always try both frames to guarantee visible text
+            # Shadow: new shapes have no shadow by default; set safely so a bad
+            # value never blocks the rest of button setup.
             try:
-                b.TextFrame2.TextRange.Characters.Text = text
+                b.Shadow.Type = 0  # no shadow
+            except Exception:
+                pass
+            # Set button text FIRST, then apply font styling AFTER so text keeps
+            # the white bold color (setting .Text resets character formatting).
+            try:
+                b.TextFrame.TextRange.Text = text
             except Exception:
                 try:
-                    b.TextFrame.TextRange.Characters.Text = text
+                    b.TextFrame2.TextRange.Text = text
                 except Exception:
                     pass
-            # Font styling — apply to TextFrame2 first, then TextFrame fallback
+            # Apply font styling after text is set so it is not wiped by .Text.
             try:
-                tf = b.TextFrame2.TextRange.Font
+                tf = b.TextFrame.TextRange.Font
                 tf.Name = "Segoe UI"
                 tf.Bold = bold
                 tf.Size = font_size
-                tf.Color = 0xFFFFFF
-                b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
+                tf.Color = 0xFFFFFF  # white text for contrast on dark fill
+                b.TextFrame.HorizontalAlignment = 2  # center
                 try:
-                    b.TextFrame2.VerticalAnchor = 3  # middle
+                    b.TextFrame.VerticalAlignment = 3  # middle
                 except Exception:
                     pass
             except Exception:
                 try:
-                    tf = b.TextFrame.TextRange.Font
+                    tf = b.TextFrame2.TextRange.Font
                     tf.Name = "Segoe UI"
                     tf.Bold = bold
                     tf.Size = font_size
                     tf.Color = 0xFFFFFF
-                    b.TextFrame.HorizontalAlignment = 2  # center
+                    b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
                     try:
-                        b.TextFrame.VerticalAlignment = 3  # middle
+                        b.TextFrame2.VerticalAnchor = 3
                     except Exception:
                         pass
                 except Exception:
                     pass
-            # Margins
+            # Margins so text is not clipped
             try:
-                b.TextFrame2.MarginLeft = 4
-                b.TextFrame2.MarginRight = 4
-                b.TextFrame2.MarginTop = 2
-                b.TextFrame2.MarginBottom = 2
+                b.TextFrame.MarginLeft = 4
+                b.TextFrame.MarginRight = 4
+                b.TextFrame.MarginTop = 2
+                b.TextFrame.MarginBottom = 2
             except Exception:
                 pass
-            # Placement
+            # Placement: move with cells; exact position fixed in post-processing
             try:
-                b.Placement = 3  # free floating
+                b.Placement = 1  # move with cells
                 b.LockAspectRatio = False
             except Exception:
                 pass
+            return b
         except Exception:
-            pass
-        return None
+            return None
+        except Exception:
+            return None
 
     # Remove/replace old START HERE shapes before creating new ones,
     # so stale buttons/overlays don't overlap or get deleted after creation.
@@ -436,11 +444,71 @@ try:
     except Exception:
         pass
 
-    # Lock all cells on START HERE (UserInterfaceOnly lets buttons/macros still work)
+    # Lock every cell on START HERE so protection can prevent selecting/clicking
+    # cells; UserInterfaceOnly=True lets buttons/macros still work. COM does not
+    # expose AllowSelectingLockedCells/UnlockedCells, so use EnableSelection=2
+    # (xlNoSelection) to block all cell selection while buttons keep working.
+    _prot_log = os.path.join(project_root, "log", "button_errors.log")
+    try:
+        ws.Unprotect()
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect ok\n")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
+    try:
+        ws.Cells.Locked = True
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Locked ok\n")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Locked FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
     try:
         ws.Protect(Password="", UserInterfaceOnly=True, AllowUsingPivotTables=False, AllowSorting=False, AllowFiltering=False)
-    except Exception:
-        pass
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Protect ok\n")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Protect FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
+    try:
+        ws.EnableSelection = 2  # xlNoSelection: no cells can be selected
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | EnableSelection ok\n")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | EnableSelection FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
 
     def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE", auto_send="", attach_report=""):
         # field_values: dict with keys to, cc, subject, body
@@ -907,6 +975,121 @@ try:
 
     wb.Save()
     wb.Close(True)
+
+    # Post-process the saved xlsm: set enableSelection="none" on the START HERE
+    # sheet view so no cells can be selected/clicked (buttons still work via
+    # UserInterfaceOnly protection). COM does not expose AllowSelectingLockedCells.
+    try:
+        import zipfile, shutil, re, tempfile
+        _tmpl = template
+        _tmp_zip = _tmpl + ".tmp.zip"
+        with zipfile.ZipFile(_tmpl, 'r') as zin:
+            _names = zin.namelist()
+            # Find START HERE sheet number from workbook.xml
+            _wb_xml = zin.read('xl/workbook.xml').decode('utf-8', errors='replace')
+            _m = re.search(r'<sheet [^>]*name="START HERE"[^>]*sheetId="(\d+)"[^>]*r:id="(rId\d+)"', _wb_xml)
+            _sheet_id = _m.group(1) if _m else None
+            _rel_id = _m.group(2) if _m else None
+            # Find the sheet XML file from workbook relationships
+            _sheet_xml = None
+            if _rel_id:
+                _rels = zin.read('xl/_rels/workbook.xml.rels').decode('utf-8', errors='replace')
+                _rm = re.search(r'<Relationship [^>]*Id="%s"[^>]*Target="worksheets/sheet(\d+)\.xml"' % _rel_id, _rels)
+                if _rm:
+                    _sheet_xml = 'xl/worksheets/sheet%s.xml' % _rm.group(1)
+            # Fallback: any sheet with sheetProtection
+            if not _sheet_xml:
+                for _n in _names:
+                    if re.match(r'xl/worksheets/sheet\d+\.xml$', _n):
+                        _c = zin.read(_n).decode('utf-8', errors='replace')
+                        if '<sheetProtection' in _c:
+                            _sheet_xml = _n
+                            break
+            if _sheet_xml:
+                _content = zin.read(_sheet_xml).decode('utf-8', errors='replace')
+                _content2 = re.sub(
+                    r'(<sheetView\b[^>]*?)(/?>)',
+                    lambda m: m.group(1) + ' enableSelection="none"' + m.group(2),
+                    _content,
+                    count=1
+                )
+                if _content2 != _content:
+                    with zipfile.ZipFile(_tmp_zip, 'w', zipfile.ZIP_DEFLATED) as zout:
+                        for _n in _names:
+                            if _n == _sheet_xml:
+                                zout.writestr(_n, _content2)
+                            else:
+                                zout.writestr(_n, zin.read(_n))
+                    shutil.move(_tmp_zip, _tmpl)
+                    try:
+                        with open(_prot_log, "a") as f:
+                            import datetime
+                            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | enableSelection=none written to %s\n" % _sheet_xml)
+                    except Exception:
+                        pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | enableSelection XML FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
+
+    # Post-process button positions in drawing3.xml so buttons sit below
+    # card text (in spacer rows) rather than overlapping it. COM does not
+    # reliably honor Shape.Left/Top/TopLeftCell, so we set exact positions
+    # in the saved XML. X->Y mapping (EMU; point * 12700):
+    #   logo x=5092700   -> y=120650   (original logo position)
+    #   primary button   -> y=2641600  (row 10 start 206pt + 2pt)
+    #   email buttons    -> y=4318000  (row 14 start 338pt + 2pt)
+    try:
+        import zipfile, shutil, re
+        _tmpl = template
+        _tmp_zip = _tmpl + ".tmp2.zip"
+        _x_to_y = {
+            "5092700": "120650",       # AOTILogo original Y
+            "2422525": str(208 * 12700),  # primary button row 10
+            "320675": str(340 * 12700),   # email button 1 row 14
+            "1246188": str(340 * 12700),  # email button 2 row 14
+        }
+        with zipfile.ZipFile(_tmpl, 'r') as zin:
+            _names = zin.namelist()
+            _draw3 = None
+            for _n in _names:
+                if re.match(r'xl/drawings/drawing3\.xml$', _n):
+                    _draw3 = _n
+                    break
+            if _draw3:
+                _content = zin.read(_draw3).decode('utf-8', errors='replace')
+                _content2 = _content
+                for _x_val, _y_val in _x_to_y.items():
+                    _content2 = re.sub(
+                        r'(<a:xfrm><a:off x="%s" y=")\d+"' % _x_val,
+                        r'\g<1>%s"' % _y_val,
+                        _content2
+                    )
+                if _content2 != _content:
+                    with zipfile.ZipFile(_tmp_zip, 'w', zipfile.ZIP_DEFLATED) as zout:
+                        for _n in _names:
+                            if _n == _draw3:
+                                zout.writestr(_n, _content2)
+                            else:
+                                zout.writestr(_n, zin.read(_n))
+                    shutil.move(_tmp_zip, _tmpl)
+                    try:
+                        with open(_prot_log, "a") as f:
+                            import datetime
+                            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | shape positions fixed in %s\n" % _draw3)
+                    except Exception:
+                        pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | shape position XML FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
+
     print(f"Synced {len(bas_files)} module(s) and button '{button_name}' into {template}")
     for b in bas_files:
         print(f"  - {os.path.basename(b)}")
