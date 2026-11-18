@@ -734,4 +734,44 @@ if final_ok:
     else:
         append_run_log("sync_template.py not found; skipping artifact rebuild.")
 
+    # Push all run artifacts (screenshots, zips, templates, logs) to GitHub so the
+    # repo is updated after every successful test run.
+    try:
+        append_run_log("Pushing run artifacts to GitHub...")
+        push_start = time.time()
+        git_dir = project_root
+        r = subprocess.run(
+            ["git", "add", "-A"],
+            cwd=git_dir, capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            append_run_log(f"git add failed: {(r.stderr or r.stdout or '').strip()[-500:]}")
+        else:
+            commit_msg = f"chore: update artifacts after successful run ({run_stamp})"
+            r = subprocess.run(
+                ["git", "commit", "-m", commit_msg],
+                cwd=git_dir, capture_output=True, text=True, timeout=30,
+            )
+            if r.returncode != 0:
+                out = (r.stdout or r.stdout + "\n" + (r.stderr or "")).strip()
+                if "nothing to commit" in out or "nothing added" in out:
+                    append_run_log("git commit: nothing to commit (no changes).")
+                else:
+                    append_run_log(f"git commit failed: {out[-500:]}")
+            else:
+                append_run_log(f"Committed run artifacts: {commit_msg}")
+                r = subprocess.run(
+                    ["git", "push", "origin", "main"],
+                    cwd=git_dir, capture_output=True, text=True, timeout=60,
+                )
+                if r.returncode != 0:
+                    append_run_log(f"git push failed: {(r.stderr or r.stdout or '').strip()[-500:]}")
+                else:
+                    push_dur = time.time() - push_start
+                    append_run_log(f"Pushed run artifacts to GitHub ({push_dur:.2f}s).")
+    except subprocess.TimeoutExpired:
+        append_run_log("Git push timed out; artifacts were committed locally but not pushed.")
+    except Exception as e:
+        append_run_log(f"Could not push run artifacts to GitHub: {e}")
+
 sys.exit(0 if final_ok else 1)
