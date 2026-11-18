@@ -851,14 +851,17 @@ if not args.skip_package:
         print(f"    - {os.path.basename(item)}")
 
     # Build a separate zip of the macro-enabled template (.xlsm). The .bas
-    # modules are already embedded in this file by the sync above, so this
-    # zip carries only the .xlsm and is created in tandem with the local
-    # build package above.
+    # modules are already embedded in this file by the sync above, but are
+    # included alongside it for reference/porting, mirroring the non-macro
+    # local build package.
     macro_zip_path = os.path.join(project_root, "Pending Pickup Template (macro).zip")
     if os.path.exists(macro_zip_path):
         os.remove(macro_zip_path)
+    macro_zip_items = [template] + module_files
     with zipfile.ZipFile(macro_zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.write(template, arcname=os.path.basename(template))
+        for item in macro_zip_items:
+            zf.write(item, arcname=os.path.basename(item))
     print(f"Built macro template package: {macro_zip_path}")
     print("  Includes:")
-    print(f"    - {os.path.basename(template)}")
+    for item in macro_zip_items:
+        print(f"    - {os.path.basename(item)}")
