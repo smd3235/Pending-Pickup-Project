@@ -357,14 +357,14 @@ try:
     try:
         row = 18
         for num, text in steps:
-            # Merge D:E for each step row so number and text stay aligned
-            # directly below each other, never drifting to the right.
-            _merge("D" + str(row) + ":E" + str(row), num + "  " + text)
-            ws.Range("D" + str(row)).Font.Bold = True
-            ws.Range("D" + str(row)).Font.Color = ACCENT
-            ws.Range("D" + str(row)).HorizontalAlignment = -4108
-            ws.Range("D" + str(row)).VerticalAlignment = -4108
-            ws.Range("D" + str(row)).IndentLevel = 0
+            # Merge B:E for each step row so number and text align under
+            # the section header (B17:E17), never drifting to the right.
+            _merge("B" + str(row) + ":E" + str(row), num + "  " + text)
+            ws.Range("B" + str(row)).Font.Bold = True
+            ws.Range("B" + str(row)).Font.Color = ACCENT
+            ws.Range("B" + str(row)).HorizontalAlignment = -4108
+            ws.Range("B" + str(row)).VerticalAlignment = -4108
+            ws.Range("B" + str(row)).IndentLevel = 0
             row += 1
         ws.Range("D23:E23").ClearContents()
     except Exception:
