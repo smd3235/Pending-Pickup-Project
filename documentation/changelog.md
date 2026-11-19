@@ -3,6 +3,10 @@
 All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 `YYYY-MM-DD HH:MM:SS` (local time). Version `1.0` is the current baseline.
 
+## 2026-11-19
+
+- **09:49:00** — Pipeline run complete: all 9 steps OK (compile→sync→run→screenshots→scan/validate). COMPILE OK, VBA project compiles cleanly. 15 screenshots regenerated in documentation/screenshots/ including template-start-here.png showing START HERE sheet with user-positioned buttons. Re-synced Pending Pickup Template.xlsm, both ZIPs rebuilt. No blocking issues; validation passed with 0 errors/0 warnings.
+
 ## 2026-11-18
 
 - **18:00:00** — Locked up START HERE buttons after user repositioning: re-added `b.OnAction = macro` in `_make_button` so buttons trigger macros again; re-enabled `ws.Protect()` with `UserInterfaceOnly=True` + `ws.Cells.Locked = True` + `ws.EnableSelection = 2` (xlNoSelection) so cells can't be clicked but buttons work; hard-coded user-placed button positions in drawing3.xml post-processing matched by shape name: primary button at y=254pt (row 10), email buttons at y=411pt/412pt (row 15). Button sizes preserved as resized by user (280x36, 135x43, 132x41). Re-synced `Pending Pickup Template.xlsm`, both ZIPs rebuilt.
