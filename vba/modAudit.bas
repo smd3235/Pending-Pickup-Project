@@ -32,7 +32,7 @@ Public Sub AuditLogEvent(ByVal eventType As String, ByVal msg As String)
     On Error Resume Next
     f = FreeFile
     If Err.Number <> 0 Then Exit Sub
-    Open LOG_PATH For Append As #f
+    Open GetLogPath() For Append As #f
     If Err.Number <> 0 Then Exit Sub
     Print #f, Format(Now, "yyyy-mm-dd hh:n:ss") & " | AUDIT | " & eventType & " | " & msg
     Close #f

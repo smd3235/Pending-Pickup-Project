@@ -316,7 +316,7 @@ End Sub
 Private Function GetWordEditor(ByVal mail As Object, Optional ByVal maxWaitSeconds As Single = 8) As Object
     On Error Resume Next
     GetWordEditor = Nothing
-    Dim startTime As Single
+    Dim startTime As Double
     startTime = Timer
     Do
         Dim inspector As Object
@@ -330,7 +330,10 @@ Private Function GetWordEditor(ByVal mail As Object, Optional ByVal maxWaitSecon
             End If
         End If
         DoEvents
-    Loop While Timer - startTime < maxWaitSeconds
+        Dim elapsed As Double
+        elapsed = Timer - startTime
+        If elapsed < 0 Then elapsed = elapsed + 86400#  ' handle midnight wraparound
+    Loop While elapsed < maxWaitSeconds
 End Function
 
 ' ----------------------------------------------------------------------------
@@ -486,6 +489,7 @@ CleanExit:
 End Sub
 
 ' ----------------------------------------------------------------------------
+Private Function GetDashboardSnapshotRange(ByVal ws As Worksheet) As Range
     On Error Resume Next
     Dim lastRow As Long, lastCol As Long
     lastRow = LastUsedRow(ws)
@@ -498,8 +502,7 @@ End Sub
     Next co
 
     If lastRow < 1 Then lastRow = 25
-    If lastCol < 1 Then lastCol = 16 ' Column P
-    If lastCol < 16 Then lastCol = 16
+    If lastCol < 1 Then lastCol = 16
 
     Set GetDashboardSnapshotRange = ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol))
 End Function

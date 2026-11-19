@@ -3,7 +3,7 @@ Option Explicit
 
 ' ============================================================================
 '  Module: modLogging
-'  Centralised debug / audit logging. Every run writes to LOG_PATH and,
+'  Centralised debug / audit logging. Every run writes to the log path and,
 '  during a report run, also to the per-run log in mRunLogPath.
 ' ============================================================================
 
@@ -15,9 +15,9 @@ Public Sub LogMsg(ByVal msg As String)
     f = FreeFile
     If Err.Number <> 0 Then Exit Sub
     logLine = Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & msg
-    If Len(Dir$(Left$(LOG_PATH, InStrRev(LOG_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
+    If Len(Dir$(Left$(GetLogPath(), InStrRev(GetLogPath(), "\")), vbDirectory)) = 0 Then MkDir Left$(GetLogPath(), InStrRev(GetLogPath(), "\"))
     Err.Clear
-    Open LOG_PATH For Append As #f
+    Open GetLogPath() For Append As #f
     If Err.Number = 0 Then
         Print #f, logLine
         Close #f
@@ -45,9 +45,9 @@ Public Sub LogErr(ByVal procName As String)
     f = FreeFile
     If Err.Number <> 0 Then Exit Sub
     logLine = Format(Now, "yyyy-mm-dd hh:n:ss") & " | " & procName & " | Err=" & Err.Number & " | " & Err.Description & " | Erl=" & Erl
-    If Len(Dir$(Left$(LOG_PATH, InStrRev(LOG_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
+    If Len(Dir$(Left$(GetLogPath(), InStrRev(GetLogPath(), "\")), vbDirectory)) = 0 Then MkDir Left$(GetLogPath(), InStrRev(GetLogPath(), "\"))
     Err.Clear
-    Open LOG_PATH For Append As #f
+    Open GetLogPath() For Append As #f
     If Err.Number = 0 Then
         Print #f, logLine
         Close #f
@@ -68,19 +68,22 @@ Public Sub LogErr(ByVal procName As String)
 End Sub
 
 Public Function BuildRunLogPath() As String
-    Dim logDir As String
     On Error Resume Next
-    logDir = Left$(LOG_PATH, InStrRev(LOG_PATH, "\"))
-    BuildRunLogPath = logDir & "pending-pickup_" & Format(Now, "yyyy-mm-dd_HHMMSS") & ".log"
+    Dim logDir As String
+    BuildRunLogPath = "C:\Temp\PendingPickupReport\log\pending-pickup_" & Format(Now, "yyyy-mm-dd_HHMMSS") & ".log"
+    logDir = Left$(BuildRunLogPath, InStrRev(BuildRunLogPath, "\"))
+    If Len(Dir$(logDir, vbDirectory)) = 0 Then MkDir logDir
 End Function
 
 Public Sub WriteCompletionMarker(ByVal savePath As String)
     Dim f As Integer
     On Error Resume Next
-    If Len(Dir$(Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\")), vbDirectory)) = 0 Then MkDir Left$(COMPLETION_MARKER_PATH, InStrRev(COMPLETION_MARKER_PATH, "\"))
+    Dim markerPath As String
+    markerPath = GetCompletionMarkerPath()
+    If Len(Dir$(Left$(markerPath, InStrRev(markerPath, "\")), vbDirectory)) = 0 Then MkDir Left$(markerPath, InStrRev(markerPath, "\"))
     f = FreeFile
     If Err.Number <> 0 Then Exit Sub
-    Open COMPLETION_MARKER_PATH For Output As #f
+    Open markerPath For Output As #f
     If Err.Number <> 0 Then Exit Sub
     Print #f, "completed=" & Format(Now, "yyyy-mm-dd hh:n:ss")
     Print #f, "saved=" & savePath

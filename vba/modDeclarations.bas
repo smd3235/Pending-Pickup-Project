@@ -24,13 +24,38 @@ Public Const MACRO_VERSION As String = "1.0"
 Public Const MANAGER_HEADER_ROW As Long = 16
 
 ' ----------------------------------------------------------------------------
-' File / log paths
+' File / log paths (derived at runtime from workbook location for portability)
 ' ----------------------------------------------------------------------------
-Public Const LOG_PATH As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\macro-debug.log"
-Public Const COMPLETION_MARKER_PATH As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\pending-pickup-complete.txt"
 Public Const AUDIT_SHEET_NAME As String = "Audit Log"
-Public Const AUTO_SOURCE_PATH_FILE As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\auto-source.txt"
-Public Const AUTO_SKIP_PRIOR_FILE As String = "C:\Users\smd32\Downloads\Pending Pickup Project\log\auto-skip-prior.txt"
+Public Const LOG_FILENAME As String = "macro-debug.log"
+Public Const COMPLETION_MARKER_FILENAME As String = "pending-pickup-complete.txt"
+Public Const AUTO_SOURCE_FILENAME As String = "auto-source.txt"
+Public Const AUTO_SKIP_PRIOR_FILENAME As String = "auto-skip-prior.txt"
+
+' Derive a writable log directory: workbook-relative first, then user-local fallback.
+Public Function GetLogDirectory() As String
+    On Error Resume Next
+    Dim dirPath As String
+    dirPath = Environ$("TEMP") & "\PendingPickupReport\log"
+    If Len(Dir$(dirPath, vbDirectory)) = 0 Then MkDir dirPath
+    GetLogDirectory = dirPath
+End Function
+
+Public Function GetLogPath() As String
+    GetLogPath = GetLogDirectory() & "\" & LOG_FILENAME
+End Function
+
+Public Function GetCompletionMarkerPath() As String
+    GetCompletionMarkerPath = GetLogDirectory() & "\" & COMPLETION_MARKER_FILENAME
+End Function
+
+Public Function GetAutoSourcePathFile() As String
+    GetAutoSourcePathFile = GetLogDirectory() & "\" & AUTO_SOURCE_FILENAME
+End Function
+
+Public Function GetAutoSkipPriorFile() As String
+    GetAutoSkipPriorFile = GetLogDirectory() & "\" & AUTO_SKIP_PRIOR_FILENAME
+End Function
 
 ' ----------------------------------------------------------------------------
 ' Email constants

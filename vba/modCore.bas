@@ -16,7 +16,7 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim headerRow As Long, priorHeaderRow As Long
     Dim lastRow As Long, lastCol As Long, priorLastRow As Long, priorLastCol As Long
     Dim managerCol As Long, statusCol As Long, repCol As Long, nameCol As Long, pickupDateCol As Long, startDateCol As Long
-    Dim priorStatusCol As Long, priorNameCol As Long, priorManagerCol As Long
+    Dim priorStatusCol As Long, priorNameCol As Long, priorManagerCol As Long, priorKeyCol As Long
     Dim r As Long, i As Long
     Dim manager As String, status As String
     Dim ws As Worksheet, dashboard As Worksheet, rawOut As Worksheet
@@ -53,7 +53,7 @@ Public Function CreatePendingPickupReport() As Boolean
 
     LogMsg "=== CreatePendingPickupReport started ==="
     LogMsg "Run log: " & mRunLogPath
-    LogMsg "Completion marker: " & COMPLETION_MARKER_PATH
+    LogMsg "Completion marker: " & GetCompletionMarkerPath()
     LogMsg "Excel version: " & Application.Version
     LogMsg "Start time: " & Format(mReportStartTime, "yyyy-mm-dd hh:n:ss")
 
@@ -85,8 +85,8 @@ Public Function CreatePendingPickupReport() As Boolean
     On Error Resume Next
     Dim fso As Object, ts As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
-    If fso.FileExists(AUTO_SOURCE_PATH_FILE) Then
-        Set ts = fso.OpenTextFile(AUTO_SOURCE_PATH_FILE, 1)
+    If fso.FileExists(GetAutoSourcePathFile()) Then
+        Set ts = fso.OpenTextFile(GetAutoSourcePathFile(), 1)
         autoSourcePath = ts.ReadAll
         ts.Close
         Set ts = Nothing
@@ -260,7 +260,7 @@ Public Function CreatePendingPickupReport() As Boolean
     On Error Resume Next
     Dim fsoPrior As Object
     Set fsoPrior = CreateObject("Scripting.FileSystemObject")
-    If fsoPrior.FileExists(AUTO_SKIP_PRIOR_FILE) Then
+    If fsoPrior.FileExists(GetAutoSkipPriorFile()) Then
         autoSkipPrior = True
     End If
     Set fsoPrior = Nothing
@@ -297,6 +297,7 @@ Public Function CreatePendingPickupReport() As Boolean
                 priorStatusCol = FindHeaderColumn(prior, priorHeaderRow, STATUS_HEADER)
                 priorNameCol = FindHeaderColumn(prior, priorHeaderRow, NAME_HEADER)
                 priorManagerCol = FindHeaderColumn(prior, priorHeaderRow, MANAGER_HEADER)
+                priorKeyCol = FindHeaderColumn(prior, priorHeaderRow, KEY_HEADER)
                 priorLastRow = LastUsedRow(prior)
                 priorLastCol = LastUsedColumn(prior)
                 If priorLastRow > priorHeaderRow Then hasPrior = True
@@ -342,7 +343,7 @@ Public Function CreatePendingPickupReport() As Boolean
         Next rowItem
 
         For Each rowItem In priorRows
-            pk = GetRecordKey(priorData, CLng(rowItem), priorStatusCol, priorNameCol)
+            pk = GetRecordKey(priorData, CLng(rowItem), priorKeyCol, priorNameCol)
             If Err.Number <> 0 Then LogMsg "TRACE: priorByKey Err=" & Err.Number & " row=" & rowItem
             Err.Clear
             If Len(pk) > 0 Then
@@ -535,7 +536,7 @@ Public Function CreatePendingPickupReport() As Boolean
     runDuration = TimerDiff(mReportStartTime, Now)
     LogMsg "Run duration (seconds): " & Format(runDuration, "0.00")
     WriteCompletionMarker savePath
-    LogMsg "Completion marker written: " & COMPLETION_MARKER_PATH
+    LogMsg "Completion marker written: " & GetCompletionMarkerPath()
     LogMsg "Output file: " & savePath
     LogMsg "=== CreatePendingPickupReport completed ==="
     CreatePendingPickupReport = True
@@ -576,5 +577,5 @@ CleanFail:
     LogMsg "=== CleanFail exit ==="
     CreatePendingPickupReport = False
     WriteCompletionMarker "(failed)"
-    LogMsg "Completion marker written (failure): " & COMPLETION_MARKER_PATH
+    LogMsg "Completion marker written (failure): " & GetCompletionMarkerPath()
 End Function
