@@ -4,6 +4,14 @@ Usage:
   python scripts\\vba-error-ocr.py collect --macro SetupEmailCC --module modDialog
   python scripts\\vba-error-ocr.py analyze log\\ocr\\20261119_220000\\vbe-code.png --module modDialog
 
+Notes:
+  VBA's compile-error dialog is modal and ignores window-message clicks
+  (BM_CLICK / WM_COMMAND / VK_RETURN all fail against it), so it cannot be
+  dismissed reliably from the outside. The collector detects the dialog as
+  soon as it appears, captures the dialog + VBE + code-pane windows, then
+  kills Excel to unblock the blocked macro call. The highlighted line is
+  recovered by OCR plus fuzzy snapping against the vba/*.bas sources.
+
 Artifacts are written to log\\ocr\\<timestamp>\\ and summarized in log\\vba-error-ocr.log.
 """
 
@@ -295,8 +303,8 @@ def detect_bands(img, min_run=30, max_bands=6):
             {
                 "y0": band["y0"],
                 "y1": band["y1"],
-                "x0": max(0, min(xs) - 8),
-                "x1": min(width, max(xs) + 8),
+                "x0": max(0, min(xs) - 16),
+                "x1": min(width, max(xs) + 32),
                 "height": band_height,
                 "color": color,
                 "pixels": band["pixels"],
@@ -304,40 +312,6 @@ def detect_bands(img, min_run=30, max_bands=6):
         )
     result.sort(key=lambda item: item["pixels"], reverse=True)
     return result[:max_bands]
-
-
-def ocr_words(path):
-    proc = subprocess.run(
-        [
-            "powershell",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            OCR_PS1,
-            "-Path",
-            path,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=90,
-    )
-    lines = []
-    words = []
-    for raw in proc.stdout.splitlines():
-        if "\t" not in raw:
-            continue
-        kind, box, text = raw.split("\t", 2)
-        try:
-            x, y, w, h = (int(v) for v in box.split(","))
-        except ValueError:
-            continue
-        item = {"x": x, "y": y, "w": w, "h": h, "text": text}
-        if kind == "LINE":
-            lines.append(item)
-        elif kind == "WORD":
-            words.append(item)
-    return {"lines": lines, "words": words, "stderr": proc.stderr.strip(), "returncode": proc.returncode}
 
 
 def flatten_selection(img, color, tolerance=90):
@@ -367,6 +341,40 @@ def preprocess_variants(img, scale):
         "smooth-binary": smooth_binary,
         "inverted-gray": inverted,
     }
+
+
+def ocr_words(path):
+    proc = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            OCR_PS1,
+            "-Path",
+            path,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    lines = []
+    words = []
+    for raw in proc.stdout.splitlines():
+        if "\t" not in raw:
+            continue
+        kind, box, text = raw.split("\t", 2)
+        try:
+            x, y, w, h = (int(v) for v in box.split(","))
+        except ValueError:
+            continue
+        item = {"x": x, "y": y, "w": w, "h": h, "text": text}
+        if kind == "LINE":
+            lines.append(item)
+        elif kind == "WORD":
+            words.append(item)
+    return {"lines": lines, "words": words, "stderr": proc.stderr.strip(), "returncode": proc.returncode}
 
 
 def normalize(text):
@@ -629,8 +637,10 @@ def cmd_collect(args):
             while not stop.is_set() and time.time() < deadline:
                 windows = find_excel_windows(pid)
                 if windows["dialogs"]:
-                    time.sleep(0.8)
+                    time.sleep(0.5)
                     windows = find_excel_windows(pid)
+                    if not windows["dialogs"]:
+                        continue
                     dialog_hwnd, dialog_title, dialog_lines = windows["dialogs"][0]
                     captured["dialog_title"] = dialog_title
                     captured["dialog_lines"] = dialog_lines
@@ -648,9 +658,9 @@ def cmd_collect(args):
                             captured["code_image"] = capture_window(
                                 code_hwnd, os.path.join(outdir, "vbe-code.png")
                             )
+                    kill_excel()  # VBA's compile dialog cannot be dismissed from outside; kill Excel to unblock
                     break
-                time.sleep(0.2)
-            kill_excel()
+                time.sleep(0.15)
 
         watcher_thread = threading.Thread(target=watcher, daemon=True)
         watcher_thread.start()
@@ -661,10 +671,6 @@ def cmd_collect(args):
         watcher_thread.join(timeout=args.timeout + 5)
     finally:
         stop.set()
-        try:
-            excel.Quit()
-        except Exception:
-            pass
         pythoncom.CoUninitialize()
         kill_excel()
 

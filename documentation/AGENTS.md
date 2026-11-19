@@ -107,7 +107,7 @@ Each entry must follow this format:
 - `scripts\run-report.py` — Full report run harness.
 - `scripts\answer-dialogs.py` — Dialog auto-answerer.
 - `scripts\audit-peer.py` — Read-only cross-project audit of portable files, VBA procedures, commands, and agent rules.
-- `scripts\vba-error-ocr.py` — Captures VBA error UI (dialog + highlighted VBE code pane), OCRs the highlighted band, and snaps OCR text to `vba/*.bas` source lines (`collect`/`analyze`). Artifacts under `log\ocr\`, summary in `log\vba-error-ocr.log`.
+- `scripts\vba-error-ocr.py` — Captures VBA error UI (dialog + highlighted VBE code pane), OCRs the highlighted band, and snaps OCR text to `vba/*.bas` source lines (`collect`/`analyze`). VBA's compile-error dialog ignores window-message clicks, so the watcher kills Excel as soon as the dialog appears to unblock the blocked macro call. Artifacts under `log\ocr\`, summary in `log\vba-error-ocr.log`.
 - `scripts\ocr-winrt.ps1` — Windows.Media.Ocr WinRT bridge used by `scripts\vba-error-ocr.py` (OCR engine only; all file/script work stays in Python).
 - `scripts\temp\` — Temporary scratch directory for agent inspection/debug scripts. **Never use shared temp folders** (e.g., `C:\Users\*\AppData\Local\Temp\kilo`) — other projects share them and will confuse or delete files. Create and clean up temp files inside `scripts\temp\`. Never leave temp scripts, logs, or extracted artifacts in shared temp folders — they will confuse other projects.
 - `documentation\view-logs.py` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
