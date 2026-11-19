@@ -5,6 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-19
 
+- **11:15:00** — Added missing AGENTS.md rules: Python-first (no PowerShell for file/script operations), run full pipeline before committing, verify screenshot count (17 total), temp file cleanup in Testing/Debugging section. Fixed duplicate section numbering.
 - **11:00:00** — AGENTS.md audit and fixes: fixed duplicate section "## 7" (Error Handling Patterns now "## 8", cascading to Logging Standards "## 9", Harness "## 10", Deployment "## 11"). Added temp folder rule: never use shared temp folders (e.g., `C:\Users\*\AppData\Local\Temp\kilo`); use `scripts\temp\` for agent inspection/debug scripts and clean up after. Added `scripts\temp\` to File Organization listing. Added temp file cleanup rule to Testing and Debugging section.
 - **10:05:00** — Added missing email template screenshots: `snapshot-report.py` now exports `Manager Email Template` and `Director Email Template` sheets from `Pending Pickup Template.xlsm` as `template-manager-email-template.png` and `template-director-email-template.png`. All 17 screenshots now in documentation/screenshots/.
 - **09:49:00** — Pipeline run complete: all 9 steps OK (compile→sync→run→screenshots→scan/validate). COMPILE OK, VBA project compiles cleanly. 15 screenshots regenerated in documentation/screenshots/ including template-start-here.png showing START HERE sheet with user-positioned buttons. Re-synced Pending Pickup Template.xlsm, both ZIPs rebuilt. No blocking issues; validation passed with 0 errors/0 warnings.
