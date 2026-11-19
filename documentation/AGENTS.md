@@ -4,7 +4,9 @@ These rules must be followed for every code change, no exceptions.
 
 ## 1. Git Workflow
 
+- **Python-first:** all file/script operations use Python (`python scripts\*.py`), never PowerShell. Do not use `powershell` for temp file creation/deletion, directory management, or any file manipulation — use Python scripts instead.
 - **Always commit and push to git after making changes.**
+- **Run full pipeline (`python scripts\pipeline.py`) before committing** — all 9 steps must pass (compile→sync→run→screenshots→scan/validate).
 - **Always update `documentation/changelog.md` with new entries.**
 - **Changelog entries must be newest to oldest.**
 - **All Markdown files, including agent instructions, must be stored in `documentation/`.** Do not create Markdown files in the project root.
@@ -209,6 +211,7 @@ End If
 - **All test runs must clean up temp files** (`_run_temp.xlsm`, `~$_run_temp.xlsm`).
 - **All test runs must kill stray Excel processes** before exiting.
 - **Screenshots are regenerated on every test run:** before running `scripts\snapshot-report.py`, delete all existing PNGs in `documentation/screenshots/` so the committed screenshots always reflect the latest report output, never a stale mix of old and new sheets.
+- **Verify screenshot count:** after regeneration, confirm all expected screenshots are present (14 report sheets + `template-start-here.png` + `template-manager-email-template.png` + `template-director-email-template.png` = 17 total).
 - **Temp file cleanup:** after any debugging or inspection, delete all files created in `scripts\temp\`. Never leave temp scripts, logs, or extracted artifacts in shared temp folders — they will confuse other projects.
 
 ## 11. Deployment
