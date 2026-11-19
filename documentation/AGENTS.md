@@ -105,7 +105,8 @@ Each entry must follow this format:
 - `scripts\run-report.py` — Full report run harness.
 - `scripts\answer-dialogs.py` — Dialog auto-answerer.
 - `scripts\audit-peer.py` — Read-only cross-project audit of portable files, VBA procedures, commands, and agent rules.
-- `documentation/view-logs.py` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
+- `scripts\temp\` — Temporary scratch directory for agent inspection/debug scripts. **Never use shared temp folders** (e.g., `C:\Users\*\AppData\Local\Temp\kilo`) — other projects share them and will confuse or delete files. Create and clean up temp files inside `scripts\temp\`.
+- `documentation\view-logs.py` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
 
 ## 7. Version Control
 
@@ -115,7 +116,7 @@ Each entry must follow this format:
 - **Never use `--amend` on a commit that has already been pushed.**
 - **Never use force-push unless explicitly requested.**
 
-## 7. Error Handling Patterns
+## 8. Error Handling Patterns
 
 ### For procedures that should not fail silently
 
@@ -156,7 +157,7 @@ If IsNumeric(v) And Len(Trim$(CStr(v))) > 0 Then
 End If
 ```
 
-## 8. Logging Standards
+## 9. Logging Standards
 
 - All log entries must use full local date and time in `yyyy-MM-dd HH:mm:ss` format.
 - All runtime log review output must be newest to oldest; run `documentation/view-logs.py` after log-producing work to reorder every runtime `.log` and `.txt` file in place.
@@ -199,7 +200,7 @@ End If
   - `=== CreatePendingPickupReport started ===`
   - `EnsureMacroEnabledWorkbook OK`
 
-## 9. Harness and Testing Rules
+## 10. Harness and Testing Rules
 
 - **Excel must be killed within 10 seconds of a stall** — no exceptions.
 - **All modal dialogs must be auto-answered** (CURRENT picker, PRIOR picker, error dialogs).
@@ -208,8 +209,9 @@ End If
 - **All test runs must clean up temp files** (`_run_temp.xlsm`, `~$_run_temp.xlsm`).
 - **All test runs must kill stray Excel processes** before exiting.
 - **Screenshots are regenerated on every test run:** before running `scripts\snapshot-report.py`, delete all existing PNGs in `documentation/screenshots/` so the committed screenshots always reflect the latest report output, never a stale mix of old and new sheets.
+- **Temp file cleanup:** after any debugging or inspection, delete all files created in `scripts\temp\`. Never leave temp scripts, logs, or extracted artifacts in shared temp folders — they will confuse other projects.
 
-## 10. Deployment
+## 11. Deployment
 
 - **Single-file distribution** — end users receive only the `.xlsm` template.
 - **Never expose `.bas`, `scripts\sync_template.py`, `documentation/README.md`, `documentation/changelog.md`, or fake data to end users.**
