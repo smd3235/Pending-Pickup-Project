@@ -5,6 +5,7 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-19
 
+- **10:05:00** — Added missing email template screenshots: `snapshot-report.py` now exports `Manager Email Template` and `Director Email Template` sheets from `Pending Pickup Template.xlsm` as `template-manager-email-template.png` and `template-director-email-template.png`. All 17 screenshots now in documentation/screenshots/.
 - **09:49:00** — Pipeline run complete: all 9 steps OK (compile→sync→run→screenshots→scan/validate). COMPILE OK, VBA project compiles cleanly. 15 screenshots regenerated in documentation/screenshots/ including template-start-here.png showing START HERE sheet with user-positioned buttons. Re-synced Pending Pickup Template.xlsm, both ZIPs rebuilt. No blocking issues; validation passed with 0 errors/0 warnings.
 
 ## 2026-11-18

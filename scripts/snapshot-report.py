@@ -313,10 +313,33 @@ try:
                     exported += 1
                 else:
                     print("START HERE sheet not found in template", file=sys.stderr)
+            except Exception as e:
+                print(f"Template START HERE screenshot failed: {e}", file=sys.stderr)
             finally:
+                # Also export email template sheets from the template workbook
+                # so users can see the manager/director email setup layouts.
+                email_sheet_names = ["Manager Email Template", "Director Email Template"]
+                for email_name in email_sheet_names:
+                    try:
+                        found = None
+                        for s in wb2.Worksheets:
+                            if s.Name == email_name:
+                                found = s
+                                break
+                        if found:
+                            safe = re.sub(r"[^\w\-]+", "-", email_name).strip("-").lower()
+                            png = os.path.join(out_folder, f"template-{safe}.png")
+                            save_sheet_image(wb2, found, png)
+                            kb = round(os.path.getsize(png) / 1024, 1)
+                            print(f"  exported {png}  ({kb} KB)")
+                            exported += 1
+                        else:
+                            print(f"Email template sheet not found: {email_name}", file=sys.stderr)
+                    except Exception as e:
+                        print(f"Template email screenshot ({email_name}) failed: {e}", file=sys.stderr)
                 wb2.Close(False)
         except Exception as e:
-            print(f"Template START HERE screenshot failed: {e}", file=sys.stderr)
+            print(f"Template screenshot failed: {e}", file=sys.stderr)
 finally:
     if wb:
         wb.Close(False)
