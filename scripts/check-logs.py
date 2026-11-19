@@ -88,6 +88,17 @@ def scan_logs(findings, latest_only=False):
         add(findings, "warn", LOG_DIR, "No log files found")
         return
 
+    cutoff = None
+    if latest_only:
+        runs = sorted(LOG_DIR.glob("pending-pickup_*.log"), key=lambda p: p.stat().st_mtime)
+        if runs:
+            try:
+                first = runs[-1].read_text(encoding="utf-8", errors="replace").splitlines()[0]
+                stamp = first.split("|", 1)[0].strip()
+                cutoff = datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                cutoff = None
+
     for path in files:
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
@@ -95,8 +106,19 @@ def scan_logs(findings, latest_only=False):
             add(findings, "error", path, f"Could not read log: {e}")
             continue
         lines = text.splitlines()
+        skip_idx = set()
+        if cutoff is not None and path.name == "answer-dialogs.log":
+            for i, line in enumerate(lines, 1):
+                try:
+                    line_ts = datetime.strptime(line.split("|", 1)[0].strip(), "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    continue
+                if line_ts < cutoff:
+                    skip_idx.add(i)
 
         for i, line in enumerate(lines, 1):
+            if i in skip_idx:
+                continue
             if "~$Pending Pickup" in line and "REPORT OK" in line:
                 add(findings, "warn", path, "Excel lock/temp file (~$...) included in REPORT OK log line", i, {"text": line.strip()[:300]})
             if "~$Pending Pickup" in line and "New report file" in line:
@@ -107,6 +129,8 @@ def scan_logs(findings, latest_only=False):
             add(findings, "warn", path, f"Repeated REPORT OK log lines ({len(report_ok)}); watchdog may be spamming", extra={"sample": report_ok[-1][:300]})
 
         for i, line in enumerate(lines, 1):
+            if i in skip_idx:
+                continue
             if "Email/template sync check: email config matches no-macro" in line:
                 continue
             if "Run call returned without COM error" in line:
@@ -322,8 +346,8 @@ def scan_artifacts(findings, report_path):
         DOC_SHOTS / "report-dashboard.png",
         DOC_SHOTS / "report-raw-data.png",
         DOC_SHOTS / "template-start-here.png",
-        DOC_SHOTS / "template-manager-email.png",
-        DOC_SHOTS / "template-director-email.png",
+        DOC_SHOTS / "template-manager-email-template.png",
+        DOC_SHOTS / "template-director-email-template.png",
     ]
     for p in expected_shots:
         if not p.exists():
