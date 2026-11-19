@@ -213,9 +213,9 @@ try:
                 tf.Bold = bold
                 tf.Size = font_size
                 tf.Color = 0xFFFFFF  # white text for contrast on dark fill
-                b.TextFrame.HorizontalAlignment = 2  # center
+                b.TextFrame.HorizontalAlignment = 2  # center (exact horizontal center)
                 try:
-                    b.TextFrame.VerticalAlignment = 3  # middle
+                    b.TextFrame.VerticalAnchor = 2  # middle (exact vertical center)
                 except Exception:
                     pass
             except Exception:
@@ -225,19 +225,19 @@ try:
                     tf.Bold = bold
                     tf.Size = font_size
                     tf.Color = 0xFFFFFF
-                    b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+                    b.TextFrame2.TextRange.ParagraphFormat.Alignment = 2  # center
                     try:
-                        b.TextFrame2.VerticalAnchor = 3
+                        b.TextFrame2.VerticalAnchor = 2  # middle (exact vertical center)
                     except Exception:
                         pass
                 except Exception:
                     pass
-            # Margins so text is not clipped
+            # Zero margins so text is exactly centered, left/right/top/bottom
             try:
-                b.TextFrame.MarginLeft = 4
-                b.TextFrame.MarginRight = 4
-                b.TextFrame.MarginTop = 2
-                b.TextFrame.MarginBottom = 2
+                b.TextFrame.MarginLeft = 0
+                b.TextFrame.MarginRight = 0
+                b.TextFrame.MarginTop = 0
+                b.TextFrame.MarginBottom = 0
             except Exception:
                 pass
             # Placement: free floating so explicit Left/Top positions are
@@ -359,7 +359,7 @@ try:
     # repositioning step.
     try:
         _make_button("btnSetupEmailCC", "SetupEmailCC", 97, 411, 135, 43, "Setup Manager Email", 0x5A86B8, 0x355A86, font_size=9)
-        _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", 323, 412, 132, 41, "Setup Director Email", ACCENT_2, 0x1E5620, font_size=9)
+        _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", 323, 412, 135, 43, "Setup Director Email", ACCENT_2, 0x1E5620, font_size=9)
     except Exception:
         pass
 
