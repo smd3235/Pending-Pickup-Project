@@ -6,6 +6,11 @@ Option Explicit
 '  Module: modDeclarations
 '  Holds all Public constants and shared module-level state used across
 '  every other module in this project.
+'
+'  NOTE: every module-level declaration must appear ABOVE the first procedure.
+'  VBA only registers the declarations section up to the first Sub/Function, so
+'  Public variables/constants placed after a procedure are not visible to other
+'  modules and cause "Compile error: Variable not defined".
 ' ============================================================================
 
 ' ----------------------------------------------------------------------------
@@ -30,31 +35,6 @@ Public Const LOG_FILENAME As String = "macro-debug.log"
 Public Const COMPLETION_MARKER_FILENAME As String = "pending-pickup-complete.txt"
 Public Const AUTO_SOURCE_FILENAME As String = "auto-source.txt"
 Public Const AUTO_SKIP_PRIOR_FILENAME As String = "auto-skip-prior.txt"
-
-' Derive a writable log directory: workbook-relative first, then user-local fallback.
-Public Function GetLogDirectory() As String
-    On Error Resume Next
-    Dim dirPath As String
-    dirPath = Environ$("TEMP") & "\PendingPickupReport\log"
-    If Len(Dir$(dirPath, vbDirectory)) = 0 Then MkDir dirPath
-    GetLogDirectory = dirPath
-End Function
-
-Public Function GetLogPath() As String
-    GetLogPath = GetLogDirectory() & "\" & LOG_FILENAME
-End Function
-
-Public Function GetCompletionMarkerPath() As String
-    GetCompletionMarkerPath = GetLogDirectory() & "\" & COMPLETION_MARKER_FILENAME
-End Function
-
-Public Function GetAutoSourcePathFile() As String
-    GetAutoSourcePathFile = GetLogDirectory() & "\" & AUTO_SOURCE_FILENAME
-End Function
-
-Public Function GetAutoSkipPriorFile() As String
-    GetAutoSkipPriorFile = GetLogDirectory() & "\" & AUTO_SKIP_PRIOR_FILENAME
-End Function
 
 ' ----------------------------------------------------------------------------
 ' Email constants
@@ -125,3 +105,32 @@ Public mRepSeenDict As Object
 ' Timing state
 ' ----------------------------------------------------------------------------
 Public mReportStartTime As Date
+
+' ----------------------------------------------------------------------------
+' Path helpers (procedures must come after all module-level declarations)
+' ----------------------------------------------------------------------------
+
+' Derive a writable log directory: workbook-relative first, then user-local fallback.
+Public Function GetLogDirectory() As String
+    On Error Resume Next
+    Dim dirPath As String
+    dirPath = Environ$("TEMP") & "\PendingPickupReport\log"
+    If Len(Dir$(dirPath, vbDirectory)) = 0 Then MkDir dirPath
+    GetLogDirectory = dirPath
+End Function
+
+Public Function GetLogPath() As String
+    GetLogPath = GetLogDirectory() & "\" & LOG_FILENAME
+End Function
+
+Public Function GetCompletionMarkerPath() As String
+    GetCompletionMarkerPath = GetLogDirectory() & "\" & COMPLETION_MARKER_FILENAME
+End Function
+
+Public Function GetAutoSourcePathFile() As String
+    GetAutoSourcePathFile = GetLogDirectory() & "\" & AUTO_SOURCE_FILENAME
+End Function
+
+Public Function GetAutoSkipPriorFile() As String
+    GetAutoSkipPriorFile = GetLogDirectory() & "\" & AUTO_SKIP_PRIOR_FILENAME
+End Function
