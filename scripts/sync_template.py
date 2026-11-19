@@ -187,6 +187,7 @@ try:
         try:
             b = ws.Shapes.AddShape(5, left, top, width, height)  # msoShapeRoundedRectangle
             b.Name = name
+            b.OnAction = macro
             b.Fill.ForeColor.RGB = fill
             b.Line.ForeColor.RGB = line
             b.Line.Weight = 1.25
@@ -245,12 +246,6 @@ try:
             try:
                 b.Placement = 3  # free floating
                 b.LockAspectRatio = False
-            except Exception:
-                pass
-            # Unlock the shape so it can be dragged/repositioned on the
-            # protected START HERE sheet.
-            try:
-                b.Locked = False
             except Exception:
                 pass
             return b
@@ -329,11 +324,10 @@ try:
 
     # ---------- PRIMARY CTA BUTTON ----------
     try:
-        anchor = ws.Range("B8")
+        # User-placed position from repositioning step: x=146.5pt y=254.2pt w=280.2pt h=36pt
         _make_button(
             button_name, "CreatePendingPickupReport",
-            anchor.Left + 14, anchor.Top + 8,
-            280, 36,
+            146, 254, 280, 36,
             "CREATE PENDING PICKUP REPORT",
             ACCENT, ACCENT_DARK, font_size=13, bold=True,
         )
@@ -361,15 +355,11 @@ try:
     except Exception:
         pass
 
-    # Two email setup buttons side by side
+    # Two email setup buttons side by side — user-placed positions from
+    # repositioning step.
     try:
-        card = ws.Range("B13")
-        left = card.Left + 14
-        top = card.Top + 8
-        w = (card.Width - 42) / 2.0
-        h = 32
-        _make_button("btnSetupEmailCC", "SetupEmailCC", left, top, w, h, "Setup Manager Email", 0x5A86B8, 0x355A86, font_size=9)
-        _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", left + w + 14, top, w, h, "Setup Director Email", ACCENT_2, 0x1E5620, font_size=9)
+        _make_button("btnSetupEmailCC", "SetupEmailCC", 97, 411, 135, 43, "Setup Manager Email", 0x5A86B8, 0x355A86, font_size=9)
+        _make_button("btnSetupDirectorEmail", "SetupDirectorEmail", 323, 412, 132, 41, "Setup Director Email", ACCENT_2, 0x1E5620, font_size=9)
     except Exception:
         pass
 
@@ -451,15 +441,15 @@ try:
     except Exception:
         pass
 
-    # TEMPORARILY DISABLED sheet protection so buttons can be dragged for
-    # repositioning. Remove this block and re-enable Protect() once positions
-    # are finalized.
+    # Re-enable sheet protection: cells locked/not selectable, buttons still
+    # work via UserInterfaceOnly=True, and button OnAction macros are active.
+    _prot_log = os.path.join(project_root, "log", "button_errors.log")
     try:
         ws.Unprotect()
         try:
             with open(_prot_log, "a") as f:
                 import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | protection disabled for drag mode\n")
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect ok\n")
         except Exception:
             pass
     except Exception as e:
@@ -469,21 +459,51 @@ try:
                 f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect FAIL: " + str(e) + "\n")
         except Exception:
             pass
+    try:
+        ws.Cells.Locked = True
         try:
             with open(_prot_log, "a") as f:
                 import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | protection disabled for drag mode\n")
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Locked ok\n")
         except Exception:
             pass
     except Exception as e:
         try:
             with open(_prot_log, "a") as f:
                 import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect FAIL: " + str(e) + "\n")
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Locked FAIL: " + str(e) + "\n")
         except Exception:
             pass
-    # Protection DISABLED for drag mode — buttons can be selected and dragged
-    # freely. Re-enable Protect() and EnableSelection once positions are final.
+    try:
+        ws.Protect(Password="", UserInterfaceOnly=True, AllowUsingPivotTables=False, AllowSorting=False, AllowFiltering=False)
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Protect ok\n")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Protect FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
+    try:
+        ws.EnableSelection = 2  # xlNoSelection: no cells can be selected
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | EnableSelection ok\n")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            with open(_prot_log, "a") as f:
+                import datetime
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | EnableSelection FAIL: " + str(e) + "\n")
+        except Exception:
+            pass
 
     def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE", auto_send="", attach_report=""):
         # field_values: dict with keys to, cc, subject, body
@@ -1010,22 +1030,31 @@ try:
         except Exception:
             pass
 
-    # Post-process button positions in drawing3.xml so buttons sit below
-    # card text (in spacer rows) rather than overlapping it. COM does not
-    # reliably honor Shape.Left/Top/TopLeftCell, so we set exact positions
-    # in the saved XML. X->Y mapping (EMU; point * 12700):
-    #   logo x=5092700   -> y=120650   (original logo position)
-    #   primary button   -> y=2641600  (row 10 start 206pt + 2pt)
-    #   email buttons    -> y=4318000  (row 14 start 338pt + 2pt)
+    # Post-process button positions in drawing3.xml to match user-placed
+    # positions from the repositioning step. COM does not reliably honor
+    # Shape.Left/Top on save/open, and OnAction assignments get shuffled,
+    # so we set exact positions and macros here by matching shape names.
+    # Y mapping (EMU; point * 12700):
+    #   btnCreatePendingPickupReport -> y=3228975  (user-placed row 10)
+    #   btnSetupEmailCC             -> y=5221287  (user-placed row 15)
+    #   btnSetupDirectorEmail       -> y=5237162  (user-placed row 15)
+    # Macro mapping (by shape name):
+    #   btnCreatePendingPickupReport -> CreatePendingPickupReport
+    #   btnSetupEmailCC              -> SetupEmailCC
+    #   btnSetupDirectorEmail        -> SetupDirectorEmail
     try:
         import zipfile, shutil, re
         _tmpl = template
         _tmp_zip = _tmpl + ".tmp2.zip"
-        _x_to_y = {
-            "5092700": "120650",       # AOTILogo original Y
-            "2422525": str(246 * 12700),  # primary button row 10 (below CTA card + spacer)
-            "320675": str(384 * 12700),   # email button 1 row 15 (below email card + spacer)
-            "1246188": str(384 * 12700),  # email button 2 row 15
+        _name_to_y = {
+            "btnCreatePendingPickupReport": str(3228975),
+            "btnSetupEmailCC": str(5221287),
+            "btnSetupDirectorEmail": str(5237162),
+        }
+        _name_to_macro = {
+            "btnCreatePendingPickupReport": "CreatePendingPickupReport",
+            "btnSetupEmailCC": "SetupEmailCC",
+            "btnSetupDirectorEmail": "SetupDirectorEmail",
         }
         with zipfile.ZipFile(_tmpl, 'r') as zin:
             _names = zin.namelist()
@@ -1037,12 +1066,29 @@ try:
             if _draw3:
                 _content = zin.read(_draw3).decode('utf-8', errors='replace')
                 _content2 = _content
-                for _x_val, _y_val in _x_to_y.items():
-                    _content2 = re.sub(
-                        r'(<a:xfrm><a:off x="%s" y=")\d+"' % _x_val,
-                        r'\g<1>%s"' % _y_val,
-                        _content2
-                    )
+                # Split into individual <xdr:sp> elements and update Y + macro by name
+                _sp_parts = re.split(r'(<xdr:sp\b[^>]*>.*?</xdr:sp>)', _content2, flags=re.DOTALL)
+                for _i, _part in enumerate(_sp_parts):
+                    _nm = re.search(r'name="([^"]+)"', _part)
+                    if _nm and _nm.group(1) in _name_to_y:
+                        _target_y = _name_to_y[_nm.group(1)]
+                        _target_macro = _name_to_macro[_nm.group(1)]
+                        # Remove any existing macro attribute, then add correct one
+                        _part2 = re.sub(r'\s+macro="[^"]*"', '', _part)
+                        _part2 = re.sub(
+                            r'(<xdr:sp\b)',
+                            r'\1 macro="%s"' % _target_macro,
+                            _part2,
+                            count=1
+                        )
+                        # Update Y position
+                        _part2 = re.sub(
+                            r'(<a:xfrm><a:off x="\d+" y=")\d+"',
+                            r'\g<1>%s"' % _target_y,
+                            _part2
+                        )
+                        if _part2 != _part:
+                            _content2 = _content2.replace(_part, _part2, 1)
                 if _content2 != _content:
                     with zipfile.ZipFile(_tmp_zip, 'w', zipfile.ZIP_DEFLATED) as zout:
                         for _n in _names:
@@ -1054,30 +1100,9 @@ try:
                     try:
                         with open(_prot_log, "a") as f:
                             import datetime
-                            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | shape positions fixed in %s\n" % _draw3)
+                            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | shape positions and macros fixed in %s\n" % _draw3)
                     except Exception:
                         pass
-                # Also remove macro="" attributes from all shapes so clicking
-                # does not trigger macros — buttons are plain drag-able shapes
-                # until positions are finalized and OnAction is re-added.
-                try:
-                    _content3 = re.sub(r'\s+macro="[^"]*"', '', _content2)
-                    if _content3 != _content2:
-                        with zipfile.ZipFile(_tmpl + ".tmp3.zip", 'w', zipfile.ZIP_DEFLATED) as zout:
-                            for _n in _names:
-                                if _n == _draw3:
-                                    zout.writestr(_n, _content3)
-                                else:
-                                    zout.writestr(_n, zin.read(_n))
-                        shutil.move(_tmpl + ".tmp3.zip", _tmpl)
-                        try:
-                            with open(_prot_log, "a") as f:
-                                import datetime
-                                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | macro attributes removed from %s\n" % _draw3)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
     except Exception as e:
         try:
             with open(_prot_log, "a") as f:
