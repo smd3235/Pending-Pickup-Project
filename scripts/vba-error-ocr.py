@@ -1,0 +1,762 @@
+"""Capture and OCR VBA UI errors (dialog text + highlighted code line).
+
+Usage:
+  python scripts\\vba-error-ocr.py collect --macro SetupEmailCC --module modDialog
+  python scripts\\vba-error-ocr.py analyze log\\ocr\\20261119_220000\\vbe-code.png --module modDialog
+
+Artifacts are written to log\\ocr\\<timestamp>\\ and summarized in log\\vba-error-ocr.log.
+"""
+
+import argparse
+import ctypes
+import ctypes.wintypes as wt
+import difflib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from datetime import datetime
+
+import psutil
+import pythoncom
+import win32com.client
+import win32gui
+import win32process
+from PIL import Image, ImageFilter, ImageGrab, ImageOps
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMP_DIR = os.path.join(ROOT, "scripts", "temp")
+LOG_DIR = os.path.join(ROOT, "log")
+OCR_ROOT = os.path.join(LOG_DIR, "ocr")
+REPORT_LOG = os.path.join(LOG_DIR, "vba-error-ocr.log")
+OCR_PS1 = os.path.join(ROOT, "scripts", "ocr-winrt.ps1")
+DEFAULT_WORKBOOK = os.path.join(ROOT, "Pending Pickup Template.xlsm")
+
+user32 = ctypes.windll.user32
+gdi32 = ctypes.windll.gdi32
+
+
+def enable_dpi_awareness():
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
+
+def kill_excel():
+    killed = []
+    for proc in psutil.process_iter(["name", "pid"]):
+        if (proc.info["name"] or "").lower() == "excel.exe":
+            try:
+                proc.kill()
+                killed.append(proc.info["pid"])
+            except Exception:
+                pass
+    return killed
+
+
+def window_rect(hwnd):
+    try:
+        return win32gui.GetWindowRect(hwnd)
+    except Exception:
+        return None
+
+
+def _grab_printwindow(hwnd, flag):
+    rect = window_rect(hwnd)
+    if not rect:
+        return None
+    left, top, right, bottom = rect
+    width, height = right - left, bottom - top
+    if width <= 0 or height <= 0:
+        return None
+    hdc = None
+    memdc = None
+    bmp = None
+    try:
+        hdc = user32.GetWindowDC(hwnd)
+        memdc = gdi32.CreateCompatibleDC(hdc)
+        bmp = gdi32.CreateCompatibleBitmap(hdc, width, height)
+        gdi32.SelectObject(memdc, bmp)
+        user32.PrintWindow(hwnd, memdc, flag)
+
+        class BITMAPINFOHEADER(ctypes.Structure):
+            _fields_ = [
+                ("biSize", wt.DWORD),
+                ("biWidth", wt.LONG),
+                ("biHeight", wt.LONG),
+                ("biPlanes", wt.WORD),
+                ("biBitCount", wt.WORD),
+                ("biCompression", wt.DWORD),
+                ("biSizeImage", wt.DWORD),
+                ("biXPelsPerMeter", wt.LONG),
+                ("biYPelsPerMeter", wt.LONG),
+                ("biClrUsed", wt.DWORD),
+                ("biClrImportant", wt.DWORD),
+            ]
+
+        header = BITMAPINFOHEADER()
+        header.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+        header.biWidth = width
+        header.biHeight = -height
+        header.biPlanes = 1
+        header.biBitCount = 32
+        buffer = ctypes.create_string_buffer(width * height * 4)
+        gdi32.GetDIBits(memdc, bmp, 0, height, buffer, ctypes.byref(header), 0)
+        return Image.frombuffer("RGBA", (width, height), buffer, "raw", "BGRA", 0, 1).convert("RGB")
+    except Exception:
+        return None
+    finally:
+        try:
+            if bmp:
+                gdi32.DeleteObject(bmp)
+        except Exception:
+            pass
+        try:
+            if memdc:
+                gdi32.DeleteDC(memdc)
+        except Exception:
+            pass
+        try:
+            if hdc:
+                user32.ReleaseDC(hwnd, hdc)
+        except Exception:
+            pass
+
+
+def _grab_screen(hwnd):
+    rect = window_rect(hwnd)
+    if not rect:
+        return None
+    try:
+        return ImageGrab.grab(bbox=rect, all_screens=True)
+    except Exception:
+        return None
+
+
+def _is_blank(img):
+    if img is None:
+        return True
+    gray = img.convert("L")
+    low, high = gray.getextrema()
+    return (high - low) < 5
+
+
+def capture_window(hwnd, path):
+    attempts = [
+        lambda: _grab_printwindow(hwnd, 2),
+        lambda: _grab_printwindow(hwnd, 0),
+        lambda: _grab_screen(hwnd),
+    ]
+    for attempt in attempts:
+        img = attempt()
+        if img is not None and not _is_blank(img):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            img.save(path)
+            return path
+    img = attempts[-1]()
+    if img is not None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        img.save(path)
+        return path
+    return None
+
+
+def dialog_text(hwnd):
+    texts = []
+
+    def callback(child, _):
+        try:
+            cls = win32gui.GetClassName(child)
+            text = win32gui.GetWindowText(child).strip()
+        except Exception:
+            return True
+        if text and cls in ("Static", "Button", "Edit", "SysLink", "DirectUIHWND"):
+            if text not in texts:
+                texts.append(text)
+        return True
+
+    try:
+        win32gui.EnumChildWindows(hwnd, callback, None)
+    except Exception:
+        pass
+    if not texts:
+        title = win32gui.GetWindowText(hwnd).strip()
+        if title:
+            texts.append(title)
+    return texts
+
+
+def find_excel_windows(pid):
+    found = {"dialogs": [], "vbe": [], "excel": []}
+    if not pid:
+        return found
+
+    def callback(hwnd, _):
+        if not win32gui.IsWindowVisible(hwnd):
+            return True
+        try:
+            _, win_pid = win32process.GetWindowThreadProcessId(hwnd)
+            if win_pid != pid:
+                return True
+            cls = win32gui.GetClassName(hwnd)
+            text = win32gui.GetWindowText(hwnd)
+        except Exception:
+            return True
+        if cls == "#32770":
+            found["dialogs"].append((hwnd, text, dialog_text(hwnd)))
+        elif cls == "wndclass_desked_gsk":
+            found["vbe"].append((hwnd, text))
+        elif cls == "XLMAIN":
+            found["excel"].append((hwnd, text))
+        return True
+
+    try:
+        win32gui.EnumWindows(callback, None)
+    except Exception:
+        pass
+    return found
+
+
+def find_code_windows(vbe_hwnd):
+    code_windows = []
+
+    def callback(hwnd, _):
+        try:
+            if not win32gui.IsWindowVisible(hwnd):
+                return True
+            cls = win32gui.GetClassName(hwnd)
+            text = win32gui.GetWindowText(hwnd)
+        except Exception:
+            return True
+        if cls == "VbaWindow" and text.endswith("(Code)"):
+            code_windows.append((hwnd, text))
+        return True
+
+    try:
+        win32gui.EnumChildWindows(vbe_hwnd, callback, None)
+    except Exception:
+        pass
+    return code_windows
+
+
+def module_from_caption(caption):
+    match = re.search(r" - (\w+) \(Code\)\s*$", caption or "")
+    return match.group(1) if match else None
+
+
+def detect_bands(img, min_run=30, max_bands=6):
+    width, height = img.size
+    pixels = img.load()
+    rows = []
+    for y in range(height):
+        counts = {}
+        for x in range(0, width, 2):
+            r, g, b = pixels[x, y][:3]
+            if r > 235 and g > 235 and b > 235:
+                continue
+            if abs(r - g) < 18 and abs(g - b) < 18 and (r > 90 or r < 40):
+                continue
+            counts[(r, g, b)] = counts.get((r, g, b), 0) + 1
+        if not counts:
+            continue
+        color, count = max(counts.items(), key=lambda item: item[1])
+        if count * 2 >= min_run and (max(color) - min(color) >= 30 or sum(color) < 300):
+            rows.append((y, color, count * 2))
+    bands = []
+    for y, color, count in rows:
+        if bands and y - bands[-1]["y1"] <= 3:
+            bands[-1]["y1"] = y
+            bands[-1]["pixels"] += count
+            bands[-1]["colors"][color] = bands[-1]["colors"].get(color, 0) + count
+        else:
+            bands.append({"y0": y, "y1": y, "pixels": count, "colors": {color: count}})
+    result = []
+    for band in bands:
+        band_height = band["y1"] - band["y0"] + 1
+        if band_height < 5 or band_height > 220:
+            continue
+        color = max(band["colors"].items(), key=lambda item: item[1])[0]
+        xs = []
+        for y in range(band["y0"], band["y1"] + 1):
+            for x in range(0, width, 2):
+                if pixels[x, y][:3] == color:
+                    xs.append(x)
+        if not xs:
+            continue
+        result.append(
+            {
+                "y0": band["y0"],
+                "y1": band["y1"],
+                "x0": max(0, min(xs) - 8),
+                "x1": min(width, max(xs) + 8),
+                "height": band_height,
+                "color": color,
+                "pixels": band["pixels"],
+            }
+        )
+    result.sort(key=lambda item: item["pixels"], reverse=True)
+    return result[:max_bands]
+
+
+def ocr_words(path):
+    proc = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            OCR_PS1,
+            "-Path",
+            path,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    lines = []
+    words = []
+    for raw in proc.stdout.splitlines():
+        if "\t" not in raw:
+            continue
+        kind, box, text = raw.split("\t", 2)
+        try:
+            x, y, w, h = (int(v) for v in box.split(","))
+        except ValueError:
+            continue
+        item = {"x": x, "y": y, "w": w, "h": h, "text": text}
+        if kind == "LINE":
+            lines.append(item)
+        elif kind == "WORD":
+            words.append(item)
+    return {"lines": lines, "words": words, "stderr": proc.stderr.strip(), "returncode": proc.returncode}
+
+
+def flatten_selection(img, color, tolerance=90):
+    width, height = img.size
+    pixels = img.load()
+    flat = Image.new("L", (width, height), 255)
+    target = flat.load()
+    for y in range(height):
+        for x in range(width):
+            r, g, b = pixels[x, y][:3]
+            distance = abs(r - color[0]) + abs(g - color[1]) + abs(b - color[2])
+            target[x, y] = 255 if distance < tolerance else 0
+    return flat
+
+
+def preprocess_variants(img, scale):
+    width, height = img.size
+    resized = img.resize((width * scale, height * scale), Image.LANCZOS)
+    gray = ImageOps.autocontrast(resized.convert("L"))
+    sharp = gray.filter(ImageFilter.SHARPEN)
+    binary = sharp.point(lambda value: 255 if value > 150 else 0)
+    smooth_binary = binary.filter(ImageFilter.MedianFilter(3))
+    inverted = ImageOps.invert(gray)
+    return {
+        "gray": sharp,
+        "binarized": binary,
+        "smooth-binary": smooth_binary,
+        "inverted-gray": inverted,
+    }
+
+
+def normalize(text):
+    text = re.sub(r"^\s*\d+\s+", "", text or "")
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9_ ]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def load_sources(paths):
+    entries = []
+    for path in paths:
+        if not path or not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as handle:
+                for number, line in enumerate(handle, start=1):
+                    entries.append((path, number, line.rstrip("\r\n")))
+        except OSError:
+            continue
+    return entries
+
+
+def discover_sources(module):
+    vba_dir = os.path.join(ROOT, "vba")
+    if module:
+        candidate = os.path.join(vba_dir, f"{module}.bas")
+        return [candidate] if os.path.isfile(candidate) else []
+    if os.path.isdir(vba_dir):
+        return [os.path.join(vba_dir, name) for name in sorted(os.listdir(vba_dir)) if name.lower().endswith(".bas")]
+    return []
+
+
+def snap_to_source(text, source_entries, top=3):
+    needle = normalize(text)
+    if len(needle) < 3 or not source_entries:
+        return []
+    needle_compact = needle.replace(" ", "")
+    scored = []
+    for path, number, source in source_entries:
+        haystack = normalize(source)
+        if len(haystack) < 3:
+            continue
+        ratio = difflib.SequenceMatcher(None, needle, haystack).ratio()
+        compact_ratio = difflib.SequenceMatcher(None, needle_compact, haystack.replace(" ", "")).ratio()
+        ratio = max(ratio, compact_ratio)
+        if needle in haystack and len(needle) >= 6:
+            ratio = max(ratio, 0.99)
+        scored.append((ratio, path, number, source))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    matches = []
+    for ratio, path, number, source in scored[:top]:
+        matches.append(
+            {
+                "score": round(ratio, 3),
+                "file": os.path.relpath(path, ROOT),
+                "line": number,
+                "source": source.strip(),
+            }
+        )
+    return matches
+
+
+def analyze_image(image_path, module, source_paths, outdir, label):
+    with Image.open(image_path) as opened:
+        img = opened.convert("RGB")
+    source_entries = load_sources(source_paths)
+    findings = {
+        "label": label,
+        "image": os.path.relpath(image_path, ROOT),
+        "size": list(img.size),
+        "bands": [],
+        "full_pane": [],
+        "module": module,
+    }
+    bands = detect_bands(img)
+    for index, band in enumerate(bands, start=1):
+        y0 = max(0, band["y0"] - 5)
+        y1 = min(img.size[1], band["y1"] + 5)
+        crop_specs = [
+            ("token", (max(0, band["x0"] - 16), y0, min(img.size[0], band["x1"] + 32), y1)),
+            ("line", (0, y0, img.size[0], y1)),
+        ]
+        best = None
+        best_rank = (-1.0, -1)
+        candidates = []
+        for crop_name, crop_box in crop_specs:
+            crop = img.crop(crop_box)
+            for scale in (3, 4):
+                variants = preprocess_variants(crop, scale)
+                if crop_name == "token":
+                    flat = flatten_selection(crop, band["color"])
+                    flat = flat.resize(
+                        (flat.size[0] * scale, flat.size[1] * scale), Image.LANCZOS
+                    )
+                    variants["flattened"] = ImageOps.autocontrast(flat)
+                for variant_name, variant in variants.items():
+                    variant_path = os.path.join(
+                        outdir, f"{label}-band{index}-{crop_name}-{scale}x-{variant_name}.png"
+                    )
+                    variant.save(variant_path)
+                    ocr = ocr_words(variant_path)
+                    text = " ".join(line["text"] for line in ocr["lines"]).strip()
+                    if not text:
+                        continue
+                    matches = snap_to_source(text, source_entries)
+                    score = matches[0]["score"] if matches else 0.0
+                    candidates.append(
+                        {
+                            "crop": crop_name,
+                            "scale": scale,
+                            "variant": variant_name,
+                            "image": os.path.relpath(variant_path, ROOT),
+                            "text": text,
+                            "matches": matches,
+                            "score": score,
+                        }
+                    )
+                    rank = (score, len(text))
+                    if rank > best_rank:
+                        best_rank = rank
+                        best = candidates[-1]
+        findings["bands"].append(
+            {
+                "index": index,
+                "rect": {"x0": band["x0"], "y0": band["y0"], "x1": band["x1"], "y1": band["y1"]},
+                "color": band["color"],
+                "pixels": band["pixels"],
+                "best": best,
+                "candidates": candidates,
+            }
+        )
+    if not bands:
+        for scale in (2, 3):
+            variant = preprocess_variants(img, scale)["binarized"]
+            variant_path = os.path.join(outdir, f"{label}-full-{scale}x.png")
+            variant.save(variant_path)
+            ocr = ocr_words(variant_path)
+            for line in ocr["lines"]:
+                text = line["text"].strip()
+                if not text:
+                    continue
+                findings["full_pane"].append(
+                    {
+                        "text": text,
+                        "rect": {key: line[key] for key in ("x", "y", "w", "h")},
+                        "matches": snap_to_source(text, source_entries),
+                        "image": os.path.relpath(variant_path, ROOT),
+                    }
+                )
+    return findings
+
+
+def write_report(outdir, findings, dialog_lines, notes):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    payload = {
+        "timestamp": timestamp,
+        "dialog": dialog_lines,
+        "notes": notes,
+        "findings": findings,
+    }
+    with open(os.path.join(outdir, "report.json"), "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+
+    lines = [f"# VBA error OCR report — {timestamp}", ""]
+    if dialog_lines:
+        lines.append("## Dialog")
+        for item in dialog_lines:
+            lines.append(f"- {item}")
+        lines.append("")
+    for note in notes:
+        lines.append(f"- {note}")
+    if notes:
+        lines.append("")
+    for finding in findings:
+        lines.append(f"## {finding['label']} ({finding['image']})")
+        if finding.get("module"):
+            lines.append(f"Module: `{finding['module']}`")
+        for band in finding.get("bands", []):
+            rect = band["rect"]
+            lines.append(
+                f"### Highlighted band {band['index']} "
+                f"(x={rect['x0']}, y={rect['y0']}, {rect['x1'] - rect['x0']}x{rect['y1'] - rect['y0']}, color={band['color']})"
+            )
+            best = band.get("best")
+            if best:
+                lines.append(
+                    f"- OCR ({best['crop']} crop, {best['scale']}x {best['variant']}): `{best['text']}`"
+                )
+                for match in best["matches"]:
+                    lines.append(
+                        f"- Match {match['score']:.3f}: `{match['file']}:{match['line']}` — `{match['source']}`"
+                    )
+            else:
+                lines.append("- OCR produced no text for this band; see candidate images.")
+            lines.append("")
+        for item in finding.get("full_pane", []):
+            lines.append(f"- OCR: `{item['text']}`")
+            for match in item["matches"][:1]:
+                lines.append(
+                    f"  - Match {match['score']:.3f}: `{match['file']}:{match['line']}` — `{match['source']}`"
+                )
+        lines.append("")
+    report_path = os.path.join(outdir, "report.md")
+    with open(report_path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines))
+
+    with open(REPORT_LOG, "a", encoding="utf-8") as handle:
+        handle.write(f"{timestamp} | capture {os.path.basename(outdir)}\n")
+        for item in dialog_lines:
+            handle.write(f"{timestamp} | dialog | {item}\n")
+        for finding in findings:
+            for band in finding.get("bands", []):
+                best = band.get("best")
+                if not best:
+                    continue
+                top = best["matches"][0] if best["matches"] else None
+                handle.write(f"{timestamp} | band {band['index']} | {best['text']}\n")
+                if top:
+                    handle.write(
+                        f"{timestamp} | match {top['score']:.3f} | {top['file']}:{top['line']} | {top['source']}\n"
+                    )
+    return report_path
+
+
+def cmd_collect(args):
+    enable_dpi_awareness()
+    os.makedirs(OCR_ROOT, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    outdir = os.path.join(OCR_ROOT, stamp)
+    os.makedirs(outdir, exist_ok=True)
+    os.makedirs(TEMP_DIR, exist_ok=True)
+    kill_excel()
+
+    workbook = args.workbook or DEFAULT_WORKBOOK
+    probe = os.path.join(TEMP_DIR, "ocr_probe.xlsm")
+    if os.path.exists(probe):
+        os.remove(probe)
+    shutil.copy2(workbook, probe)
+
+    captured = {}
+    stop = threading.Event()
+    pythoncom.CoInitialize()
+    excel = win32com.client.DispatchEx("Excel.Application")
+    excel.Visible = True
+    excel.DisplayAlerts = False
+    try:
+        wb = excel.Workbooks.Open(probe)
+        pid = win32process.GetWindowThreadProcessId(excel.Hwnd)[1]
+        try:
+            excel.VBE.MainWindow.Visible = True
+            module = args.module
+            if module:
+                wb.VBProject.VBComponents(module).CodeModule.CodePane.Show()
+        except Exception as exc:
+            captured["setup_error"] = str(exc)
+
+        def watcher():
+            deadline = time.time() + max(5, args.timeout)
+            while not stop.is_set() and time.time() < deadline:
+                windows = find_excel_windows(pid)
+                if windows["dialogs"]:
+                    time.sleep(0.8)
+                    windows = find_excel_windows(pid)
+                    dialog_hwnd, dialog_title, dialog_lines = windows["dialogs"][0]
+                    captured["dialog_title"] = dialog_title
+                    captured["dialog_lines"] = dialog_lines
+                    captured["dialog_image"] = capture_window(
+                        dialog_hwnd, os.path.join(outdir, "dialog.png")
+                    )
+                    vbe_hwnd = windows["vbe"][0][0] if windows["vbe"] else None
+                    if vbe_hwnd:
+                        captured["vbe_image"] = capture_window(vbe_hwnd, os.path.join(outdir, "vbe.png"))
+                        code_windows = find_code_windows(vbe_hwnd)
+                        if code_windows:
+                            code_hwnd, code_caption = code_windows[0]
+                            captured["code_caption"] = code_caption
+                            captured["module"] = module_from_caption(code_caption)
+                            captured["code_image"] = capture_window(
+                                code_hwnd, os.path.join(outdir, "vbe-code.png")
+                            )
+                    break
+                time.sleep(0.2)
+            kill_excel()
+
+        watcher_thread = threading.Thread(target=watcher, daemon=True)
+        watcher_thread.start()
+        try:
+            excel.Run(args.macro)
+        except Exception as exc:
+            captured["run_error"] = str(exc)
+        watcher_thread.join(timeout=args.timeout + 5)
+    finally:
+        stop.set()
+        try:
+            excel.Quit()
+        except Exception:
+            pass
+        pythoncom.CoUninitialize()
+        kill_excel()
+
+    findings = []
+    module = captured.get("module") or args.module
+    sources = args.source or discover_sources(module)
+    if captured.get("code_image"):
+        findings.append(analyze_image(captured["code_image"], module, sources, outdir, "code"))
+    if not findings and captured.get("vbe_image"):
+        findings.append(analyze_image(captured["vbe_image"], module, sources, outdir, "vbe"))
+
+    dialog_lines = captured.get("dialog_lines") or []
+    notes = []
+    if captured.get("dialog_title"):
+        notes.append(f"Dialog title: {captured['dialog_title']}")
+    if captured.get("code_caption"):
+        notes.append(f"Code window: {captured['code_caption']}")
+    if captured.get("run_error"):
+        notes.append(f"Macro raised: {captured['run_error'][:400]}")
+    if captured.get("setup_error"):
+        notes.append(f"VBE setup issue: {captured['setup_error']}")
+    if not captured.get("dialog_lines") and not captured.get("code_image"):
+        notes.append("No error dialog or VBE code window was captured.")
+
+    report_path = write_report(outdir, findings, dialog_lines, notes)
+    print(f"dialog: {' | '.join(dialog_lines) if dialog_lines else '(none)'}")
+    for finding in findings:
+        for band in finding.get("bands", []):
+            best = band.get("best")
+            if not best:
+                continue
+            print(f"band {band['index']} OCR: {best['text']}")
+            if best["matches"]:
+                top = best["matches"][0]
+                print(f"  match {top['score']:.3f}: {top['file']}:{top['line']} — {top['source']}")
+    print(f"report: {os.path.relpath(report_path, ROOT)}")
+    if not args.keep_probe and os.path.exists(probe):
+        try:
+            os.remove(probe)
+        except OSError:
+            pass
+    return 0
+
+
+def cmd_analyze(args):
+    enable_dpi_awareness()
+    image_path = args.image
+    if not os.path.isabs(image_path):
+        image_path = os.path.join(ROOT, image_path)
+    if not os.path.isfile(image_path):
+        print(f"missing image: {image_path}")
+        return 2
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    outdir = args.out or os.path.join(OCR_ROOT, stamp)
+    os.makedirs(outdir, exist_ok=True)
+    module = args.module
+    if not module:
+        module = module_from_caption(win32gui.GetWindowText(0))
+    sources = args.source or discover_sources(module)
+    findings = [analyze_image(image_path, module, sources, outdir, "analyze")]
+    report_path = write_report(outdir, findings, args.dialog or [], [])
+    print(f"report: {os.path.relpath(report_path, ROOT)}")
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Capture and OCR VBA UI errors.")
+    subparsers = parser.add_subparsers(dest="command")
+
+    collect = subparsers.add_parser("collect", help="Run a macro, capture the error UI, then OCR it.")
+    collect.add_argument("--macro", required=True)
+    collect.add_argument("--module")
+    collect.add_argument("--workbook")
+    collect.add_argument("--source", nargs="*", help="Module source files used for OCR snapping.")
+    collect.add_argument("--timeout", type=int, default=25)
+    collect.add_argument("--keep-probe", action="store_true")
+
+    analyze = subparsers.add_parser("analyze", help="OCR an existing screenshot.")
+    analyze.add_argument("image")
+    analyze.add_argument("--module")
+    analyze.add_argument("--source", nargs="*")
+    analyze.add_argument("--dialog", nargs="*")
+    analyze.add_argument("--out")
+
+    args = parser.parse_args()
+    if args.command == "collect":
+        return cmd_collect(args)
+    if args.command == "analyze":
+        return cmd_analyze(args)
+    parser.print_help()
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
