@@ -105,14 +105,14 @@ try:
         ws.Rows("5").RowHeight = 20    # subtitle
         ws.Rows("6").RowHeight = 16
         ws.Rows("7").RowHeight = 22    # section label
-        ws.Rows("8").RowHeight = 50    # CTA card (description)
-        ws.Rows("9").RowHeight = 12    # spacer
+        ws.Rows("8").RowHeight = 60    # CTA card (description, taller for wrapped text)
+        ws.Rows("9").RowHeight = 40    # spacer between card and button
         ws.Rows("10").RowHeight = 44   # CTA button row
         ws.Rows("11").RowHeight = 16   # spacer
         ws.Rows("12").RowHeight = 22   # section label
-        ws.Rows("13").RowHeight = 50   # email card (description)
-        ws.Rows("14").RowHeight = 40   # email buttons row
-        ws.Rows("15").RowHeight = 12   # spacer
+        ws.Rows("13").RowHeight = 60   # email card (description, taller for wrapped text)
+        ws.Rows("14").RowHeight = 40   # spacer between card and button
+        ws.Rows("15").RowHeight = 44   # email buttons row
         ws.Rows("16").RowHeight = 24
         ws.Rows("17").RowHeight = 22   # section label
         ws.Rows("18").RowHeight = 20   # step 1
@@ -240,9 +240,11 @@ try:
                 b.TextFrame.MarginBottom = 2
             except Exception:
                 pass
-            # Placement: move with cells; exact position fixed in post-processing
+            # Placement: free floating so explicit Left/Top positions are
+            # preserved on save/open (Placement=1 move-with-cells would
+            # override them when Excel recalculates anchors).
             try:
-                b.Placement = 1  # move with cells
+                b.Placement = 3  # free floating
                 b.LockAspectRatio = False
             except Exception:
                 pass
@@ -1048,9 +1050,9 @@ try:
         _tmp_zip = _tmpl + ".tmp2.zip"
         _x_to_y = {
             "5092700": "120650",       # AOTILogo original Y
-            "2422525": str(230 * 12700),  # primary button row 10-11, 24pt gap below card
-            "320675": str(352 * 12700),   # email button 1 row 14-15, 14pt gap below card
-            "1246188": str(352 * 12700),  # email button 2 row 14-15, 14pt gap below card
+            "2422525": str(246 * 12700),  # primary button row 10 (below CTA card + spacer)
+            "320675": str(384 * 12700),   # email button 1 row 15 (below email card + spacer)
+            "1246188": str(384 * 12700),  # email button 2 row 15
         }
         with zipfile.ZipFile(_tmpl, 'r') as zin:
             _names = zin.namelist()
