@@ -74,6 +74,34 @@ Public Function FindHeaderColumn(ByVal ws As Worksheet, ByVal headerRow As Long,
     Next c
 End Function
 
+' Finds a column by trying multiple header name aliases in order.
+' Returns the first matching column index, or 0 if none found.
+Public Function FindHeaderColumnAny(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal primaryHeader As String, ParamArray aliases() As Variant) As Long
+    Dim c As Long, lastCol As Long, h As String, a As Variant
+    Dim tried() As String
+
+    On Error Resume Next
+    FindHeaderColumnAny = 0
+    lastCol = LastUsedColumn(ws)
+    If lastCol = 0 Then Exit Function
+
+    ReDim tried(1 To UBound(aliases) + 1)
+    tried(1) = primaryHeader
+    For c = LBound(aliases) To UBound(aliases)
+        tried(c + 2) = CStr(aliases(c))
+    Next c
+
+    For c = 1 To lastCol
+        h = LCase$(Trim$(CStr(ws.Cells(headerRow, c).Value)))
+        For Each a In tried
+            If h = LCase$(Trim$(CStr(a))) Then
+                FindHeaderColumnAny = c
+                Exit Function
+            End If
+        Next a
+    Next c
+End Function
+
 Public Function LastUsedRow(ByVal ws As Worksheet) As Long
     On Error Resume Next
     If Application.WorksheetFunction.CountA(ws.Cells) = 0 Then
@@ -163,10 +191,19 @@ Public Function GetRecordKey(ByVal data As Variant, ByVal rowIdx As Long, ByVal 
     Dim k As String, n As String
     On Error Resume Next
     GetRecordKey = ""
-    If keyCol <= 0 Or nameCol <= 0 Then Exit Function
-    k = Trim$(CStr(data(rowIdx, keyCol)))
-    n = Trim$(CStr(data(rowIdx, nameCol)))
-    GetRecordKey = "|" & k & "|" & n & "|"
+    If rowIdx <= 0 Then Exit Function
+    If keyCol > 0 And nameCol > 0 Then
+        k = Trim$(CStr(data(rowIdx, keyCol)))
+        n = Trim$(CStr(data(rowIdx, nameCol)))
+        GetRecordKey = "|" & k & "|" & n & "|"
+    ElseIf nameCol > 0 Then
+        ' Fallback: key column missing (older report without EMPI) — match on name only
+        n = Trim$(CStr(data(rowIdx, nameCol)))
+        GetRecordKey = "|NAME|" & n & "|"
+    Else
+        ' Last resort: match on row index — same row position across both reports
+        GetRecordKey = "|ROW|" & CStr(rowIdx) & "|"
+    End If
 End Function
 
 ' ----------------------------------------------------------------------------

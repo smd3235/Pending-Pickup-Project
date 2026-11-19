@@ -150,7 +150,7 @@ Public Function CreatePendingPickupReport() As Boolean
     nameCol = FindHeaderColumn(raw, headerRow, NAME_HEADER)
     pickupDateCol = FindHeaderColumn(raw, headerRow, PICKUP_DATE_HEADER)
     startDateCol = FindHeaderColumn(raw, headerRow, START_DATE_HEADER)
-    keyCol = FindHeaderColumn(raw, headerRow, KEY_HEADER)
+    keyCol = FindHeaderColumnAny(raw, headerRow, KEY_HEADER, KEY_HEADER_ALIAS_1, KEY_HEADER_ALIAS_2, KEY_HEADER_ALIAS_3, KEY_HEADER_ALIAS_4)
 
     lastRow = LastUsedRow(raw)
     lastCol = LastUsedColumn(raw)
@@ -297,7 +297,7 @@ Public Function CreatePendingPickupReport() As Boolean
                 priorStatusCol = FindHeaderColumn(prior, priorHeaderRow, STATUS_HEADER)
                 priorNameCol = FindHeaderColumn(prior, priorHeaderRow, NAME_HEADER)
                 priorManagerCol = FindHeaderColumn(prior, priorHeaderRow, MANAGER_HEADER)
-                priorKeyCol = FindHeaderColumn(prior, priorHeaderRow, KEY_HEADER)
+                priorKeyCol = FindHeaderColumnAny(prior, priorHeaderRow, KEY_HEADER, KEY_HEADER_ALIAS_1, KEY_HEADER_ALIAS_2, KEY_HEADER_ALIAS_3, KEY_HEADER_ALIAS_4)
                 priorLastRow = LastUsedRow(prior)
                 priorLastCol = LastUsedColumn(prior)
                 If priorLastRow > priorHeaderRow Then hasPrior = True
@@ -323,9 +323,12 @@ Public Function CreatePendingPickupReport() As Boolean
     LogMsg "priorCount=" & priorCount & " hasPrior=" & hasPrior
 
     ' Compare current vs prior to classify new/cleared/still
-    comparisonEnabled = (keyCol > 0 And nameCol > 0)
+    ' Require name columns on both sides; key (EMPI) is optional — GetRecordKey
+    ' falls back to name-only or row-index matching when the key column is absent
+    ' (e.g. older reports with different column layouts).
+    comparisonEnabled = (nameCol > 0 And priorNameCol > 0)
     If Not comparisonEnabled Then
-        LogMsg "TRACE: Skipping prior comparison (keyCol=" & keyCol & " nameCol=" & nameCol & ")"
+        LogMsg "TRACE: Skipping prior comparison (nameCol=" & nameCol & " priorNameCol=" & priorNameCol & ")"
     End If
     Set currentByKey = CreateObject("Scripting.Dictionary")
     currentByKey.CompareMode = vbTextCompare

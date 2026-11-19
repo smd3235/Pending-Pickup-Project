@@ -17,6 +17,12 @@ Public Const STATUS_HEADER As String = "Treatment Status"
 Public Const REP_HEADER As String = "Sales Representative"
 Public Const NAME_HEADER As String = "Name"
 Public Const KEY_HEADER As String = "EMPI"
+' Alternative header names for EMPI / key column so older reports with different
+' column names still match during prior-report comparison.
+Public Const KEY_HEADER_ALIAS_1 As String = "Empl ID"
+Public Const KEY_HEADER_ALIAS_2 As String = "Patient ID"
+Public Const KEY_HEADER_ALIAS_3 As String = "Emp ID"
+Public Const KEY_HEADER_ALIAS_4 As String = "Employee ID"
 Public Const PICKUP_DATE_HEADER As String = "AUDIT: TP End Date"
 Public Const START_DATE_HEADER As String = "Start Date"
 Public Const PENDING_TEXT As String = "Pending Pickup"
