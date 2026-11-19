@@ -248,6 +248,12 @@ try:
                 b.LockAspectRatio = False
             except Exception:
                 pass
+            # Unlock the shape so it can be dragged/repositioned on the
+            # protected START HERE sheet.
+            try:
+                b.Locked = False
+            except Exception:
+                pass
             return b
         except Exception:
             return None
@@ -497,7 +503,7 @@ try:
         except Exception:
             pass
     try:
-        ws.EnableSelection = 2  # xlNoSelection: no cells can be selected
+        ws.EnableSelection = 1  # xlUnlockedCells: only unlocked cells/shapes can be selected (buttons are unlocked and draggable)
         try:
             with open(_prot_log, "a") as f:
                 import datetime
