@@ -187,7 +187,7 @@ try:
         try:
             b = ws.Shapes.AddShape(5, left, top, width, height)  # msoShapeRoundedRectangle
             b.Name = name
-            b.OnAction = macro
+            b.OnAction = ""  # cleared so buttons can be dragged without triggering macros
             b.Fill.ForeColor.RGB = fill
             b.Line.ForeColor.RGB = line
             b.Line.Weight = 1.25
@@ -452,17 +452,15 @@ try:
     except Exception:
         pass
 
-    # Lock every cell on START HERE so protection can prevent selecting/clicking
-    # cells; UserInterfaceOnly=True lets buttons/macros still work. COM does not
-    # expose AllowSelectingLockedCells/UnlockedCells, so use EnableSelection=2
-    # (xlNoSelection) to block all cell selection while buttons keep working.
-    _prot_log = os.path.join(project_root, "log", "button_errors.log")
+    # TEMPORARILY DISABLED sheet protection so buttons can be dragged for
+    # repositioning. Remove this block and re-enable Protect() once positions
+    # are finalized.
     try:
         ws.Unprotect()
         try:
             with open(_prot_log, "a") as f:
                 import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect ok\n")
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | protection disabled for drag mode\n")
         except Exception:
             pass
     except Exception as e:
@@ -472,51 +470,21 @@ try:
                 f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect FAIL: " + str(e) + "\n")
         except Exception:
             pass
-    try:
-        ws.Cells.Locked = True
         try:
             with open(_prot_log, "a") as f:
                 import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Locked ok\n")
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | protection disabled for drag mode\n")
         except Exception:
             pass
     except Exception as e:
         try:
             with open(_prot_log, "a") as f:
                 import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Locked FAIL: " + str(e) + "\n")
+                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Unprotect FAIL: " + str(e) + "\n")
         except Exception:
             pass
-    try:
-        ws.Protect(Password="", UserInterfaceOnly=True, AllowUsingPivotTables=False, AllowSorting=False, AllowFiltering=False)
-        try:
-            with open(_prot_log, "a") as f:
-                import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Protect ok\n")
-        except Exception:
-            pass
-    except Exception as e:
-        try:
-            with open(_prot_log, "a") as f:
-                import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | Protect FAIL: " + str(e) + "\n")
-        except Exception:
-            pass
-    try:
-        ws.EnableSelection = 1  # xlUnlockedCells: only unlocked cells/shapes can be selected (buttons are unlocked and draggable)
-        try:
-            with open(_prot_log, "a") as f:
-                import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | EnableSelection ok\n")
-        except Exception:
-            pass
-    except Exception as e:
-        try:
-            with open(_prot_log, "a") as f:
-                import datetime
-                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | EnableSelection FAIL: " + str(e) + "\n")
-        except Exception:
-            pass
+    # Protection DISABLED for drag mode — buttons can be selected and dragged
+    # freely. Re-enable Protect() and EnableSelection once positions are final.
 
     def format_email_template_sheet(sh, title, field_values, hide=True, accent=0x79411F, accent_light=0xF2E8D5, badge_text="EMAIL TEMPLATE", auto_send="", attach_report=""):
         # field_values: dict with keys to, cc, subject, body
