@@ -34,6 +34,7 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim sortedManagerRows As Collection
     Dim reportStamp As String, sourceName As String
     Dim managerSheetNames As Object
+    Dim mRepSeenDict As Object
     Dim dtCheck As Date, repName As String, ck As String, pk As String, ck2 As String
     Dim rowItem As Variant
 
