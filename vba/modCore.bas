@@ -16,7 +16,7 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim headerRow As Long, priorHeaderRow As Long
     Dim lastRow As Long, lastCol As Long, priorLastRow As Long, priorLastCol As Long
     Dim managerCol As Long, statusCol As Long, repCol As Long, nameCol As Long, pickupDateCol As Long, startDateCol As Long
-    Dim priorStatusCol As Long, priorNameCol As Long, priorManagerCol As Long, priorKeyCol As Long
+    Dim priorStatusCol As Long, priorNameCol As Long, priorManagerCol As Long
     Dim r As Long, i As Long
     Dim manager As String, status As String
     Dim ws As Worksheet, dashboard As Worksheet, rawOut As Worksheet
@@ -34,7 +34,6 @@ Public Function CreatePendingPickupReport() As Boolean
     Dim sortedManagerRows As Collection
     Dim reportStamp As String, sourceName As String
     Dim managerSheetNames As Object
-    Dim keyCol As Long
     Dim dtCheck As Date, repName As String, ck As String, pk As String, ck2 As String
     Dim rowItem As Variant
 
@@ -150,7 +149,6 @@ Public Function CreatePendingPickupReport() As Boolean
     nameCol = FindHeaderColumn(raw, headerRow, NAME_HEADER)
     pickupDateCol = FindHeaderColumn(raw, headerRow, PICKUP_DATE_HEADER)
     startDateCol = FindHeaderColumn(raw, headerRow, START_DATE_HEADER)
-    keyCol = FindHeaderColumnAny(raw, headerRow, KEY_HEADER, KEY_HEADER_ALIAS_1, KEY_HEADER_ALIAS_2, KEY_HEADER_ALIAS_3, KEY_HEADER_ALIAS_4)
 
     lastRow = LastUsedRow(raw)
     lastCol = LastUsedColumn(raw)
@@ -297,7 +295,6 @@ Public Function CreatePendingPickupReport() As Boolean
                 priorStatusCol = FindHeaderColumn(prior, priorHeaderRow, STATUS_HEADER)
                 priorNameCol = FindHeaderColumn(prior, priorHeaderRow, NAME_HEADER)
                 priorManagerCol = FindHeaderColumn(prior, priorHeaderRow, MANAGER_HEADER)
-                priorKeyCol = FindHeaderColumnAny(prior, priorHeaderRow, KEY_HEADER, KEY_HEADER_ALIAS_1, KEY_HEADER_ALIAS_2, KEY_HEADER_ALIAS_3, KEY_HEADER_ALIAS_4)
                 priorLastRow = LastUsedRow(prior)
                 priorLastCol = LastUsedColumn(prior)
                 If priorLastRow > priorHeaderRow Then hasPrior = True
@@ -323,9 +320,7 @@ Public Function CreatePendingPickupReport() As Boolean
     LogMsg "priorCount=" & priorCount & " hasPrior=" & hasPrior
 
     ' Compare current vs prior to classify new/cleared/still
-    ' Require name columns on both sides; key (EMPI) is optional — GetRecordKey
-    ' falls back to name-only or row-index matching when the key column is absent
-    ' (e.g. older reports with different column layouts).
+    ' Require name columns on both sides; matching is name-based only.
     comparisonEnabled = (nameCol > 0 And priorNameCol > 0)
     If Not comparisonEnabled Then
         LogMsg "TRACE: Skipping prior comparison (nameCol=" & nameCol & " priorNameCol=" & priorNameCol & ")"
@@ -334,19 +329,19 @@ Public Function CreatePendingPickupReport() As Boolean
     currentByKey.CompareMode = vbTextCompare
     Set priorByKey = CreateObject("Scripting.Dictionary")
     priorByKey.CompareMode = vbTextCompare
-    LogMsg "TRACE: Starting comparison block keyCol=" & keyCol & " nameCol=" & nameCol & " currentRows=" & currentRows.Count & " priorRows=" & priorRows.Count
+    LogMsg "TRACE: Starting comparison block nameCol=" & nameCol & " priorNameCol=" & priorNameCol & " currentRows=" & currentRows.Count & " priorRows=" & priorRows.Count
 
     If comparisonEnabled Then
         On Error Resume Next
         For Each rowItem In currentRows
-            ck = GetRecordKey(currentData, CLng(rowItem), keyCol, nameCol)
+            ck = GetRecordKey(currentData, CLng(rowItem), nameCol)
             If Err.Number <> 0 Then LogMsg "TRACE: currentByKey Err=" & Err.Number & " row=" & rowItem
             Err.Clear
             If Len(ck) > 0 Then currentByKey(ck) = CLng(rowItem)
         Next rowItem
 
         For Each rowItem In priorRows
-            pk = GetRecordKey(priorData, CLng(rowItem), priorKeyCol, priorNameCol)
+            pk = GetRecordKey(priorData, CLng(rowItem), priorNameCol)
             If Err.Number <> 0 Then LogMsg "TRACE: priorByKey Err=" & Err.Number & " row=" & rowItem
             Err.Clear
             If Len(pk) > 0 Then
@@ -360,7 +355,7 @@ Public Function CreatePendingPickupReport() As Boolean
         Next rowItem
 
         For Each rowItem In currentRows
-            ck2 = GetRecordKey(currentData, CLng(rowItem), keyCol, nameCol)
+            ck2 = GetRecordKey(currentData, CLng(rowItem), nameCol)
             If Err.Number <> 0 Then LogMsg "TRACE: newCount Err=" & Err.Number & " row=" & rowItem
             Err.Clear
             If Len(ck2) > 0 Then
@@ -437,7 +432,7 @@ Public Function CreatePendingPickupReport() As Boolean
     ' Build the dashboard after manager sheets exist so manager names can link directly to their tabs.
     LogMsg "BuildDashboard start"
     BuildDashboard dashboard, currentCount, priorCount, newCount, clearedCount, stillCount, _
-               age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, keyCol, nameCol, pickupDateCol, _
+               age30Count, age60Count, age90Count, missingDateCount, hasPrior, managers, managerRows, managerSheetNames, currentData, nameCol, pickupDateCol, _
                reportStamp, sourceName, currentRows
     LogMsg "BuildDashboard done"
 

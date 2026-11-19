@@ -14,7 +14,7 @@ Public Sub BuildDashboard(ByVal ws As Worksheet, ByVal currentCount As Long, ByV
     ByVal clearedCount As Long, ByVal stillCount As Long, ByVal age30Count As Long, ByVal age60Count As Long, _
     ByVal age90Count As Long, ByVal missingDateCount As Long, ByVal hasPrior As Boolean, _
     ByVal managers As Variant, ByVal managerRows As Object, ByVal managerSheetNames As Object, _
-    ByVal currentData As Variant, ByVal keyCol As Long, ByVal nameCol As Long, ByVal pickupDateCol As Long, _
+    ByVal currentData As Variant, ByVal nameCol As Long, ByVal pickupDateCol As Long, _
     ByVal reportStamp As String, ByVal sourceName As String, ByVal currentRows As Collection)
 
     Dim rg As Range
