@@ -70,8 +70,8 @@ End Sub
 Public Function BuildRunLogPath() As String
     On Error Resume Next
     Dim logDir As String
-    BuildRunLogPath = "C:\Temp\PendingPickupReport\log\pending-pickup_" & Format(Now, "yyyy-mm-dd_HHMMSS") & ".log"
-    logDir = Left$(BuildRunLogPath, InStrRev(BuildRunLogPath, "\"))
+    logDir = GetLogDirectory()
+    BuildRunLogPath = logDir & "\pending-pickup_" & Format(Now, "yyyy-mm-dd_HHMMSS") & ".log"
     If Len(Dir$(logDir, vbDirectory)) = 0 Then MkDir logDir
 End Function
 

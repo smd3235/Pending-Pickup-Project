@@ -94,14 +94,52 @@ EMAIL_SYNC_SHEETS = ["Manager Email Template", "Director Email Template"]
 EMAIL_SYNC_CELLS = ["D5", "D7", "D9", "D11"]  # TO, CC, SUBJECT, BODY
 
 
+def _sanitized_copy(path):
+    """Copy an .xlsm/.xlsx, stripping sheetView attrs openpyxl cannot parse."""
+    import re
+    import tempfile
+    import zipfile
+
+    src = path
+    tmp_dir = os.path.join(project_root, "scripts", "temp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    fd, out = tempfile.mkstemp(suffix=os.path.splitext(path)[1], dir=tmp_dir)
+    os.close(fd)
+    attr_re = re.compile(r'\s+enableSelection\s*=\s*"[^"]*"')
+    with zipfile.ZipFile(src, "r") as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename.startswith("xl/worksheets/") and item.filename.endswith(".xml"):
+                try:
+                    text = data.decode("utf-8")
+                    text = attr_re.sub("", text)
+                    data = text.encode("utf-8")
+                except UnicodeDecodeError:
+                    pass
+            zout.writestr(item, data)
+    return out
+
+
 def read_email_sync_config(path):
+    if not os.path.exists(path):
+        return None, f"missing ({path})"
+    sanitized = None
     try:
-        wb = openpyxl.load_workbook(
-            path,
-            keep_vba=path.lower().endswith(".xlsm"),
-            data_only=False,
-            read_only=False,
-        )
+        try:
+            wb = openpyxl.load_workbook(
+                path,
+                keep_vba=path.lower().endswith(".xlsm"),
+                data_only=False,
+                read_only=False,
+            )
+        except TypeError:
+            sanitized = _sanitized_copy(path)
+            wb = openpyxl.load_workbook(
+                sanitized,
+                keep_vba=path.lower().endswith(".xlsm"),
+                data_only=False,
+                read_only=False,
+            )
         out = {}
         for name in EMAIL_SYNC_SHEETS:
             ws = wb[name]
@@ -117,6 +155,12 @@ def read_email_sync_config(path):
         return out, None
     except Exception as e:
         return None, str(e)
+    finally:
+        if sanitized:
+            try:
+                os.remove(sanitized)
+            except OSError:
+                pass
 
 
 def ensure_template_email_sync(template_path, project_root_path, log_fn):
@@ -365,6 +409,8 @@ def watchdog_thread():
             continue
         # No dialog open - Excel is either busy running the macro or idle.
         # Don't kill for being busy; max_run_seconds handles the overall cap.
+    if cancel_event.is_set():
+        return
     write_log(run_log, f"KILLED: run exceeded {max_run_seconds} s without a new report file")
     kill_excel()
 

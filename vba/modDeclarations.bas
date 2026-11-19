@@ -114,8 +114,14 @@ Public mReportStartTime As Date
 Public Function GetLogDirectory() As String
     On Error Resume Next
     Dim dirPath As String
-    dirPath = Environ$("TEMP") & "\PendingPickupReport\log"
-    If Len(Dir$(dirPath, vbDirectory)) = 0 Then MkDir dirPath
+    If Len(ThisWorkbook.Path) > 0 Then
+        dirPath = ThisWorkbook.Path & "\log"
+        If Len(Dir$(dirPath, vbDirectory)) = 0 Then MkDir dirPath
+    End If
+    If Len(dirPath) = 0 Or Len(Dir$(dirPath, vbDirectory)) = 0 Then
+        dirPath = Environ$("TEMP") & "\PendingPickupReport\log"
+        If Len(Dir$(dirPath, vbDirectory)) = 0 Then MkDir dirPath
+    End If
     GetLogDirectory = dirPath
 End Function
 
