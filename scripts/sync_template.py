@@ -187,7 +187,6 @@ try:
         try:
             b = ws.Shapes.AddShape(5, left, top, width, height)  # msoShapeRoundedRectangle
             b.Name = name
-            b.OnAction = ""  # cleared so buttons can be dragged without triggering macros
             b.Fill.ForeColor.RGB = fill
             b.Line.ForeColor.RGB = line
             b.Line.Weight = 1.25
@@ -1058,6 +1057,27 @@ try:
                             f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | shape positions fixed in %s\n" % _draw3)
                     except Exception:
                         pass
+                # Also remove macro="" attributes from all shapes so clicking
+                # does not trigger macros — buttons are plain drag-able shapes
+                # until positions are finalized and OnAction is re-added.
+                try:
+                    _content3 = re.sub(r'\s+macro="[^"]*"', '', _content2)
+                    if _content3 != _content2:
+                        with zipfile.ZipFile(_tmpl + ".tmp3.zip", 'w', zipfile.ZIP_DEFLATED) as zout:
+                            for _n in _names:
+                                if _n == _draw3:
+                                    zout.writestr(_n, _content3)
+                                else:
+                                    zout.writestr(_n, zin.read(_n))
+                        shutil.move(_tmpl + ".tmp3.zip", _tmpl)
+                        try:
+                            with open(_prot_log, "a") as f:
+                                import datetime
+                                f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | START HERE protect | macro attributes removed from %s\n" % _draw3)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
     except Exception as e:
         try:
             with open(_prot_log, "a") as f:
