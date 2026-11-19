@@ -615,64 +615,95 @@ def cmd_collect(args):
         os.remove(probe)
     shutil.copy2(workbook, probe)
 
+    shared = {
+        "excel": None,
+        "wb": None,
+        "pid": None,
+        "run_error": None,
+        "run_done": False,
+        "setup_error": None,
+    }
+    dialog_captured = {"done": False}
+    deadline = time.time() + max(5, args.timeout)
+
+    def run_worker():
+        """Owns the Excel COM apartment; excel.Run blocks here only."""
+        pythoncom.CoInitialize()
+        excel = None
+        try:
+            excel = win32com.client.DispatchEx("Excel.Application")
+            shared["excel"] = excel
+            excel.Visible = True
+            excel.DisplayAlerts = False
+            wb = excel.Workbooks.Open(probe)
+            shared["wb"] = wb
+            shared["pid"] = win32process.GetWindowThreadProcessId(excel.Hwnd)[1]
+            try:
+                excel.VBE.MainWindow.Visible = True
+                module = args.module
+                if module:
+                    wb.VBProject.VBComponents(module).CodeModule.CodePane.Show()
+            except Exception as exc:
+                shared["setup_error"] = str(exc)
+            try:
+                excel.Run(args.macro)
+                shared["run_done"] = True
+            except Exception as exc:
+                shared["run_error"] = str(exc)
+                shared["run_done"] = True
+        finally:
+            shared["run_done"] = True
+            try:
+                if excel:
+                    excel.Quit()
+            except Exception:
+                pass
+            pythoncom.CoUninitialize()
+
+    worker = threading.Thread(target=run_worker, daemon=True)
+    worker.start()
+
+    # Wait until the worker has exposed Excel's pid (or finished without error).
+    while time.time() < deadline and shared["pid"] is None and not shared["run_done"]:
+        time.sleep(0.05)
+    pid = shared["pid"]
+
     captured = {}
-    stop = threading.Event()
-    pythoncom.CoInitialize()
-    excel = win32com.client.DispatchEx("Excel.Application")
-    excel.Visible = True
-    excel.DisplayAlerts = False
-    try:
-        wb = excel.Workbooks.Open(probe)
-        pid = win32process.GetWindowThreadProcessId(excel.Hwnd)[1]
-        try:
-            excel.VBE.MainWindow.Visible = True
-            module = args.module
-            if module:
-                wb.VBProject.VBComponents(module).CodeModule.CodePane.Show()
-        except Exception as exc:
-            captured["setup_error"] = str(exc)
-
-        def watcher():
-            deadline = time.time() + max(5, args.timeout)
-            while not stop.is_set() and time.time() < deadline:
-                windows = find_excel_windows(pid)
-                if windows["dialogs"]:
-                    time.sleep(0.5)
-                    windows = find_excel_windows(pid)
-                    if not windows["dialogs"]:
-                        continue
-                    dialog_hwnd, dialog_title, dialog_lines = windows["dialogs"][0]
-                    captured["dialog_title"] = dialog_title
-                    captured["dialog_lines"] = dialog_lines
-                    captured["dialog_image"] = capture_window(
-                        dialog_hwnd, os.path.join(outdir, "dialog.png")
+    if pid:
+        # Poll fast for the modal error dialog; as soon as it appears, capture
+        # the dialog + VBE + code pane, then kill Excel to unblock the worker's
+        # blocked excel.Run. VBA's compile dialog ignores window-message clicks,
+        # so killing Excel is the only reliable unblock.
+        while time.time() < deadline and not dialog_captured["done"] and not shared["run_done"]:
+            windows = find_excel_windows(pid)
+            if windows["dialogs"]:
+                dialog_hwnd, dialog_title, dialog_lines = windows["dialogs"][0]
+                captured["dialog_title"] = dialog_title
+                captured["dialog_lines"] = dialog_lines
+                captured["dialog_image"] = capture_window(
+                    dialog_hwnd, os.path.join(outdir, "dialog.png")
+                )
+                vbe_hwnd = windows["vbe"][0][0] if windows["vbe"] else None
+                if vbe_hwnd:
+                    captured["vbe_image"] = capture_window(
+                        vbe_hwnd, os.path.join(outdir, "vbe.png")
                     )
-                    vbe_hwnd = windows["vbe"][0][0] if windows["vbe"] else None
-                    if vbe_hwnd:
-                        captured["vbe_image"] = capture_window(vbe_hwnd, os.path.join(outdir, "vbe.png"))
-                        code_windows = find_code_windows(vbe_hwnd)
-                        if code_windows:
-                            code_hwnd, code_caption = code_windows[0]
-                            captured["code_caption"] = code_caption
-                            captured["module"] = module_from_caption(code_caption)
-                            captured["code_image"] = capture_window(
-                                code_hwnd, os.path.join(outdir, "vbe-code.png")
-                            )
-                    kill_excel()  # VBA's compile dialog cannot be dismissed from outside; kill Excel to unblock
-                    break
-                time.sleep(0.15)
+                    code_windows = find_code_windows(vbe_hwnd)
+                    if code_windows:
+                        code_hwnd, code_caption = code_windows[0]
+                        captured["code_caption"] = code_caption
+                        captured["module"] = module_from_caption(code_caption)
+                        captured["code_image"] = capture_window(
+                            code_hwnd, os.path.join(outdir, "vbe-code.png")
+                        )
+                kill_excel()
+                dialog_captured["done"] = True
+                break
+            time.sleep(0.05)
 
-        watcher_thread = threading.Thread(target=watcher, daemon=True)
-        watcher_thread.start()
-        try:
-            excel.Run(args.macro)
-        except Exception as exc:
-            captured["run_error"] = str(exc)
-        watcher_thread.join(timeout=args.timeout + 5)
-    finally:
-        stop.set()
-        pythoncom.CoUninitialize()
-        kill_excel()
+    # Don't wait on the worker: if we killed Excel its excel.Run will raise on
+    # its own daemon thread. Proceed straight to OCR of whatever we captured.
+    kill_excel()
 
     findings = []
     module = captured.get("module") or args.module
@@ -688,12 +719,12 @@ def cmd_collect(args):
         notes.append(f"Dialog title: {captured['dialog_title']}")
     if captured.get("code_caption"):
         notes.append(f"Code window: {captured['code_caption']}")
-    if captured.get("run_error"):
-        notes.append(f"Macro raised: {captured['run_error'][:400]}")
-    if captured.get("setup_error"):
-        notes.append(f"VBE setup issue: {captured['setup_error']}")
+    if shared.get("run_error"):
+        notes.append(f"Macro raised: {shared['run_error'][:400]}")
+    if shared.get("setup_error"):
+        notes.append(f"VBE setup issue: {shared['setup_error']}")
     if not captured.get("dialog_lines") and not captured.get("code_image"):
-        notes.append("No error dialog or VBE code window was captured.")
+        notes.append("No error dialog or VBE code window was captured before the timeout.")
 
     report_path = write_report(outdir, findings, dialog_lines, notes)
     print(f"dialog: {' | '.join(dialog_lines) if dialog_lines else '(none)'}")
