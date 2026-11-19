@@ -17,13 +17,13 @@ Defined in `modDeclarations.bas` and read by `modDialog.bas`:
 |---|---|---|
 | `EMAIL_CONFIG_SHEET` | `Manager Email Template` | Hidden manager email config sheet |
 | `EMAIL_CONFIG_TO_CELL` | `D5` | To recipients (comma-separated) |
-| `EMAIL_CONFIG_CC_CELL` | `D6` | CC recipients (comma-separated) |
-| `EMAIL_CONFIG_SUBJECT_CELL` | `D7` | Subject override (blank = default) |
-| `EMAIL_CONFIG_BODY_CELL` | `D9` | Intro/body text override (blank = default) |
+| `EMAIL_CONFIG_CC_CELL` | `D7` | CC recipients (comma-separated) |
+| `EMAIL_CONFIG_SUBJECT_CELL` | `D9` | Subject override (blank = default) |
+| `EMAIL_CONFIG_BODY_CELL` | `D11` | Intro/body text override (blank = default) |
 
-- `GetEmailTo()` reads `D5`; `GetEmailCC/Subject/Body()` read `D6/D7/D9` with **legacy fallback** to START HERE `D16-D18` for older templates.
+- `GetEmailTo()` reads `D5`; `GetEmailCC/Subject/Body()` read `D7/D9/D11` with **legacy fallback** to START HERE `D16-D18` for older templates.
 - `SetupEmailCC()` unhides/activates `Manager Email Template` and selects `D5` (TO) for editing.
-- Template layout (provisioned by `scripts/sync_template.py`): labeled sections **TO/CC/SUBJECT/BODY**, clean gridline-free view with only input areas visible, and a large merged body input (`D9:K24`).
+- Template layout (provisioned by `scripts/sync_template.py`): labeled sections **TO/CC/SUBJECT/BODY**, clean gridline-free view with only input areas visible, and a large merged body input (`D11:K31`).
 
 #### Director/dashboard email (hidden template tab, `Director Email Template`)
 Defined in `modDeclarations.bas` and read by `modDialog.bas`:
@@ -32,13 +32,13 @@ Defined in `modDeclarations.bas` and read by `modDialog.bas`:
 |---|---|---|
 | `DIRECTOR_EMAIL_SHEET` | `Director Email Template` | Hidden director/dashboard email config sheet |
 | `DIRECTOR_EMAIL_TO_CELL` | `D5` | To recipients (comma-separated) |
-| `DIRECTOR_EMAIL_CC_CELL` | `D6` | CC recipients (comma-separated) |
-| `DIRECTOR_EMAIL_SUBJECT_CELL` | `D7` | Subject override (blank = default) |
-| `DIRECTOR_EMAIL_BODY_CELL` | `D9` | Intro/body text override (blank = default) |
+| `DIRECTOR_EMAIL_CC_CELL` | `D7` | CC recipients (comma-separated) |
+| `DIRECTOR_EMAIL_SUBJECT_CELL` | `D9` | Subject override (blank = default) |
+| `DIRECTOR_EMAIL_BODY_CELL` | `D11` | Intro/body text override (blank = default) |
 
 - `GetDirectorEmailTo/CC/Subject/Body()` read from `ThisWorkbook` (template), with trim/default fallback behavior.
 - `SetupDirectorEmail()` unhides/activates the director template sheet and selects `D5` (TO) for editing.
-- Same clean visual layout as manager template: **TO/CC/SUBJECT/BODY** with large merged body input (`D9:K24`) and hidden non-input areas/gridlines.
+- Same clean visual layout as manager template: **TO/CC/SUBJECT/BODY** with large merged body input (`D11:K31`) and hidden non-input areas/gridlines.
 
 `scripts/sync_template.py` ensures both hidden sheets, labels, and buttons exist in the template/build artifacts, and START HERE shows pointers to those template tabs.
 

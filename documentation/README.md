@@ -90,7 +90,6 @@ Pending Pickup Project/
 ├── Pending Pickup Template (macro).zip   # macro xlsm only (.bas already embedded)
 ├── BUILD-INSTRUCTIONS.txt                # manual rebuild steps (no Python)
 ├── README.md                             # this project's landing page (pointer to docs)
-├── AGENTS.md                             # agent instructions (project root)
 ├── AllOpenTreatmentPlansResults618.xlsx  # fake test export
 ├── Pending_Pickup_Macro.bas              # legacy monolithic VBA (reference)
 ├── vba/                                  # VBA source of truth (7 .bas modules)
@@ -278,7 +277,7 @@ Date parsing accepts real Excel dates, Excel serial numbers, and text dates.
 
 ### Standard validation loop (mandatory for code/template changes)
 
-```powershell
+```
 # 1. Compile gate — VBA must compile cleanly
 python scripts\test-compile.py
 
