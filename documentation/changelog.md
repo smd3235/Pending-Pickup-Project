@@ -3,6 +3,12 @@
 All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 `YYYY-MM-DD HH:MM:SS` (local time). Version `1.0` is the current baseline.
 
+## 2026-11-20
+
+- **04:50:00** — Expanded VBA error OCR capture so the project can diagnose compile/UI errors from any running Excel, not just a launched probe.
+  - `scripts/vba-error-ocr.py` — added `ocr-live --pid <n>` (attach to a running Excel during a real report run; captures the live compile dialog + VBE + code pane + full desktop + all visible VBA windows via DPI-aware PrintWindow, OCRs the highlighted selection band, snaps OCR text to `vba/*.bas` sources, does NOT kill Excel), `ocr-all` (fast batch summary of every capture under `log\ocr\`, optional `--refresh` to re-OCR), plus `collect`/`analyze`. OCR variants widened to 3x–5x scale with gray/binarized/smoothed/unsharp/inverted/flattened-selection preprocessing.
+  - `scripts/answer-dialogs.py` — when the unattended answerer hits an unrecognized compile-error dialog, it now launches `vba-error-ocr.py ocr-live --pid <pid>` in a background thread to snapshot the live VBA UI before dismissing with Enter, so real report runs leave an OCR'd diagnostic instead of a silent dismiss. (`log\vba-error-ocr.log` + `log\ocr\<ts>\` artifacts.)
+
 ## 2026-11-19
 
 - **15:52:00** — Added `scripts\vba-error-ocr.py` and `scripts\ocr-winrt.ps1` to capture VBA UI errors and OCR the highlighted VBE code line. `collect` launches a workbook/macro, watches for modal `#32770` error dialogs, captures dialog + VBE + code-pane windows via DPI-aware `PrintWindow`, detects highlighted bands by selection color, OCRs each band with token/line crops at 3x–4x (gray, binarized, smoothed, inverted, flattened-selection variants), and snaps OCR text to `vba/*.bas` source lines via fuzzy matching, reporting `file:line` with score. VBA's compile-error dialog ignores window-message clicks (BM_CLICK / WM_COMMAND / VK_RETURN), so it cannot be dismissed from outside; the watcher kills Excel as soon as the dialog appears to unblock the blocked macro call. Dialog text is read exactly from window controls (no OCR). Artifacts and `log\vba-error-ocr.log` are written under `log\ocr\`. Verified end-to-end: dialog text "Compile error: Variable not defined" captured exactly; highlighted line snapped to source at 0.99 confidence.

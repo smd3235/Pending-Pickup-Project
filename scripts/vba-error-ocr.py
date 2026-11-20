@@ -2,15 +2,15 @@
 
 Usage:
   python scripts\\vba-error-ocr.py collect --macro SetupEmailCC --module modDialog
-  python scripts\\vba-error-ocr.py analyze log\\ocr\\20261119_220000\\vbe-code.png --module modDialog
-
-Notes:
-  VBA's compile-error dialog is modal and ignores window-message clicks
-  (BM_CLICK / WM_COMMAND / VK_RETURN all fail against it), so it cannot be
-  dismissed reliably from the outside. The collector detects the dialog as
-  soon as it appears, captures the dialog + VBE + code-pane windows, then
-  kills Excel to unblock the blocked macro call. The highlighted line is
-  recovered by OCR plus fuzzy snapping against the vba/*.bas sources.
+    Launch a probe workbook, run the macro, capture the error UI on the first
+    modal compile dialog, kill Excel to unblock, then OCR + snap to source.
+  python scripts\\vba-error-ocr.py ocr-live --pid 1234
+    Attach to a *running* Excel and capture its live VBA UI (dialog + VBE +
+    code pane + desktop + all VBA windows), OCR the highlighted code band,
+    snap to vba/*.bas sources. Does NOT kill Excel.
+  python scripts\\vba-error-ocr.py ocr-all
+    Batch-OCR every screenshot already under log\\ocr\\ into one combined report.
+  python scripts\\vba-error-ocr.py analyze log\\ocr\\<ts>\\vbe-code.png --module modX
 
 Artifacts are written to log\\ocr\\<timestamp>\\ and summarized in log\\vba-error-ocr.log.
 """
@@ -149,6 +149,13 @@ def _grab_screen(hwnd):
         return None
 
 
+def _grab_desktop():
+    try:
+        return ImageGrab.grab(all_screens=True)
+    except Exception:
+        return None
+
+
 def _is_blank(img):
     if img is None:
         return True
@@ -170,6 +177,15 @@ def capture_window(hwnd, path):
             img.save(path)
             return path
     img = attempts[-1]()
+    if img is not None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        img.save(path)
+        return path
+    return None
+
+
+def capture_desktop(path):
+    img = _grab_desktop()
     if img is not None:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         img.save(path)
@@ -203,7 +219,7 @@ def dialog_text(hwnd):
 
 
 def find_excel_windows(pid):
-    found = {"dialogs": [], "vbe": [], "excel": []}
+    found = {"dialogs": [], "vbe": [], "excel": [], "all": []}
     if not pid:
         return found
 
@@ -218,6 +234,7 @@ def find_excel_windows(pid):
             text = win32gui.GetWindowText(hwnd)
         except Exception:
             return True
+        found["all"].append((hwnd, cls, text))
         if cls == "#32770":
             found["dialogs"].append((hwnd, text, dialog_text(hwnd)))
         elif cls == "wndclass_desked_gsk":
@@ -334,11 +351,13 @@ def preprocess_variants(img, scale):
     sharp = gray.filter(ImageFilter.SHARPEN)
     binary = sharp.point(lambda value: 255 if value > 150 else 0)
     smooth_binary = binary.filter(ImageFilter.MedianFilter(3))
+    unsharp = gray.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
     inverted = ImageOps.invert(gray)
     return {
         "gray": sharp,
         "binarized": binary,
         "smooth-binary": smooth_binary,
+        "unsharp": unsharp,
         "inverted-gray": inverted,
     }
 
@@ -463,7 +482,7 @@ def analyze_image(image_path, module, source_paths, outdir, label):
         candidates = []
         for crop_name, crop_box in crop_specs:
             crop = img.crop(crop_box)
-            for scale in (3, 4):
+            for scale in (3, 4, 5):
                 variants = preprocess_variants(crop, scale)
                 if crop_name == "token":
                     flat = flatten_selection(crop, band["color"])
@@ -508,7 +527,7 @@ def analyze_image(image_path, module, source_paths, outdir, label):
             }
         )
     if not bands:
-        for scale in (2, 3):
+        for scale in (2, 3, 4):
             variant = preprocess_variants(img, scale)["binarized"]
             variant_path = os.path.join(outdir, f"{label}-full-{scale}x.png")
             variant.save(variant_path)
@@ -600,6 +619,43 @@ def write_report(outdir, findings, dialog_lines, notes):
     return report_path
 
 
+def capture_live(pid, outdir):
+    """Attach to a running Excel and capture every visible VBA window.
+
+    Returns a dict of captured artifacts keyed by kind. Does not kill Excel.
+    """
+    os.makedirs(outdir, exist_ok=True)
+    windows = find_excel_windows(pid)
+    captured = {"windows": windows["all"], "dialog": None, "vbe": [], "code": None, "desktop": None}
+
+    if windows["dialogs"]:
+        d = windows["dialogs"][0]
+        captured["dialog"] = {
+            "hwnd": d[0],
+            "title": d[1],
+            "lines": d[2],
+            "image": capture_window(d[0], os.path.join(outdir, "dialog.png")),
+        }
+
+    for hwnd, text in windows["vbe"]:
+        entry = {"hwnd": hwnd, "title": text, "image": capture_window(hwnd, os.path.join(outdir, "vbe.png"))}
+        captured["vbe"].append(entry)
+        code_windows = find_code_windows(hwnd)
+        if code_windows:
+            chwnd, ccaption = code_windows[0]
+            captured["code"] = {
+                "hwnd": chwnd,
+                "caption": ccaption,
+                "module": module_from_caption(ccaption),
+                "image": capture_window(chwnd, os.path.join(outdir, "vbe-code.png")),
+            }
+
+    # Full desktop context around Excel (other monitors, overlapping apps, etc.)
+    captured["desktop"] = capture_desktop(os.path.join(outdir, "desktop.png"))
+
+    return captured
+
+
 def cmd_collect(args):
     enable_dpi_awareness()
     os.makedirs(OCR_ROOT, exist_ok=True)
@@ -623,11 +679,9 @@ def cmd_collect(args):
         "run_done": False,
         "setup_error": None,
     }
-    dialog_captured = {"done": False}
     deadline = time.time() + max(5, args.timeout)
 
     def run_worker():
-        """Owns the Excel COM apartment; excel.Run blocks here only."""
         pythoncom.CoInitialize()
         excel = None
         try:
@@ -663,67 +717,54 @@ def cmd_collect(args):
     worker = threading.Thread(target=run_worker, daemon=True)
     worker.start()
 
-    # Wait until the worker has exposed Excel's pid (or finished without error).
     while time.time() < deadline and shared["pid"] is None and not shared["run_done"]:
         time.sleep(0.05)
     pid = shared["pid"]
 
     captured = {}
     if pid:
-        # Poll fast for the modal error dialog; as soon as it appears, capture
-        # the dialog + VBE + code pane, then kill Excel to unblock the worker's
-        # blocked excel.Run. VBA's compile dialog ignores window-message clicks,
-        # so killing Excel is the only reliable unblock.
-        while time.time() < deadline and not dialog_captured["done"] and not shared["run_done"]:
+        while time.time() < deadline and not shared["run_done"]:
             windows = find_excel_windows(pid)
             if windows["dialogs"]:
-                dialog_hwnd, dialog_title, dialog_lines = windows["dialogs"][0]
-                captured["dialog_title"] = dialog_title
-                captured["dialog_lines"] = dialog_lines
-                captured["dialog_image"] = capture_window(
-                    dialog_hwnd, os.path.join(outdir, "dialog.png")
-                )
-                vbe_hwnd = windows["vbe"][0][0] if windows["vbe"] else None
-                if vbe_hwnd:
-                    captured["vbe_image"] = capture_window(
-                        vbe_hwnd, os.path.join(outdir, "vbe.png")
-                    )
-                    code_windows = find_code_windows(vbe_hwnd)
-                    if code_windows:
-                        code_hwnd, code_caption = code_windows[0]
-                        captured["code_caption"] = code_caption
-                        captured["module"] = module_from_caption(code_caption)
-                        captured["code_image"] = capture_window(
-                            code_hwnd, os.path.join(outdir, "vbe-code.png")
-                        )
-                kill_excel()
-                dialog_captured["done"] = True
+                live = capture_live(pid, outdir)
+                captured["dialog"] = live["dialog"]
+                captured["vbe"] = live["vbe"]
+                captured["code"] = live["code"]
+                captured["desktop"] = live["desktop"]
+                captured["dialog_title"] = live["dialog"]["title"] if live["dialog"] else None
+                captured["dialog_lines"] = live["dialog"]["lines"] if live["dialog"] else []
+                captured["module"] = live["code"]["module"] if live["code"] else None
+                kill_excel()  # VBA's compile dialog cannot be dismissed from outside; kill Excel to unblock
                 break
             time.sleep(0.05)
 
-    # Don't wait on the worker: if we killed Excel its excel.Run will raise on
-    # its own daemon thread. Proceed straight to OCR of whatever we captured.
     kill_excel()
 
     findings = []
     module = captured.get("module") or args.module
     sources = args.source or discover_sources(module)
-    if captured.get("code_image"):
-        findings.append(analyze_image(captured["code_image"], module, sources, outdir, "code"))
-    if not findings and captured.get("vbe_image"):
-        findings.append(analyze_image(captured["vbe_image"], module, sources, outdir, "vbe"))
+    if captured.get("code") and captured["code"].get("image"):
+        findings.append(
+            analyze_image(captured["code"]["image"], module, sources, outdir, "code")
+        )
+    if not findings and captured.get("vbe"):
+        vbe_img = captured["vbe"][0]["image"] if captured["vbe"] else None
+        if vbe_img:
+            findings.append(analyze_image(vbe_img, module, sources, outdir, "vbe"))
 
     dialog_lines = captured.get("dialog_lines") or []
     notes = []
     if captured.get("dialog_title"):
         notes.append(f"Dialog title: {captured['dialog_title']}")
-    if captured.get("code_caption"):
-        notes.append(f"Code window: {captured['code_caption']}")
+    if captured.get("code") and captured["code"].get("caption"):
+        notes.append(f"Code window: {captured['code']['caption']}")
+    if captured.get("desktop"):
+        notes.append(f"Desktop context captured: {os.path.basename(captured['desktop'])}")
     if shared.get("run_error"):
         notes.append(f"Macro raised: {shared['run_error'][:400]}")
     if shared.get("setup_error"):
         notes.append(f"VBE setup issue: {shared['setup_error']}")
-    if not captured.get("dialog_lines") and not captured.get("code_image"):
+    if not captured.get("dialog_lines") and not captured.get("code"):
         notes.append("No error dialog or VBE code window was captured before the timeout.")
 
     report_path = write_report(outdir, findings, dialog_lines, notes)
@@ -746,6 +787,153 @@ def cmd_collect(args):
     return 0
 
 
+def cmd_ocr_live(args):
+    """Attach to a running Excel and capture its live VBA UI + OCR."""
+    enable_dpi_awareness()
+    os.makedirs(OCR_ROOT, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    outdir = args.out or os.path.join(OCR_ROOT, f"live_{stamp}")
+    os.makedirs(outdir, exist_ok=True)
+
+    pid = args.pid
+    if not pid:
+        # Find the first Excel that has a visible dialog.
+        for proc in psutil.process_iter(["name", "pid"]):
+            if (proc.info["name"] or "").lower() != "excel.exe":
+                continue
+            windows = find_excel_windows(proc.info["pid"])
+            if windows["dialogs"]:
+                pid = proc.info["pid"]
+                break
+    if not pid:
+        print("no running Excel with a visible dialog found")
+        return 2
+
+    pythoncom.CoInitialize()
+    try:
+        captured = capture_live(pid, outdir)
+    finally:
+        pythoncom.CoUninitialize()
+
+    module = args.module
+    if captured.get("code") and captured["code"].get("module"):
+        module = captured["code"]["module"]
+    sources = args.source or discover_sources(module)
+
+    findings = []
+    if captured.get("code") and captured["code"].get("image"):
+        findings.append(analyze_image(captured["code"]["image"], module, sources, outdir, "code"))
+    if not findings and captured.get("vbe"):
+        vbe_img = captured["vbe"][0]["image"] if captured["vbe"] else None
+        if vbe_img:
+            findings.append(analyze_image(vbe_img, module, sources, outdir, "vbe"))
+
+    dialog = captured.get("dialog") or {}
+    dialog_lines = dialog.get("lines") or []
+    notes = []
+    if dialog.get("title"):
+        notes.append(f"Dialog title: {dialog['title']}")
+    if captured.get("code") and captured["code"].get("caption"):
+        notes.append(f"Code window: {captured['code']['caption']}")
+    if captured.get("desktop"):
+        notes.append(f"Desktop context captured: {os.path.basename(captured['desktop'])}")
+    captured_windows = captured.get("windows") or []
+    notes.append(f"Captured {len(captured_windows)} visible Excel/VBA windows")
+
+    report_path = write_report(outdir, findings, dialog_lines, notes)
+    print(f"dialog: {' | '.join(dialog_lines) if dialog_lines else '(none)'}")
+    for finding in findings:
+        for band in finding.get("bands", []):
+            best = band.get("best")
+            if not best:
+                continue
+            print(f"band {band['index']} OCR: {best['text']}")
+            if best["matches"]:
+                top = best["matches"][0]
+                print(f"  match {top['score']:.3f}: {top['file']}:{top['line']} — {top['source']}")
+    print(f"report: {os.path.relpath(report_path, ROOT)}")
+    return 0
+
+
+def cmd_ocr_all(args):
+    """Batch-OCR every screenshot already under log\\ocr\\ into one combined report.
+
+    Default is a fast summary of existing report.json files (no re-OCR). Pass
+    --refresh to re-run the (improved) OCR pipeline on every captured code pane.
+    """
+    enable_dpi_awareness()
+    if not os.path.isdir(OCR_ROOT):
+        print(f"no {OCR_ROOT} directory yet")
+        return 2
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    outdir = args.out or os.path.join(OCR_ROOT, f"all_{stamp}")
+    os.makedirs(outdir, exist_ok=True)
+
+    findings = []
+    dialog_lines = []
+    notes = []
+    dirs = sorted(
+        [d for d in os.listdir(OCR_ROOT) if os.path.isdir(os.path.join(OCR_ROOT, d))],
+        reverse=True,
+    )
+    for name in dirs[:50]:
+        d = os.path.join(OCR_ROOT, name)
+        report_json = os.path.join(d, "report.json")
+        report_md = os.path.join(d, "report.md")
+        code_img = None
+        for cand in ("vbe-code.png", "dialog.png"):
+            p = os.path.join(d, cand)
+            if os.path.isfile(p):
+                code_img = p
+                break
+
+        if args.refresh and code_img and code_img.endswith("vbe-code.png"):
+            module = args.module
+            sources = args.source or discover_sources(module)
+            f = analyze_image(code_img, module, sources, outdir, f"batch-{name}")
+            f["label"] = f"batch {name}"
+            findings.append(f)
+        elif os.path.isfile(report_json):
+            try:
+                with open(report_json, "r", encoding="utf-8", errors="replace") as h:
+                    payload = json.load(h)
+                findings.append(
+                    {
+                        "label": f"batch {name}",
+                        "image": os.path.relpath(d, ROOT),
+                        "module": payload.get("exact", {}).get("module")
+                        or (payload.get("findings") or [{}])[0].get("module"),
+                        "bands": [],
+                        "full_pane": [],
+                        "_summary": payload,
+                    }
+                )
+                for item in payload.get("dialog", []):
+                    dialog_lines.append(f"{name}: {item}")
+                for note in payload.get("notes", []):
+                    notes.append(f"{name}: {note}")
+            except (OSError, ValueError):
+                pass
+        if os.path.isfile(report_md):
+            try:
+                with open(report_md, "r", encoding="utf-8", errors="replace") as h:
+                    head = h.read(500)
+                for line in head.splitlines():
+                    if "Variable not defined" in line or "Compile error" in line:
+                        dialog_lines.append(f"{name}: {line.strip()}")
+            except OSError:
+                pass
+
+    if args.refresh:
+        notes.append(f"Re-OCR'd {len(findings)} code panes across {len(dirs)} capture directories")
+    else:
+        notes.append(f"Fast-summarized {len(dirs)} capture directories (no re-OCR); use --refresh to re-OCR")
+    report_path = write_report(outdir, findings, dialog_lines, notes)
+    print(f"batch directories: {len(dirs)}")
+    print(f"report: {os.path.relpath(report_path, ROOT)}")
+    return 0
+
+
 def cmd_analyze(args):
     enable_dpi_awareness()
     image_path = args.image
@@ -758,8 +946,6 @@ def cmd_analyze(args):
     outdir = args.out or os.path.join(OCR_ROOT, stamp)
     os.makedirs(outdir, exist_ok=True)
     module = args.module
-    if not module:
-        module = module_from_caption(win32gui.GetWindowText(0))
     sources = args.source or discover_sources(module)
     findings = [analyze_image(image_path, module, sources, outdir, "analyze")]
     report_path = write_report(outdir, findings, args.dialog or [], [])
@@ -779,6 +965,22 @@ def main():
     collect.add_argument("--timeout", type=int, default=25)
     collect.add_argument("--keep-probe", action="store_true")
 
+    live = subparsers.add_parser("ocr-live", help="Attach to running Excel and capture live VBA UI.")
+    live.add_argument("--pid", type=int, help="Excel process id (auto-detected if omitted).")
+    live.add_argument("--module")
+    live.add_argument("--source", nargs="*")
+    live.add_argument("--out")
+
+    allcmd = subparsers.add_parser("ocr-all", help="Batch-OCR all screenshots under log\\ocr\\.")
+    allcmd.add_argument("--module")
+    allcmd.add_argument("--source", nargs="*")
+    allcmd.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Re-run the OCR pipeline on every captured code pane (slower).",
+    )
+    allcmd.add_argument("--out")
+
     analyze = subparsers.add_parser("analyze", help="OCR an existing screenshot.")
     analyze.add_argument("image")
     analyze.add_argument("--module")
@@ -789,6 +991,10 @@ def main():
     args = parser.parse_args()
     if args.command == "collect":
         return cmd_collect(args)
+    if args.command == "ocr-live":
+        return cmd_ocr_live(args)
+    if args.command == "ocr-all":
+        return cmd_ocr_all(args)
     if args.command == "analyze":
         return cmd_analyze(args)
     parser.print_help()

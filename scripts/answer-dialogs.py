@@ -9,7 +9,9 @@ import argparse
 import ctypes
 import ctypes.wintypes as wintypes
 import os
+import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 
@@ -60,6 +62,80 @@ def win_class(hwnd):
     buf = ctypes.create_unicode_buffer(256)
     GetClassNameW(hwnd, buf, 256)
     return buf.value
+
+
+def dialog_child_texts(hwnd):
+    texts = []
+
+    def cb(child, _):
+        try:
+            cls = win_class(child)
+            text = win_text(child).strip()
+        except Exception:
+            return True
+        if text and cls in ("Static", "Button", "Edit", "SysLink"):
+            if text not in texts:
+                texts.append(text)
+        return True
+
+    try:
+        EnumChildWindows(hwnd, EnumProc(cb), 0)
+    except Exception:
+        pass
+    return texts
+
+
+def is_compile_error_dialog(hwnd):
+    title = win_text(hwnd)
+    if "Compile error" in title:
+        return True
+    return any("Compile error" in t or "Variable not defined" in t for t in dialog_child_texts(hwnd))
+
+
+_project_root = os.path.dirname(os.path.abspath(__file__))
+_parent_root = os.path.dirname(_project_root)
+_vba_ocr = os.path.join(_project_root, "scripts", "vba-error-ocr.py")
+_ocr_lock = threading.Lock()
+_ocr_in_flight = False
+
+
+def capture_compile_error_live(hwnd):
+    """Snapshot the live VBA UI behind a compile-error dialog (non-blocking)."""
+    global _ocr_in_flight
+    with _ocr_lock:
+        if _ocr_in_flight:
+            return
+        _ocr_in_flight = True
+
+    def worker():
+        try:
+            pid = wintypes.DWORD()
+            GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            subprocess.run(
+                [
+                    sys.executable,
+                    _vba_ocr,
+                    "ocr-live",
+                    "--pid",
+                    str(pid.value),
+                    "--out",
+                    os.path.join(_parent_root, "log", "ocr", f"live-{int(time.time())}"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=45,
+            )
+        except Exception as exc:
+            try:
+                with open(os.path.join(_parent_root, "log", "answer-dialogs.log"), "a", encoding="utf-8") as f:
+                    f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | live OCR capture failed: {exc}\n")
+            except Exception:
+                pass
+        finally:
+            with _ocr_lock:
+                _ocr_in_flight = False
+
+    threading.Thread(target=worker, daemon=True).start()
 
 
 def find_child(hwnd, cls_name):
@@ -243,6 +319,9 @@ try:
                 log("accepted default output folder")
             else:
                 time.sleep(0.3)
+                if is_compile_error_dialog(h):
+                    capture_compile_error_live(h)
+                    log(f"captured live VBA UI for compile error (title={title})")
                 SetForegroundWindow(h)
                 key_down_once(0x0D)
                 answered[k] = 1
