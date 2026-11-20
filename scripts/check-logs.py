@@ -115,6 +115,32 @@ def scan_logs(findings, latest_only=False):
                     continue
                 if line_ts < cutoff:
                     skip_idx.add(i)
+        # For compile-test.log only the latest probe result is meaningful; older
+        # FAILED results from earlier testing runs are stale and must not fail
+        # the current pipeline when the latest run already passed.
+        if path.name == "compile-test.log":
+            last_result_idx = None
+            last_result_ok = False
+            for i, line in enumerate(lines, 1):
+                if "RESULT: COMPILE OK" in line:
+                    last_result_idx = i
+                    last_result_ok = True
+                elif "RESULT: COMPILE FAILED" in line:
+                    last_result_idx = i
+                    last_result_ok = False
+            if last_result_ok:
+                # Latest compile passed: skip all historical lines in this log.
+                skip_idx.update(range(1, len(lines) + 1))
+            elif last_result_idx is not None:
+                # Latest compile failed: only keep the failing result block,
+                # skip everything before the "Compile test started" of that block.
+                started_idx = None
+                for i in range(last_result_idx, 0, -1):
+                    if "Compile test started" in lines[i - 1]:
+                        started_idx = i
+                        break
+                if started_idx is not None:
+                    skip_idx.update(range(1, started_idx))
 
         for i, line in enumerate(lines, 1):
             if i in skip_idx:

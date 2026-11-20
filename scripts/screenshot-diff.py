@@ -91,7 +91,7 @@ def refresh_baseline(threshold: int) -> int:
         with Image.open(src) as im:
             im.save(dst)
         written += 1
-    log(f"Baseline refreshed: {written} screenshots → {BASELINE}")
+        log(f"Baseline refreshed: {written} screenshots -> {BASELINE}")
     return 0
 
 
