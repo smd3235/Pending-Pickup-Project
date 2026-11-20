@@ -19,9 +19,9 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -30,6 +30,11 @@ try:
 except ImportError as exc:
     print(f"FAILED: screenshot-diff requires imagehash + Pillow: {exc}")
     sys.exit(2)
+
+try:
+    import git
+except ImportError:
+    git = None
 
 ROOT = Path(__file__).resolve().parent.parent
 SCREENSHOTS = ROOT / "documentation" / "screenshots"
@@ -40,13 +45,28 @@ HASH_SIZE = 16
 
 
 def _ts() -> str:
-    from datetime import datetime
-
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def log(msg: str) -> None:
     print(f"{_ts()} | {msg}")
+
+
+def git_repo():
+    if git is None:
+        return None
+    try:
+        return git.Repo(ROOT, search_parent_directories=True)
+    except Exception:
+        return None
+
+
+def working_tree_dirty() -> bool:
+    """True if there are uncommitted changes anywhere in the repo."""
+    repo = git_repo()
+    if repo is None:
+        return False
+    return bool(repo.is_dirty(untracked_files=True))
 
 
 def img_hash(path: Path):
@@ -61,7 +81,7 @@ def img_hash(path: Path):
 def hamming(a, b) -> int:
     if a is None or b is None:
         return 999
-    return int(a - b)  # imagehash supports __sub__ → hamming distance
+    return int(a - b)  # imagehash supports __sub__ -> hamming distance
 
 
 def capture_current() -> dict[str, object]:
@@ -82,16 +102,13 @@ def refresh_baseline(threshold: int) -> int:
     BASELINE.mkdir(parents=True, exist_ok=True)
     current = capture_current()
     written = 0
-    for name, h in current.items():
+    for name, _h in current.items():
         src = SCREENSHOTS / name
         dst = BASELINE / name
-        # Re-encode from source so baseline is a clean copy of current.
-        from PIL import Image
-
         with Image.open(src) as im:
             im.save(dst)
         written += 1
-        log(f"Baseline refreshed: {written} screenshots -> {BASELINE}")
+    log(f"Baseline refreshed: {written} screenshots -> {BASELINE}")
     return 0
 
 
@@ -146,6 +163,14 @@ def main() -> int:
         help="Re-save the baseline from current screenshots and exit 0.",
     )
     args = ap.parse_args()
+
+    # Git-awareness: warn if the working tree has uncommitted changes so the
+    # baseline comparison isn't done against a stale/mixed state.
+    repo = git_repo()
+    if repo is not None and repo.is_dirty(untracked_files=True):
+        log("WARNING: working tree has uncommitted changes; baseline comparison "
+            "may be against a stale state. Commit screenshots first, or use "
+            "--refresh-baseline.")
 
     if args.refresh_baseline:
         return refresh_baseline(args.threshold)
