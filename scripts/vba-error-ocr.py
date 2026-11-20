@@ -619,6 +619,37 @@ def write_report(outdir, findings, dialog_lines, notes):
     return report_path
 
 
+def capture_excel_context():
+    """Best-effort COM attach to the running Excel to record where the error
+    happened (workbook, sheet, selection). Wrapped in try/except because a
+    modal dialog can block COM or another Excel instance may be active."""
+    ctx = {}
+    try:
+        excel = win32com.client.GetActiveObject("Excel.Application")
+        try:
+            wb = excel.ActiveWorkbook
+            ctx["workbook"] = wb.Name if wb else None
+        except Exception:
+            ctx["workbook"] = None
+        try:
+            ws = excel.ActiveSheet
+            ctx["sheet"] = ws.Name if ws else None
+        except Exception:
+            ctx["sheet"] = None
+        try:
+            sel = excel.Selection
+            ctx["selection"] = sel.Address if sel else None
+        except Exception:
+            ctx["selection"] = None
+        try:
+            ctx["visible"] = bool(excel.Visible)
+        except Exception:
+            ctx["visible"] = None
+    except Exception:
+        ctx["error"] = "COM attach failed (modal dialog may block Excel)"
+    return ctx
+
+
 def capture_live(pid, outdir):
     """Attach to a running Excel and capture every visible VBA window.
 
@@ -626,7 +657,14 @@ def capture_live(pid, outdir):
     """
     os.makedirs(outdir, exist_ok=True)
     windows = find_excel_windows(pid)
-    captured = {"windows": windows["all"], "dialog": None, "vbe": [], "code": None, "desktop": None}
+    captured = {
+        "windows": windows["all"],
+        "dialog": None,
+        "vbe": [],
+        "code": None,
+        "desktop": None,
+        "context": capture_excel_context(),
+    }
 
     if windows["dialogs"]:
         d = windows["dialogs"][0]
@@ -731,6 +769,7 @@ def cmd_collect(args):
                 captured["vbe"] = live["vbe"]
                 captured["code"] = live["code"]
                 captured["desktop"] = live["desktop"]
+                captured["context"] = live["context"]
                 captured["dialog_title"] = live["dialog"]["title"] if live["dialog"] else None
                 captured["dialog_lines"] = live["dialog"]["lines"] if live["dialog"] else []
                 captured["module"] = live["code"]["module"] if live["code"] else None
@@ -760,6 +799,17 @@ def cmd_collect(args):
         notes.append(f"Code window: {captured['code']['caption']}")
     if captured.get("desktop"):
         notes.append(f"Desktop context captured: {os.path.basename(captured['desktop'])}")
+    ctx = captured.get("context") or {}
+    ctx_parts = []
+    for key in ("workbook", "sheet", "selection", "visible"):
+        if key in ctx and ctx[key] is not None:
+            ctx_parts.append(f"{key}={ctx[key]}")
+    if ctx_parts:
+        notes.append("Excel context: " + ", ".join(ctx_parts))
+    elif ctx.get("error"):
+        notes.append(f"Excel context: {ctx['error']}")
+    else:
+        notes.append("Excel context: attempted (COM blocked by modal dialog or no active workbook)")
     if shared.get("run_error"):
         notes.append(f"Macro raised: {shared['run_error'][:400]}")
     if shared.get("setup_error"):
@@ -839,6 +889,17 @@ def cmd_ocr_live(args):
         notes.append(f"Desktop context captured: {os.path.basename(captured['desktop'])}")
     captured_windows = captured.get("windows") or []
     notes.append(f"Captured {len(captured_windows)} visible Excel/VBA windows")
+    ctx = captured.get("context") or {}
+    ctx_parts = []
+    for key in ("workbook", "sheet", "selection", "visible"):
+        if key in ctx and ctx[key] is not None:
+            ctx_parts.append(f"{key}={ctx[key]}")
+    if ctx_parts:
+        notes.append("Excel context: " + ", ".join(ctx_parts))
+    elif ctx.get("error"):
+        notes.append(f"Excel context: {ctx['error']}")
+    else:
+        notes.append("Excel context: attempted (COM blocked by modal dialog or no active workbook)")
 
     report_path = write_report(outdir, findings, dialog_lines, notes)
     print(f"dialog: {' | '.join(dialog_lines) if dialog_lines else '(none)'}")

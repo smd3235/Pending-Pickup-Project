@@ -9,6 +9,7 @@ import argparse
 import ctypes
 import ctypes.wintypes as wintypes
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -85,11 +86,20 @@ def dialog_child_texts(hwnd):
     return texts
 
 
-def is_compile_error_dialog(hwnd):
+def is_vba_error_dialog(hwnd):
     title = win_text(hwnd)
-    if "Compile error" in title:
+    texts = dialog_child_texts(hwnd)
+    if "error" in title.lower():
         return True
-    return any("Compile error" in t or "Variable not defined" in t for t in dialog_child_texts(hwnd))
+    return any("error" in t.lower() for t in texts)
+
+
+def parse_error_number(texts):
+    for t in texts:
+        m = re.search(r"error\s*(?:\(\s*'?(\d+)'?\s*\)|:\s*(\d+))", t, re.IGNORECASE)
+        if m:
+            return m.group(1) or m.group(2)
+    return None
 
 
 _project_root = os.path.dirname(os.path.abspath(__file__))
@@ -99,8 +109,8 @@ _ocr_lock = threading.Lock()
 _ocr_in_flight = False
 
 
-def capture_compile_error_live(hwnd):
-    """Snapshot the live VBA UI behind a compile-error dialog (non-blocking)."""
+def capture_vba_error_live(hwnd):
+    """Snapshot the live VBA UI behind any VBA error dialog (non-blocking)."""
     global _ocr_in_flight
     with _ocr_lock:
         if _ocr_in_flight:
@@ -319,12 +329,14 @@ try:
                 log("accepted default output folder")
             else:
                 time.sleep(0.3)
-                if is_compile_error_dialog(h):
-                    capture_compile_error_live(h)
-                    log(f"captured live VBA UI for compile error (title={title})")
+                texts = dialog_child_texts(h)
+                err_no = parse_error_number(texts)
+                if is_vba_error_dialog(h):
+                    capture_vba_error_live(h)
+                    log(f"captured live VBA UI for VBA error {err_no or '?'} (title={title})")
                 SetForegroundWindow(h)
                 key_down_once(0x0D)
                 answered[k] = 1
-                log(f"dismissed dialog (class={cls}): {title}")
+                log(f"dismissed dialog (class={cls}): {title}" + (f" | error={err_no}" if err_no else ""))
 finally:
     log("answerer stopped")
