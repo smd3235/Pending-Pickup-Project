@@ -159,11 +159,20 @@ def main() -> int:
     log_pipeline("=== PIPELINE START ===")
     log(f"Pipeline start timeout={timeout}s screenshot_timeout={SCREENSHOT_TIMEOUT}s")
 
-    # Fast, no-Excel quality gates first (lint + unit tests + VBA static analysis).
+    # Fast, no-Excel quality gates first (deps + lint + unit tests + VBA static analysis).
+    run_step("deps (pip check)", [PYTHON, "-m", "pip", "check"], timeout=timeout)
     run_step("lint (ruff)", [PYTHON, "-m", "ruff", "check", "--select", "E9,F821,F722", "scripts/", "tests/"], timeout=timeout)
     run_step("unit tests (pytest)", [PYTHON, "-m", "pytest", "tests/", "-q"], timeout=timeout)
     if (SCRIPTS / "vba-analyze.py").exists():
         run_step("vba static analysis (vba-analyze.py)", [PYTHON, str(SCRIPTS / "vba-analyze.py")], timeout=timeout)
+    if (SCRIPTS / "screenshot-diff.py").exists():
+        run_step(
+            "types (mypy)",
+            [PYTHON, "-m", "mypy", "--follow-imports=skip",
+             "scripts/vba_ocr_helpers.py", "scripts/screenshot-diff.py", "scripts/vba-analyze.py",
+             "scripts/pipeline.py", "scripts/test-compile.py", "scripts/vba-error-ocr.py", "tests/"],
+            timeout=timeout,
+        )
 
     if not args.skip_compile:
         run_step("compile (test-compile.py)", [PYTHON, str(SCRIPTS / "test-compile.py")], timeout=timeout)
@@ -194,6 +203,16 @@ def main() -> int:
             print("FAILED: snapshot-report.py missing", file=sys.stderr)
             print_log_tails()
             sys.exit(1)
+
+    # Perceptual-hash regression check on regenerated screenshots.
+    if (SCRIPTS / "screenshot-diff.py").exists() and not args.skip_snapshots:
+        run_step(
+            "screenshot-regression (screenshot-diff.py)",
+            [PYTHON, str(SCRIPTS / "screenshot-diff.py")],
+            timeout=timeout,
+            kill_excel=False,
+            screenshot_step=False,
+        )
 
     if not args.skip_scan:
         # Fast, no-Excel scans: keep within 30s each

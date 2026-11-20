@@ -1,0 +1,14 @@
+# Pending Pickup Report Builder — pinned direct dependencies
+# Regenerate with: python -m pip freeze | grep -E "^(Pillow|pywin32|oletools|pytest|ruff|black|mypy|ImageHash|GitPython|openpyxl|psutil|rich)=="
+Pillow==12.3.0
+pywin32==312
+oletools==0.60.2
+pytest==9.1.1
+ruff==0.16.10
+black==26.10.1
+mypy==2.4.1
+ImageHash==4.3.2
+GitPython==3.2.1
+openpyxl==3.1.5
+psutil==7.2.2
+rich==15.0.0
