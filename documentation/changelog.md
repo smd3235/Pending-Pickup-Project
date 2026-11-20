@@ -5,6 +5,21 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-20
 
+- **14:05:00** — Integrated newly installed tooling into the project and pipeline, and pinned dependencies in `requirements.txt`.
+  - `requirements.txt` (new) — pinned direct dependencies (Pillow, pywin32, types-psutil, types-pywin32, oletools, pytest, ruff, black, mypy, ImageHash, GitPython, openpyxl, psutil, rich).
+  - `scripts/mypy.ini` (new) — mypy config with lenient rules for legacy COM-heavy scripts (`--follow-imports=skip` on owned files).
+  - `scripts/screenshot-diff.py` (new) — perceptual-hash (imagehash) screenshot regression check for `documentation/screenshots/`; creates/compares against `documentation/screenshots/_baseline/`, fails the pipeline on regressions (>5 hamming distance), `--refresh-baseline` to re-establish.
+  - `scripts/pipeline.py` — added quality-gate steps: `deps (pip check)`, `types (mypy --follow-imports=skip)`, `screenshot-regression (screenshot-diff.py)` after snapshot-regeneration. Timeout raised from 30s to 120s per non-screenshot step.
+  - `scripts/check-logs.py` — `compile-test.log` now only reports the latest probe result (older FAILED results from prior testing runs are skipped as stale), preventing false pipeline failures.
+  - `scripts/vba-analyze.py` — static VBA analysis via oletools: macro presence, VBA stomping, XLM macros, suspicious keyword hits.
+  - `scripts/vba_ocr_helpers.py` (new) — dependency-light shared OCR helpers (normalize, snap_to_source, detect_bands, flatten_selection, preprocess_variants, dialog_child_texts) with lazy PIL import.
+  - `tests/` (new) — pytest suite: `tests/conftest.py`, `tests/test_helpers.py`, `tests/test_cli.py` (11 tests, ~0.4s, no Excel).
+  - `scripts/test-compile.py` — guard `parse_args()` under pytest import; removed unused vars.
+  - `documentation/README.md` — updated timeout & validation policy (120s per step).
+  - `documentation/AGENTS.md` — documented new scripts and tests/ directory.
+
+## 2026-11-20
+
 - **08:00:00** — Raised per-step pipeline timeout from 30s to 120s (`DEFAULT_TIMEOUT` in `scripts\excel_guard.py`; `scripts\pipeline.py`) so VBA compile, pytest, ruff, and VBA static-analysis steps have a realistic budget instead of timing out mid-task. Screenshot/export steps remain capped at 120s. Non-screenshot steps no longer hard-cap at 30s.
   - `scripts/pipeline.py` — removed hard `--timeout` cap; added quality-gate steps: `lint (ruff)`, `unit tests (pytest)`, `vba static analysis (vba-analyze.py)`.
   - `scripts/vba-analyze.py` (new) — oletools-based static VBA analysis of `Pending Pickup Template.xlsm`: reports macro presence, VBA stomping (source/p-code mismatch), XLM (Excel 4.0) macros, and suspicious keyword hits (Shell/CreateObject/Environ/etc.).

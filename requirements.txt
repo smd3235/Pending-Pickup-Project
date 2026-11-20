@@ -2,6 +2,8 @@
 # Regenerate with: python -m pip freeze | grep -E "^(Pillow|pywin32|oletools|pytest|ruff|black|mypy|ImageHash|GitPython|openpyxl|psutil|rich)=="
 Pillow==12.3.0
 pywin32==312
+types-psutil==7.2.2.20261111
+types-pywin32==312.0.0.20261104
 oletools==0.60.2
 pytest==9.1.1
 ruff==0.16.10
