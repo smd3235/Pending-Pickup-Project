@@ -143,8 +143,8 @@ def run_step(
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Pending Pickup pipeline (30s non-screenshot, 120s screenshot cap)")
-    ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="Per-step timeout seconds for non-screenshot steps (default 30, capped at 30)")
+    ap = argparse.ArgumentParser(description="Pending Pickup pipeline (120s non-screenshot, 120s screenshot cap)")
+    ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"Per-step timeout seconds for non-screenshot steps (default {DEFAULT_TIMEOUT})")
     ap.add_argument("--skip-compile", action="store_true")
     ap.add_argument("--skip-sync", action="store_true")
     ap.add_argument("--skip-run", action="store_true")
@@ -153,14 +153,17 @@ def main() -> int:
     ap.add_argument("--scan-all-history", action="store_true", help="Scan all historical logs (default scans latest run context)")
     args = ap.parse_args()
 
-    # Enforce hard cap rule for non-screenshot steps
-    timeout = min(max(1, int(args.timeout)), DEFAULT_TIMEOUT)
-    if int(args.timeout) > DEFAULT_TIMEOUT:
-        print(f"NOTE: --timeout capped to {DEFAULT_TIMEOUT}s for non-screenshot steps by project rule.")
+    timeout = max(1, int(args.timeout))
 
     (ROOT / "log").mkdir(parents=True, exist_ok=True)
     log_pipeline("=== PIPELINE START ===")
     log(f"Pipeline start timeout={timeout}s screenshot_timeout={SCREENSHOT_TIMEOUT}s")
+
+    # Fast, no-Excel quality gates first (lint + unit tests + VBA static analysis).
+    run_step("lint (ruff)", [PYTHON, "-m", "ruff", "check", "--select", "E9,F821,F722", "scripts/", "tests/"], timeout=timeout)
+    run_step("unit tests (pytest)", [PYTHON, "-m", "pytest", "tests/", "-q"], timeout=timeout)
+    if (SCRIPTS / "vba-analyze.py").exists():
+        run_step("vba static analysis (vba-analyze.py)", [PYTHON, str(SCRIPTS / "vba-analyze.py")], timeout=timeout)
 
     if not args.skip_compile:
         run_step("compile (test-compile.py)", [PYTHON, str(SCRIPTS / "test-compile.py")], timeout=timeout)

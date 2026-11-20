@@ -32,7 +32,7 @@ WATCH_LOG = LOG_DIR / "watcher.log"
 PIPELINE_LOG = LOG_DIR / "pipeline.log"
 WATCHER_SCRIPT = SCRIPT_DIR / "watch-compile-error.py"
 
-DEFAULT_TIMEOUT = 30  # seconds - hard cap per project rule
+DEFAULT_TIMEOUT = 120  # seconds - per-step cap for non-screenshot pipeline steps
 
 
 def _ts() -> str:

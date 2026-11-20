@@ -36,6 +36,16 @@ import win32gui
 import win32process
 from PIL import Image, ImageFilter, ImageGrab, ImageOps
 
+from vba_ocr_helpers import (
+    detect_bands,
+    flatten_selection,
+    load_sources,
+    normalize,
+    preprocess_variants,
+    snap_to_source,
+    discover_sources,
+)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMP_DIR = os.path.join(ROOT, "scripts", "temp")
 LOG_DIR = os.path.join(ROOT, "log")
@@ -276,92 +286,6 @@ def module_from_caption(caption):
     match = re.search(r" - (\w+) \(Code\)\s*$", caption or "")
     return match.group(1) if match else None
 
-
-def detect_bands(img, min_run=30, max_bands=6):
-    width, height = img.size
-    pixels = img.load()
-    rows = []
-    for y in range(height):
-        counts = {}
-        for x in range(0, width, 2):
-            r, g, b = pixels[x, y][:3]
-            if r > 235 and g > 235 and b > 235:
-                continue
-            if abs(r - g) < 18 and abs(g - b) < 18 and (r > 90 or r < 40):
-                continue
-            counts[(r, g, b)] = counts.get((r, g, b), 0) + 1
-        if not counts:
-            continue
-        color, count = max(counts.items(), key=lambda item: item[1])
-        if count * 2 >= min_run and (max(color) - min(color) >= 30 or sum(color) < 300):
-            rows.append((y, color, count * 2))
-    bands = []
-    for y, color, count in rows:
-        if bands and y - bands[-1]["y1"] <= 3:
-            bands[-1]["y1"] = y
-            bands[-1]["pixels"] += count
-            bands[-1]["colors"][color] = bands[-1]["colors"].get(color, 0) + count
-        else:
-            bands.append({"y0": y, "y1": y, "pixels": count, "colors": {color: count}})
-    result = []
-    for band in bands:
-        band_height = band["y1"] - band["y0"] + 1
-        if band_height < 5 or band_height > 220:
-            continue
-        color = max(band["colors"].items(), key=lambda item: item[1])[0]
-        xs = []
-        for y in range(band["y0"], band["y1"] + 1):
-            for x in range(0, width, 2):
-                if pixels[x, y][:3] == color:
-                    xs.append(x)
-        if not xs:
-            continue
-        result.append(
-            {
-                "y0": band["y0"],
-                "y1": band["y1"],
-                "x0": max(0, min(xs) - 16),
-                "x1": min(width, max(xs) + 32),
-                "height": band_height,
-                "color": color,
-                "pixels": band["pixels"],
-            }
-        )
-    result.sort(key=lambda item: item["pixels"], reverse=True)
-    return result[:max_bands]
-
-
-def flatten_selection(img, color, tolerance=90):
-    width, height = img.size
-    pixels = img.load()
-    flat = Image.new("L", (width, height), 255)
-    target = flat.load()
-    for y in range(height):
-        for x in range(width):
-            r, g, b = pixels[x, y][:3]
-            distance = abs(r - color[0]) + abs(g - color[1]) + abs(b - color[2])
-            target[x, y] = 255 if distance < tolerance else 0
-    return flat
-
-
-def preprocess_variants(img, scale):
-    width, height = img.size
-    resized = img.resize((width * scale, height * scale), Image.LANCZOS)
-    gray = ImageOps.autocontrast(resized.convert("L"))
-    sharp = gray.filter(ImageFilter.SHARPEN)
-    binary = sharp.point(lambda value: 255 if value > 150 else 0)
-    smooth_binary = binary.filter(ImageFilter.MedianFilter(3))
-    unsharp = gray.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
-    inverted = ImageOps.invert(gray)
-    return {
-        "gray": sharp,
-        "binarized": binary,
-        "smooth-binary": smooth_binary,
-        "unsharp": unsharp,
-        "inverted-gray": inverted,
-    }
-
-
 def ocr_words(path):
     proc = subprocess.run(
         [
@@ -394,67 +318,6 @@ def ocr_words(path):
         elif kind == "WORD":
             words.append(item)
     return {"lines": lines, "words": words, "stderr": proc.stderr.strip(), "returncode": proc.returncode}
-
-
-def normalize(text):
-    text = re.sub(r"^\s*\d+\s+", "", text or "")
-    text = text.lower()
-    text = re.sub(r"[^a-z0-9_ ]+", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def load_sources(paths):
-    entries = []
-    for path in paths:
-        if not path or not os.path.isfile(path):
-            continue
-        try:
-            with open(path, "r", encoding="utf-8", errors="replace") as handle:
-                for number, line in enumerate(handle, start=1):
-                    entries.append((path, number, line.rstrip("\r\n")))
-        except OSError:
-            continue
-    return entries
-
-
-def discover_sources(module):
-    vba_dir = os.path.join(ROOT, "vba")
-    if module:
-        candidate = os.path.join(vba_dir, f"{module}.bas")
-        return [candidate] if os.path.isfile(candidate) else []
-    if os.path.isdir(vba_dir):
-        return [os.path.join(vba_dir, name) for name in sorted(os.listdir(vba_dir)) if name.lower().endswith(".bas")]
-    return []
-
-
-def snap_to_source(text, source_entries, top=3):
-    needle = normalize(text)
-    if len(needle) < 3 or not source_entries:
-        return []
-    needle_compact = needle.replace(" ", "")
-    scored = []
-    for path, number, source in source_entries:
-        haystack = normalize(source)
-        if len(haystack) < 3:
-            continue
-        ratio = difflib.SequenceMatcher(None, needle, haystack).ratio()
-        compact_ratio = difflib.SequenceMatcher(None, needle_compact, haystack.replace(" ", "")).ratio()
-        ratio = max(ratio, compact_ratio)
-        if needle in haystack and len(needle) >= 6:
-            ratio = max(ratio, 0.99)
-        scored.append((ratio, path, number, source))
-    scored.sort(key=lambda item: item[0], reverse=True)
-    matches = []
-    for ratio, path, number, source in scored[:top]:
-        matches.append(
-            {
-                "score": round(ratio, 3),
-                "file": os.path.relpath(path, ROOT),
-                "line": number,
-                "source": source.strip(),
-            }
-        )
-    return matches
 
 
 def analyze_image(image_path, module, source_paths, outdir, label):
@@ -781,7 +644,7 @@ def cmd_collect(args):
 
     findings = []
     module = captured.get("module") or args.module
-    sources = args.source or discover_sources(module)
+    sources = args.source or discover_sources(module, ROOT)
     if captured.get("code") and captured["code"].get("image"):
         findings.append(
             analyze_image(captured["code"]["image"], module, sources, outdir, "code")
@@ -868,7 +731,7 @@ def cmd_ocr_live(args):
     module = args.module
     if captured.get("code") and captured["code"].get("module"):
         module = captured["code"]["module"]
-    sources = args.source or discover_sources(module)
+    sources = args.source or discover_sources(module, ROOT)
 
     findings = []
     if captured.get("code") and captured["code"].get("image"):
@@ -950,7 +813,7 @@ def cmd_ocr_all(args):
 
         if args.refresh and code_img and code_img.endswith("vbe-code.png"):
             module = args.module
-            sources = args.source or discover_sources(module)
+            sources = args.source or discover_sources(module, ROOT)
             f = analyze_image(code_img, module, sources, outdir, f"batch-{name}")
             f["label"] = f"batch {name}"
             findings.append(f)
@@ -1007,7 +870,7 @@ def cmd_analyze(args):
     outdir = args.out or os.path.join(OCR_ROOT, stamp)
     os.makedirs(outdir, exist_ok=True)
     module = args.module
-    sources = args.source or discover_sources(module)
+    sources = args.source or discover_sources(module, ROOT)
     findings = [analyze_image(image_path, module, sources, outdir, "analyze")]
     report_path = write_report(outdir, findings, args.dialog or [], [])
     print(f"report: {os.path.relpath(report_path, ROOT)}")

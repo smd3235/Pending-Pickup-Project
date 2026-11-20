@@ -47,7 +47,11 @@ parser = argparse.ArgumentParser(description="Compile-test Pending_Pickup_Macro.
 parser.add_argument("--template", default=None)
 parser.add_argument("--timeout", type=int, default=25, help="Seconds to wait for the macro run.")
 parser.add_argument("--no-ocr", action="store_true", help="Skip OCR of captured error UI.")
-args = parser.parse_args()
+try:
+    args = parser.parse_args()
+except SystemExit:
+    # Imported under pytest (sys.argv holds pytest args); fall back to defaults.
+    args = parser.parse_args([])
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
@@ -267,7 +271,7 @@ def kill_excel():
 def ocr_image(image_path, module, sources, outdir, label):
     if not os.path.isfile(image_path):
         return []
-    proc = subprocess.run(
+    subprocess.run(
         [sys.executable, ocr_script, "analyze", image_path, "--module", module or "",
          "--source", *sources, "--out", outdir],
         capture_output=True, text=True, timeout=90,
@@ -343,7 +347,6 @@ def cmd_collect(template_path):
     wb = None
     pid = None
     run_error = None
-    run_done = False
 
     try:
         pythoncom.CoInitialize()
@@ -407,7 +410,6 @@ def cmd_collect(template_path):
 
         try:
             excel.Run("Probe")
-            run_done = True
         except Exception as e:
             run_error = str(e)
             log(f"Run call raised: {run_error}")
