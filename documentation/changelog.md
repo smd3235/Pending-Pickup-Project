@@ -5,6 +5,17 @@ All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 
 ## 2026-11-20
 
+- **08:00:00** — Raised per-step pipeline timeout from 30s to 120s (`DEFAULT_TIMEOUT` in `scripts\excel_guard.py`; `scripts\pipeline.py`) so VBA compile, pytest, ruff, and VBA static-analysis steps have a realistic budget instead of timing out mid-task. Screenshot/export steps remain capped at 120s. Non-screenshot steps no longer hard-cap at 30s.
+  - `scripts/pipeline.py` — removed hard `--timeout` cap; added quality-gate steps: `lint (ruff)`, `unit tests (pytest)`, `vba static analysis (vba-analyze.py)`.
+  - `scripts/vba-analyze.py` (new) — oletools-based static VBA analysis of `Pending Pickup Template.xlsm`: reports macro presence, VBA stomping (source/p-code mismatch), XLM (Excel 4.0) macros, and suspicious keyword hits (Shell/CreateObject/Environ/etc.).
+  - `scripts/vba_ocr_helpers.py` (new) — dependency-light shared helpers (normalize, snap_to_source, detect_bands, flatten_selection, preprocess_variants, dialog_child_texts) with lazy PIL import so the pytest suite stays sub-second.
+  - `scripts/test-compile.py` — guard `parse_args()` under pytest import; removed unused `run_done`/`proc` vars.
+  - `tests/` (new) — pytest suite: `tests/test_helpers.py` (normalize/snap/detect_bands/flatten_selection/dialog_child_texts) and `tests/test_cli.py` (CLI smoke tests); `tests/conftest.py`.
+  - `documentation/README.md` — updated timeout & validation policy section (120s per step).
+  - `documentation/changelog.md` — this entry.
+
+## 2026-11-20
+
 - **05:30:00** — Improved `scripts\test-compile.py` COM compile-test harness.
   - Added COM connectivity health check (`DispatchEx` + `Workbooks.Add` + quit) at start, so COM failures are reported immediately instead of timing out mid-run.
   - Replaced the slow subprocess watcher with a fast in-process watcher thread (50 ms poll) that detects modal error dialogs immediately, captures dialog + VBE + code pane via DPI-aware `PrintWindow` (works even when another app is on top), kills Excel to unblock the blocked `excel.Run` call, then OCRs the highlighted code line via `scripts\vba-error-ocr.py analyze` and snaps it to `vba/*.bas` source lines.

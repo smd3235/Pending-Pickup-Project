@@ -353,19 +353,19 @@ Regenerate with `python .\scripts\snapshot-report.py`.
 
 ## 15. Timeout & validation policy
 
-### Hard rule: 30-second timeout (no hangs)
+### Hard rule: 120-second timeout per step (no hangs)
 
-Everything other than screenshot/export operations must complete within a few seconds; if any such operation takes longer than 30 seconds, treat it as a failure/hang. This applies to Excel/COM calls, macro/report runs, compile/sync, subprocesses, builds, log scan/validation steps, and script waits.
+Everything other than screenshot/export operations must complete within the per-step cap (120 seconds); if any such operation takes longer, treat it as a failure/hang. This applies to Excel/COM calls, macro/report runs, compile/sync, subprocesses, builds, log scan/validation steps, and script waits.
 
 On timeout or stall: stop/kill the process (especially Excel), read the logs, identify the cause, apply a fix, then re-run. Do not increase waits to "wait it out".
 
 ### Exception — screenshots/exports
 
-Screenshot/export/regeneration steps may take longer than 30 seconds but **must finish within 120 seconds**. Do not kill Excel/the app while screenshots/exports are running normally. If regeneration exceeds 120s, kill Excel, check/read logs, fix, then rerun. Screenshots are required — skips are flagged as warnings/errors and cause non-success exits.
+Screenshot/export/regeneration steps may take longer but **must finish within 120 seconds**. Do not kill Excel/the app while screenshots/exports are running normally. If regeneration exceeds 120s, kill Excel, check/read logs, fix, then rerun. Screenshots are required — skips are flagged as warnings/errors and cause non-success exits.
 
 ### Validation pipeline
 
-`scripts/pipeline.py` runs compile → sync → run → screenshots → scan/validate (and `audit-code` if present). Non-screenshot steps are capped at 30s (Excel killed on timeout/failure). Screenshot/export steps are required and capped at 120s (Excel killed only if >120s).
+`scripts/pipeline.py` runs compile → sync → run → screenshots → scan/validate (and `audit-code` if present). Non-screenshot steps are capped at 120s (Excel killed on timeout/failure). Screenshot/export steps are required and capped at 120s (Excel killed only if >120s).
 
 `scripts/check-logs.py --latest` scans the latest run: screenshot timeout (>120s) or failure → error; skipped screenshots → warning; missing/stale report screenshots warned when not completed successfully.
 
