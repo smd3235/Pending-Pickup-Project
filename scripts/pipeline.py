@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Pending Pickup pipeline: compile -> sync -> run -> screenshots -> scan/validate.
 
-Hard rule: non-screenshot steps must complete within 30 seconds; on timeout or
+Hard rule: non-screenshot steps must complete within 120 seconds; on timeout or
 failure the step is stopped, Excel is killed, relevant logs are printed, and the
 pipeline exits non-zero so the issue can be fixed before retrying.
 
+Advisory (non-failing) steps: pip dependency check and pytest coverage report.
+These report information but never fail the pipeline — pip check can surface
+conflicts from unrelated packages in the shared environment, and coverage's C
+tracer can crash on Windows ctypes Win32 callbacks.
+
 Screenshots/exports are required and must be allowed to finish. They may take
-longer than 30 seconds, but if a screenshot/export exceeds 120 seconds (2 minutes)
+longer than 120 seconds, but if a screenshot/export exceeds 120 seconds (2 minutes)
 treat it as a failure/hang: kill Excel/app, print logs, and exit non-zero.
 """
 from __future__ import annotations

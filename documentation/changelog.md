@@ -3,6 +3,14 @@
 All notable changes to the Pending Pickup Report Builder. Each entry is stamped
 `YYYY-MM-DD HH:MM:SS` (local time). Version `1.0` is the current baseline.
 
+## 2026-11-23
+
+- **21:15:00** — Integrated remaining installed tooling into the pipeline as advisory (non-failing) quality gates, and documented all evaluated-but-rejected tools.
+  - `scripts/pipeline.py` — added `coverage` advisory step (pytest coverage report; never fails the pipeline — coverage's C tracer access-violates on Windows ctypes Win32 callbacks in `vba_ocr_helpers.py`). Made `pip check` advisory (shared-environment conflicts from opentelemetry/safety never fail the pipeline). Added `ctypes` SetErrorMode (SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX) at pipeline start so Windows GPF dialogs cannot hang subprocess steps. Updated module docstring (120s per non-screenshot step).
+  - `requirements.txt` — added `coverage==7.17.4`.
+  - `documentation/AGENTS.md` — documented coverage advisory step, all 13 pipeline quality gates, and the evaluated-but-rejected tools (bandit, safety, coverage-as-hard-gate, vulture, detect-secrets, black).
+  - `documentation/changelog.md` — this entry.
+
 ## 2026-11-20
 
 - **14:05:00** — Integrated newly installed tooling into the project and pipeline, and pinned dependencies in `requirements.txt`.

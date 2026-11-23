@@ -6,7 +6,7 @@ These rules must be followed for every code change, no exceptions.
 
 - **Python-first:** all file/script operations use Python (`python scripts\*.py`), never PowerShell. Do not use `powershell` for temp file creation/deletion, directory management, or any file manipulation — use Python scripts instead.
 - **Always commit and push to git after making changes.**
-- **Run full pipeline (`python scripts\pipeline.py`) before committing** — all 9 steps must pass (compile→sync→run→screenshots→scan/validate).
+- **Run full pipeline (`python scripts\pipeline.py`) before committing** — all quality-gate steps must pass (compile→sync→run→screenshots→scan/validate). Advisory steps (`pip check`, pytest coverage) report information but never fail the pipeline.
 - **Always update `documentation/changelog.md` with new entries.**
 - **Changelog entries must be newest to oldest.**
 - **All Markdown files, including agent instructions, must be stored in `documentation/`.** Do not create Markdown files in the project root.
@@ -67,7 +67,7 @@ Each entry must follow this format:
 - **Run `scripts\test-compile.py` after every VBA code change to verify compilation.**
 - **Run `scripts\sync_template.py` after compilation succeeds to update the template.**
 - **Run `scripts\run-report.py` to test full report generation.**
-- **Run `python -m pytest tests/ -q` (no Excel launched) to verify pure-Python helpers.**
+- **Run `python -m pytest tests/ -q` (no Excel launched) to verify pure-Python helpers.** Pytest coverage runs as an advisory pipeline step (`coverage report`) — it reports information but never fails the pipeline, because coverage's C tracer can crash on Windows ctypes Win32 callbacks in `vba_ocr_helpers.py`.
 - **Run `scripts\vba-analyze.py` to statically scan the template for macros, stomping, XLM, and suspicious keywords.**
 - **Check `macro-debug.log` for any errors after a run.**
 - **Check `log/answer-dialogs.log` for dialog handling issues.**
@@ -115,7 +115,7 @@ Each entry must follow this format:
 - `scripts\screenshot-diff.py` — Perceptual-hash (imagehash) screenshot regression check for `documentation/screenshots/`; compares against `documentation/screenshots/_baseline/` and fails the pipeline on regressions (>5 hamming distance). `--refresh-baseline` re-establishes the baseline from current screenshots.
 - `scripts\ocr-winrt.ps1` — Windows.Media.Ocr WinRT bridge used by `scripts\vba-error-ocr.py` (OCR engine only; all file/script work stays in Python).
 - `scripts\mypy.ini` — mypy config; pipeline runs `mypy --follow-imports=skip` on owned files.
-- `requirements.txt` — Pinned direct dependencies (Pillow, pywin32, types-psutil, types-pywin32, oletools, pytest, ruff, black, mypy, ImageHash, GitPython, openpyxl, psutil, rich).
+- `requirements.txt` — Pinned direct dependencies (Pillow, pywin32, types-psutil, types-pywin32, oletools, pytest, ruff, black, mypy, ImageHash, GitPython, openpyxl, psutil, rich, coverage).
 - `tests\` — pytest suite (no Excel launched): `tests/conftest.py`, `tests/test_helpers.py` (normalize/snap/detect_bands/flatten_selection/dialog_child_texts), `tests/test_cli.py` (CLI smoke tests). Runs in the pipeline as `unit tests (pytest)`.
 - `scripts\temp\` — Temporary scratch directory for agent inspection/debug scripts. **Never use shared temp folders** (e.g., `C:\Users\*\AppData\Local\Temp\kilo`) — other projects share them and will confuse or delete files. Create and clean up temp files inside `scripts\temp\`. Never leave temp scripts, logs, or extracted artifacts in shared temp folders — they will confuse other projects.
 - `documentation\view-logs.py` — Reorders every runtime `.log` and `.txt` file newest first with dated headers.
@@ -230,3 +230,28 @@ End If
 - **Never expose `.bas`, `scripts\sync_template.py`, `documentation/README.md`, `documentation/changelog.md`, or fake data to end users.**
 - **Template must be self-contained** — logo embedded, module imported, button installed.
 - **Registry settings must be pre-configured** — `CurrentFolder`, `PriorFolder`, `OutputFolder`.
+
+## 12. Pipeline Quality Gates & Evaluated Tools
+
+### Pipeline quality gates (run in order by `scripts\pipeline.py`)
+1. **deps (pip check)** — advisory only; reports shared-environment dependency conflicts (opentelemetry, safety, etc.) but never fails the pipeline.
+2. **lint (ruff)** — `ruff check --select E9,F821,F722 scripts/ tests/`; fails the pipeline on real bug categories (syntax, undefined names, forward-annotation errors).
+3. **unit tests (pytest)** — `pytest tests/ -q`; fails the pipeline on test failure. No Excel is launched.
+4. **coverage report** — advisory only; `coverage run -m pytest tests/` + `coverage report`. Never fails the pipeline — coverage's C tracer can crash on Windows ctypes Win32 callbacks (`vba_ocr_helpers.py:dialog_child_texts`), and that is expected.
+5. **vba static analysis (vba-analyze.py)** — oletools scan of the template for macros, stomping, XLM, suspicious keywords.
+6. **types (mypy)** — `mypy --follow-imports=skip` on owned scripts + tests.
+7. **compile (test-compile.py)** — injects a probe macro, runs it (forces full-project compile), captures any modal error dialog via PrintWindow, OCRs the highlighted code line, snaps to `vba/*.bas` sources.
+8. **sync (sync_template.py)** — re-imports .bas modules into the template.
+9. **run-report (run-report.py)** — full report generation, no screenshots.
+10. **snapshot-report** — regenerates all QA screenshots (required; 120s cap).
+11. **screenshot-regression (screenshot-diff.py)** — perceptual-hash compare of regenerated screenshots against `documentation/screenshots/_baseline/`; fails the pipeline on regressions (>5 hamming distance).
+12. **monitor-logs / analyze-trace / validate-report / check-logs** — fast log/report scans.
+13. **audit-code** — VBA code audit.
+
+### Tools evaluated but NOT integrated as pipeline gates
+- **bandit** — runs, but 209 Low-severity findings are inherent to this Windows COM automation project (legitimate `try/except: pass` for COM error handling, `subprocess` for PowerShell OCR/taskkill). Would fail the pipeline on noise, not real problems.
+- **safety** — crashes (`TypeError: 'Timeout' object`); requires network/auth to the safety DB, unavailable here.
+- **coverage** — used as an **advisory** step only (see gate #4). Its C tracer access-violates on Windows ctypes Win32 callbacks, so it cannot be a hard gate.
+- **vulture** — likely false-positives on dynamically-called VBA/COM code; not worth a hard gate.
+- **detect-secrets** — module not importable despite being listed as installed.
+- **black** — installed and available (`python -m black --check scripts/ tests/`), but not a hard gate because it would reformat a large amount of existing code. Run manually when desired.
